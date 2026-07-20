@@ -1,0 +1,131 @@
+{
+  "$defs": {
+    "StageBudget": {
+      "additionalProperties": false,
+      "properties": {
+        "max_duration": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/DurationSeconds",
+          "description": "Maximum permitted stage duration in seconds."
+        },
+        "priority": {
+          "enum": [
+            "Critical",
+            "High",
+            "Medium",
+            "Low"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "max_duration"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/build/performance-budget.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Per-stage maximum execution budget. Owner: 6.1.1.",
+  "properties": {
+    "build_type": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildType",
+      "description": "Optional scope; budgets may differ between preview and final builds."
+    },
+    "on_exceed": {
+      "default": "warn",
+      "description": "Action when a stage exceeds its allocation. Owner: 6.1.1.",
+      "enum": [
+        "warn",
+        "fail"
+      ],
+      "type": "string"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    },
+    "slo": {
+      "additionalProperties": false,
+      "description": "Build-level SLO the stage budgets must sum within.",
+      "properties": {
+        "priority": {
+          "enum": [
+            "Critical",
+            "High",
+            "Medium",
+            "Low"
+          ],
+          "type": "string"
+        },
+        "total_max_duration": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/DurationSeconds"
+        }
+      },
+      "type": "object"
+    },
+    "stages": {
+      "additionalProperties": false,
+      "description": "Maximum duration per pipeline stage (seconds). Owner: 6.1.1.",
+      "properties": {
+        "composition": {
+          "$ref": "#/$defs/StageBudget"
+        },
+        "download": {
+          "$ref": "#/$defs/StageBudget"
+        },
+        "packaging": {
+          "$ref": "#/$defs/StageBudget"
+        },
+        "planning": {
+          "$ref": "#/$defs/StageBudget"
+        },
+        "provider_rendering": {
+          "additionalProperties": false,
+          "description": "Provider rendering is external and un-budgeted. Owner: 6.1.1.",
+          "properties": {
+            "external": {
+              "const": true
+            }
+          },
+          "required": [
+            "external"
+          ],
+          "type": "object"
+        },
+        "render_submission": {
+          "$ref": "#/$defs/StageBudget"
+        },
+        "screenplay": {
+          "$ref": "#/$defs/StageBudget"
+        },
+        "shot_planning": {
+          "$ref": "#/$defs/StageBudget"
+        },
+        "storyboard": {
+          "$ref": "#/$defs/StageBudget"
+        },
+        "validation": {
+          "$ref": "#/$defs/StageBudget"
+        }
+      },
+      "required": [
+        "planning",
+        "screenplay",
+        "shot_planning",
+        "storyboard",
+        "render_submission",
+        "download",
+        "validation",
+        "composition",
+        "packaging"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "stages"
+  ],
+  "title": "PerformanceBudget",
+  "type": "object"
+}

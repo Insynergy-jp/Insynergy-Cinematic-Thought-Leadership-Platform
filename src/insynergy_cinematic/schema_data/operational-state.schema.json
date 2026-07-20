@@ -1,0 +1,88 @@
+{
+  "$defs": {
+    "LifecycleState": {
+      "description": "Canonical artifact lifecycle states, verbatim. Owner: 6.1.11.",
+      "enum": [
+        "CREATED",
+        "VALIDATED",
+        "APPROVED",
+        "REFERENCED",
+        "ARCHIVED",
+        "EXPIRED",
+        "DELETED"
+      ],
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/build/operational-state.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Lifecycle-state record of a build artifact. Owner: 6.1.11.",
+  "properties": {
+    "artifact_ref": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash",
+      "description": "Content-addressed reference to the governed artifact."
+    },
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "owner": {
+      "description": "Exclusive owner of transitions for this artifact class.",
+      "enum": [
+        "Build Orchestrator",
+        "Retention Manager",
+        "Cleanup Manager",
+        "Asset Manager"
+      ],
+      "type": "string"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    },
+    "state": {
+      "$ref": "#/$defs/LifecycleState",
+      "description": "Current canonical lifecycle state. Owner: 6.1.11."
+    },
+    "transitions": {
+      "description": "Append-only audit trail of state transitions.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_ref": {
+            "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ApprovalRef",
+            "description": "Present when the transition required human approval."
+          },
+          "new_state": {
+            "$ref": "#/$defs/LifecycleState"
+          },
+          "previous_state": {
+            "$ref": "#/$defs/LifecycleState"
+          },
+          "timestamp": {
+            "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+          }
+        },
+        "required": [
+          "previous_state",
+          "new_state",
+          "timestamp"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "transitions_logged": {
+      "const": true,
+      "description": "Assertion that every transition is recorded. No transition exists only in memory. Owner: 6.1.11."
+    }
+  },
+  "required": [
+    "schema_version",
+    "artifact_ref",
+    "state",
+    "transitions_logged",
+    "transitions"
+  ],
+  "title": "OperationalState",
+  "type": "object"
+}

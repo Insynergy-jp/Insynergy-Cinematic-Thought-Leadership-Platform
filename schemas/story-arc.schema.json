@@ -1,0 +1,67 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/story/story-arc.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json"
+    }
+  ],
+  "description": "Six-stage ordered story arc, no stage omitted. Owner 2.1.6.",
+  "properties": {
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "content_hash": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+    },
+    "generated_at": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    },
+    "stages": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "maps_to": {
+            "items": {
+              "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/RefId"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "enum": [
+              "Normal World",
+              "Incident",
+              "Escalation",
+              "Crisis",
+              "Decision",
+              "Resolution"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "maps_to"
+        ],
+        "type": "object"
+      },
+      "maxItems": 6,
+      "minItems": 6,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "build_id",
+    "generated_at",
+    "content_hash",
+    "stages"
+  ],
+  "title": "StoryArc",
+  "type": "object",
+  "unevaluatedProperties": false
+}

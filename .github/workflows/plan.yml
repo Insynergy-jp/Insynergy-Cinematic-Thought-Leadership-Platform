@@ -1,0 +1,65 @@
+name: Plan Article
+
+on:
+  workflow_dispatch:
+    inputs:
+      article_path:
+        description: Repository-relative Markdown article path
+        required: true
+        type: string
+      profile:
+        description: Build profile
+        required: true
+        default: preview
+        type: choice
+        options: [draft, preview, final]
+      provider:
+        description: Rendering provider used by the approved execution
+        required: true
+        default: local
+        type: choice
+        options: [local, runway]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: plan-${{ github.repository }}-${{ inputs.article_path }}-${{ inputs.profile }}-${{ inputs.provider }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Validate article path
+        env:
+          ARTICLE_PATH: ${{ inputs.article_path }}
+        run: |
+          case "$ARTICLE_PATH" in
+            /*|*..*) echo "article_path must be repository-relative and contain no .." >&2; exit 2 ;;
+          esac
+          test -f "$ARTICLE_PATH"
+      - name: Generate planning artifacts
+        env:
+          ARTICLE_PATH: ${{ inputs.article_path }}
+          BUILD_PROFILE: ${{ inputs.profile }}
+          RENDER_PROVIDER: ${{ inputs.provider }}
+        run: |
+          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" plan "$ARTICLE_PATH" > planning-result.json
+          python3 -c 'import json; value=json.load(open("planning-result.json")); assert value["state"] == "AWAITING_EXECUTION_APPROVAL"; print(value["build_id"])' | tee build-id.txt
+      - name: Upload immutable planning bundle
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: planning-${{ github.run_id }}
+          path: |
+            .insynergy
+            planning-result.json
+            build-id.txt
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,32 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/story/story-metrics.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Embedded deterministic story-quality metrics block. Owner 2.1.7.",
+  "properties": {
+    "concept_ratio": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Ratio"
+    },
+    "conflict_score": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Score"
+    },
+    "dramatic_score": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Score"
+    },
+    "emotional_progression": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Score"
+    },
+    "stakes_score": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Score"
+    }
+  },
+  "required": [
+    "dramatic_score",
+    "conflict_score",
+    "stakes_score",
+    "emotional_progression",
+    "concept_ratio"
+  ],
+  "title": "StoryMetrics",
+  "type": "object"
+}

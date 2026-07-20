@@ -1,0 +1,157 @@
+{
+  "$defs": {
+    "CachedAsset": {
+      "additionalProperties": false,
+      "properties": {
+        "cache_key": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/CacheKey"
+        },
+        "content_hash": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+        },
+        "shot_id": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ShotId"
+        }
+      },
+      "required": [
+        "shot_id",
+        "cache_key",
+        "content_hash"
+      ],
+      "type": "object"
+    },
+    "PlannedShot": {
+      "additionalProperties": false,
+      "properties": {
+        "cache_key": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/CacheKey"
+        },
+        "provider_profile": {
+          "type": "string"
+        },
+        "render_strategy": {
+          "enum": [
+            "render",
+            "cache_hit",
+            "placeholder"
+          ],
+          "type": "string"
+        },
+        "shot_id": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ShotId"
+        }
+      },
+      "required": [
+        "shot_id",
+        "render_strategy"
+      ],
+      "type": "object"
+    },
+    "RenderQueueEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "cache_key": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/CacheKey"
+        },
+        "provider_profile": {
+          "type": "string"
+        },
+        "shot_id": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ShotId"
+        }
+      },
+      "required": [
+        "shot_id",
+        "provider_profile"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/build/execution-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ArtifactEnvelope"
+    },
+    {
+      "properties": {
+        "build_id": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+        },
+        "build_type": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildType"
+        },
+        "cached_assets": {
+          "description": "Assets satisfied from cache; no rendering required.",
+          "items": {
+            "$ref": "#/$defs/CachedAsset"
+          },
+          "type": "array"
+        },
+        "composition_plan": {
+          "additionalProperties": false,
+          "description": "FFmpeg composition ordering. Owner: 6.1.3.",
+          "properties": {
+            "ordered_shots": {
+              "items": {
+                "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ShotId"
+              },
+              "type": "array"
+            },
+            "target_duration": {
+              "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/DurationSeconds"
+            }
+          },
+          "type": "object"
+        },
+        "dependency_graph_ref": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash",
+          "description": "Content hash of the associated dependency-graph artifact (9.7.3)."
+        },
+        "estimated_cost_usd": {
+          "description": "Estimated provider cost prior to submission. Owner: 6.1.3.",
+          "minimum": 0,
+          "type": "number"
+        },
+        "pipeline_version": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion",
+          "description": "Version of the pipeline that produced the plan."
+        },
+        "render_queue": {
+          "description": "Shots requiring provider rendering.",
+          "items": {
+            "$ref": "#/$defs/RenderQueueEntry"
+          },
+          "type": "array"
+        },
+        "shots": {
+          "description": "Planned shots with resolved render strategy. Owner: 6.1.3.",
+          "items": {
+            "$ref": "#/$defs/PlannedShot"
+          },
+          "type": "array"
+        },
+        "validation_queue": {
+          "description": "Assets awaiting technical and editorial validation.",
+          "items": {
+            "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ShotId"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "build_id",
+        "pipeline_version",
+        "shots",
+        "cached_assets",
+        "render_queue",
+        "validation_queue",
+        "composition_plan"
+      ],
+      "type": "object"
+    }
+  ],
+  "description": "Immutable build/pipeline plan. Owner: 6.1.3.",
+  "title": "ExecutionPlan",
+  "unevaluatedProperties": false
+}

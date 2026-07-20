@@ -1,0 +1,148 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/screenplay-config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ArtifactEnvelope"
+    },
+    {
+      "properties": {
+        "cache": {
+          "additionalProperties": false,
+          "properties": {
+            "cache_key": {
+              "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/CacheKey"
+            }
+          },
+          "type": "object"
+        },
+        "continuity": {
+          "additionalProperties": false,
+          "properties": {
+            "all_dimensions_checked": {
+              "const": true,
+              "type": "boolean"
+            },
+            "violation_fails_validation": {
+              "const": true,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "all_dimensions_checked",
+            "violation_fails_validation"
+          ],
+          "type": "object"
+        },
+        "dialogue": {
+          "additionalProperties": false,
+          "properties": {
+            "exposition_allowed": {
+              "const": false,
+              "type": "boolean"
+            },
+            "lines_per_turn": {
+              "const": 2,
+              "type": "integer"
+            },
+            "silence_allowed": {
+              "const": true,
+              "type": "boolean"
+            },
+            "words_per_line": {
+              "const": 15,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "words_per_line",
+            "lines_per_turn",
+            "exposition_allowed",
+            "silence_allowed"
+          ],
+          "type": "object"
+        },
+        "export": {
+          "additionalProperties": false,
+          "properties": {
+            "custom_syntax": {
+              "const": false,
+              "type": "boolean"
+            },
+            "fountain": {
+              "const": true,
+              "type": "boolean"
+            },
+            "json": {
+              "const": true,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "fountain",
+            "json",
+            "custom_syntax"
+          ],
+          "type": "object"
+        },
+        "generation": {
+          "additionalProperties": false,
+          "properties": {
+            "one_conflict_per_scene": {
+              "const": true,
+              "type": "boolean"
+            },
+            "one_purpose_per_scene": {
+              "const": true,
+              "type": "boolean"
+            },
+            "scene_count_max": {
+              "const": 12,
+              "type": "integer"
+            },
+            "scene_count_min": {
+              "const": 8,
+              "type": "integer"
+            },
+            "scene_duration_max": {
+              "const": 10,
+              "type": "integer"
+            },
+            "scene_duration_target": {
+              "const": 7,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "scene_count_min",
+            "scene_count_max",
+            "scene_duration_target",
+            "scene_duration_max",
+            "one_purpose_per_scene",
+            "one_conflict_per_scene"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "enum": [
+            "preview",
+            "production"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "generation",
+        "dialogue",
+        "continuity",
+        "export",
+        "cache",
+        "profile"
+      ],
+      "type": "object"
+    }
+  ],
+  "description": "Layered runtime-immutable configuration snapshot. Owner: 3.1.9.",
+  "title": "ScreenplayConfig",
+  "unevaluatedProperties": false
+}

@@ -1,0 +1,66 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/shot/shot.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Canonical atomic planning record for one shot (Owner 4.1.2).",
+  "properties": {
+    "act": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Act"
+    },
+    "blocking": {
+      "type": "object"
+    },
+    "camera": {
+      "type": "object"
+    },
+    "continuity": {
+      "type": "object"
+    },
+    "duration_seconds": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "emotion": {
+      "type": "object"
+    },
+    "location": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/RefId"
+    },
+    "purpose": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "render_strategy": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/RenderStrategy"
+    },
+    "scene_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SceneId"
+    },
+    "shot_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ShotId"
+    },
+    "shot_type": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ShotType"
+    },
+    "subject": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/RefId"
+    }
+  },
+  "required": [
+    "shot_id",
+    "scene_id",
+    "act",
+    "duration_seconds",
+    "shot_type",
+    "purpose",
+    "subject",
+    "location",
+    "camera",
+    "blocking",
+    "emotion",
+    "continuity",
+    "render_strategy"
+  ],
+  "title": "Shot",
+  "type": "object"
+}

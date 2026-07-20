@@ -1,0 +1,136 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/story/argument-map.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json"
+    }
+  ],
+  "description": "Immutable decomposition of the source article into claims, evidence, examples, and dramatic candidates. Owner 2.1.2.",
+  "properties": {
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "claims": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "classification": {
+            "enum": [
+              "Factual",
+              "Structural",
+              "Tension",
+              "Consequence"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/RefId"
+          },
+          "text": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "classification"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "content_hash": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+    },
+    "dramatic_candidates": {
+      "description": "References to claims classified Tension or Consequence.",
+      "items": {
+        "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/RefId"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "evidence": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/RefId"
+          },
+          "supports_claim": {
+            "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/RefId"
+          },
+          "text": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "supports_claim"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "examples": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/RefId"
+          },
+          "text": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "generated_at": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+    },
+    "institutional_problem": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "problem_class": {
+      "description": "Classification of the institutional problem, e.g. \"governance\".",
+      "minLength": 1,
+      "type": "string"
+    },
+    "proposed_solution": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    }
+  },
+  "required": [
+    "schema_version",
+    "build_id",
+    "generated_at",
+    "content_hash",
+    "claims",
+    "evidence",
+    "examples",
+    "institutional_problem",
+    "proposed_solution",
+    "problem_class",
+    "dramatic_candidates"
+  ],
+  "title": "ArgumentMap",
+  "type": "object",
+  "unevaluatedProperties": false
+}

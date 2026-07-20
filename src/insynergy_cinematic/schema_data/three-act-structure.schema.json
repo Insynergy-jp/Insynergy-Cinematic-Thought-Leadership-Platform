@@ -1,0 +1,114 @@
+{
+  "$defs": {
+    "ActBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "duration_seconds": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/DurationSeconds"
+        },
+        "emotional_state": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "objective": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "turning_point": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "objective",
+        "emotional_state",
+        "turning_point",
+        "duration_seconds"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/story/three-act-structure.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json"
+    }
+  ],
+  "description": "Three acts with objectives, emotional states, turning points, and act budget. Owner 2.1.6.",
+  "properties": {
+    "act_1": {
+      "$ref": "#/$defs/ActBlock"
+    },
+    "act_2": {
+      "$ref": "#/$defs/ActBlock"
+    },
+    "act_3": {
+      "$ref": "#/$defs/ActBlock"
+    },
+    "act_budget": {
+      "additionalProperties": false,
+      "properties": {
+        "act_1_ratio": {
+          "allOf": [
+            {
+              "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Ratio"
+            }
+          ],
+          "const": 0.25
+        },
+        "act_2_ratio": {
+          "allOf": [
+            {
+              "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Ratio"
+            }
+          ],
+          "const": 0.5
+        },
+        "act_3_ratio": {
+          "allOf": [
+            {
+              "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Ratio"
+            }
+          ],
+          "const": 0.25
+        },
+        "total_duration_seconds": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/DurationSeconds"
+        }
+      },
+      "required": [
+        "total_duration_seconds",
+        "act_1_ratio",
+        "act_2_ratio",
+        "act_3_ratio"
+      ],
+      "type": "object"
+    },
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "content_hash": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+    },
+    "generated_at": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    }
+  },
+  "required": [
+    "schema_version",
+    "build_id",
+    "generated_at",
+    "content_hash",
+    "act_1",
+    "act_2",
+    "act_3",
+    "act_budget"
+  ],
+  "title": "ThreeActStructure",
+  "type": "object",
+  "unevaluatedProperties": false
+}

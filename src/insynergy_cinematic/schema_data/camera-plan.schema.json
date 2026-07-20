@@ -1,0 +1,116 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/shot/camera-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ArtifactEnvelope"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "shots": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "angle": {
+                "enum": [
+                  "eye",
+                  "low",
+                  "high"
+                ],
+                "type": "string"
+              },
+              "constraints": {
+                "additionalProperties": false,
+                "properties": {
+                  "camera_movements": {
+                    "maximum": 1,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "emotional_transitions": {
+                    "maximum": 1,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "primary_actions": {
+                    "maximum": 1,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "primary_subjects": {
+                    "maximum": 2,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "primary_subjects",
+                  "camera_movements",
+                  "primary_actions",
+                  "emotional_transitions"
+                ],
+                "type": "object"
+              },
+              "focus": {
+                "type": "string"
+              },
+              "framing": {
+                "type": "string"
+              },
+              "lens": {
+                "enum": [
+                  "24mm",
+                  "35mm",
+                  "50mm",
+                  "85mm"
+                ],
+                "type": "string"
+              },
+              "movement": {
+                "enum": [
+                  "static",
+                  "slow_push",
+                  "slow_pull",
+                  "dolly",
+                  "pan",
+                  "tilt"
+                ],
+                "type": "string"
+              },
+              "movement_speed": {
+                "type": "string"
+              },
+              "shot_id": {
+                "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ShotId"
+              },
+              "speed": {
+                "enum": [
+                  "slow"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "shot_id",
+              "lens",
+              "angle",
+              "movement",
+              "speed"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "shots"
+      ],
+      "type": "object"
+    }
+  ],
+  "description": "Per-shot camera language with complexity caps (Owner 4.1.4; ingest 5.1.4).",
+  "title": "Camera Plan",
+  "unevaluatedProperties": false
+}

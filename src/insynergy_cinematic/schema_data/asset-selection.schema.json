@@ -1,0 +1,129 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/vision/asset-selection.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Hybrid moment-class to asset-class selection map with render-ratio targets. Owner: 1.3.6.",
+  "properties": {
+    "conceptual_emphasis": {
+      "additionalProperties": false,
+      "description": "Mapping for conceptual-emphasis moments. Owner: 1.3.6.",
+      "properties": {
+        "class": {
+          "const": "motion_graphics",
+          "type": "string"
+        }
+      },
+      "required": [
+        "class"
+      ],
+      "type": "object"
+    },
+    "controlled_motion": {
+      "additionalProperties": false,
+      "description": "Mapping for controlled-motion moments. Owner: 1.3.6.",
+      "properties": {
+        "class": {
+          "const": "animated_still",
+          "type": "string"
+        }
+      },
+      "required": [
+        "class"
+      ],
+      "type": "object"
+    },
+    "high_narrative_value": {
+      "additionalProperties": false,
+      "description": "Mapping for high-narrative-value moments. Owner: 1.3.6.",
+      "properties": {
+        "class": {
+          "const": "runway_video",
+          "type": "string"
+        },
+        "justification": {
+          "const": "required",
+          "type": "string"
+        }
+      },
+      "required": [
+        "class",
+        "justification"
+      ],
+      "type": "object"
+    },
+    "render_ratio_targets": {
+      "additionalProperties": false,
+      "description": "Upper bounds on the fraction of a build routed to premium generative video. Owner: 1.3.6.",
+      "properties": {
+        "final": {
+          "allOf": [
+            {
+              "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Ratio"
+            },
+            {
+              "maximum": 0.5
+            }
+          ],
+          "description": "Final render ratio; shall not exceed 0.50. Owner: 1.3.6."
+        },
+        "preview": {
+          "allOf": [
+            {
+              "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Ratio"
+            },
+            {
+              "maximum": 0.4
+            }
+          ],
+          "description": "Preview render ratio; shall not exceed 0.40. Owner: 1.3.6."
+        }
+      },
+      "required": [
+        "preview",
+        "final"
+      ],
+      "type": "object"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    },
+    "textual_framing": {
+      "additionalProperties": false,
+      "description": "Mapping for textual-framing moments. Owner: 1.3.6.",
+      "properties": {
+        "class": {
+          "const": "typography",
+          "type": "string"
+        }
+      },
+      "required": [
+        "class"
+      ],
+      "type": "object"
+    },
+    "throughline": {
+      "additionalProperties": false,
+      "description": "Mapping for the throughline. Owner: 1.3.6.",
+      "properties": {
+        "class": {
+          "const": "narration",
+          "type": "string"
+        }
+      },
+      "required": [
+        "class"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "high_narrative_value",
+    "controlled_motion",
+    "conceptual_emphasis",
+    "textual_framing",
+    "throughline",
+    "render_ratio_targets"
+  ],
+  "title": "Asset Selection",
+  "type": "object"
+}

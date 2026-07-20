@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "insynergy-cinematic"
+version = "2.0.0"
+description = "Deterministic cinematic thought-leadership build platform"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "Proprietary"}
+authors = [{name = "Insynergy"}]
+dependencies = []
+
+[project.scripts]
+insynergy-cinematic = "insynergy_cinematic.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+insynergy_cinematic = ["schema_data/*.json", "schema_data/common/*.json"]

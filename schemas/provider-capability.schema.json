@@ -1,0 +1,108 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/render/provider-capability.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Provider-neutral capability descriptor. Owner: 5.3.2, 5.3.4.",
+  "properties": {
+    "contract_version": {
+      "description": "Implemented Provider Interface Contract version (semver).",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "type": "string"
+    },
+    "cost_units_per_second": {
+      "description": "Cost signal; null if not emitted.",
+      "minimum": 0,
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "emits_cost_signal": {
+      "description": "Returns cost units?",
+      "type": "boolean"
+    },
+    "max_duration_seconds": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/DurationSeconds",
+      "description": "Maximum clip length supported."
+    },
+    "profiles": {
+      "description": "Provider-neutral profiles supported.",
+      "items": {
+        "enum": [
+          "preview",
+          "final"
+        ],
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "provider": {
+      "description": "Stable lowercase provider_id; data, never control (PIF-402).",
+      "minLength": 1,
+      "pattern": "^[a-z0-9_]+$",
+      "type": "string"
+    },
+    "supported_aspect_ratios": {
+      "description": "e.g. [\"16:9\", \"9:16\"].",
+      "items": {
+        "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Ratio"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "supported_frame_rates": {
+      "description": "e.g. [24, 30].",
+      "items": {
+        "exclusiveMinimum": 0,
+        "type": "number"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "supported_resolutions": {
+      "description": "e.g. [\"1280x720\", \"1920x1080\"].",
+      "items": {
+        "pattern": "^[0-9]+x[0-9]+$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "supports_cancel": {
+      "description": "True cancel vs. best-effort ignore.",
+      "type": "boolean"
+    },
+    "supports_progress": {
+      "description": "Emits a progress fraction?",
+      "type": "boolean"
+    },
+    "supports_reference_image": {
+      "type": "boolean"
+    },
+    "supports_seed": {
+      "description": "Deterministic seed honoured?",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "provider",
+    "contract_version",
+    "profiles",
+    "max_duration_seconds",
+    "supported_resolutions",
+    "supported_frame_rates",
+    "supported_aspect_ratios",
+    "supports_seed",
+    "supports_reference_image",
+    "supports_cancel",
+    "supports_progress",
+    "emits_cost_signal"
+  ],
+  "title": "ProviderCapabilities",
+  "type": "object"
+}

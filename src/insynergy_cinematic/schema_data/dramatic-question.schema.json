@@ -1,0 +1,47 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/story/dramatic-question.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json"
+    }
+  ],
+  "description": "The single central dramatic question, resolved only in Act 3. Owner 2.1.2.",
+  "properties": {
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "content_hash": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+    },
+    "dramatic_question": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "generated_at": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+    },
+    "resolved_in_act": {
+      "allOf": [
+        {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Act"
+        }
+      ],
+      "const": 3
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    }
+  },
+  "required": [
+    "schema_version",
+    "build_id",
+    "generated_at",
+    "content_hash",
+    "dramatic_question",
+    "resolved_in_act"
+  ],
+  "title": "DramaticQuestion",
+  "type": "object",
+  "unevaluatedProperties": false
+}

@@ -1,0 +1,136 @@
+{
+  "$defs": {
+    "Act": {
+      "enum": [
+        1,
+        2,
+        3
+      ],
+      "type": "integer"
+    },
+    "ApprovalRef": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "ArtifactEnvelope": {
+      "properties": {
+        "approval_ref": {
+          "$ref": "#/$defs/ApprovalRef"
+        },
+        "approved": {
+          "type": "boolean"
+        },
+        "build_id": {
+          "$ref": "#/$defs/BuildId"
+        },
+        "content_hash": {
+          "$ref": "#/$defs/ContentHash"
+        },
+        "generated_at": {
+          "$ref": "#/$defs/Iso8601"
+        },
+        "schema_version": {
+          "$ref": "#/$defs/SchemaVersion"
+        }
+      },
+      "required": [
+        "schema_version",
+        "build_id",
+        "generated_at",
+        "content_hash"
+      ],
+      "type": "object"
+    },
+    "ArtifactId": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "BuildId": {
+      "pattern": "^[0-9]{8}-[0-9]{3}$",
+      "type": "string"
+    },
+    "BuildType": {
+      "enum": [
+        "preview",
+        "final"
+      ],
+      "type": "string"
+    },
+    "CacheKey": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "ContentHash": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "DurationSeconds": {
+      "exclusiveMinimum": 0,
+      "type": "number"
+    },
+    "Iso8601": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "Ratio": {
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number"
+    },
+    "RefId": {
+      "pattern": "^[a-z0-9_]+_v[0-9]+$",
+      "type": "string"
+    },
+    "RenderStrategy": {
+      "enum": [
+        "runway_video",
+        "animated_still",
+        "motion_graphics",
+        "title_card",
+        "svg_animation",
+        "cached_clip"
+      ],
+      "type": "string"
+    },
+    "SceneId": {
+      "pattern": "^scene-[0-9]{3}$",
+      "type": "string"
+    },
+    "SchemaVersion": {
+      "const": "2.0",
+      "type": "string"
+    },
+    "Score": {
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number"
+    },
+    "ShotId": {
+      "pattern": "^scene-[0-9]{3}-shot-[0-9]{2}$",
+      "type": "string"
+    },
+    "ShotType": {
+      "enum": [
+        "establishing",
+        "wide",
+        "medium",
+        "medium_close_up",
+        "close_up",
+        "extreme_close_up",
+        "over_shoulder",
+        "point_of_view",
+        "insert",
+        "tracking",
+        "static"
+      ],
+      "type": "string"
+    },
+    "StoryboardId": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CTTP Common Definitions"
+}

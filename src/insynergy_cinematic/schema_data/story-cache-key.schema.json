@@ -1,0 +1,39 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/story/story-cache-key.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Embedded deterministic story cache-key descriptor. Owner 2.1.8.",
+  "properties": {
+    "cache_key": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/CacheKey"
+    },
+    "components": {
+      "additionalProperties": false,
+      "properties": {
+        "article_hash": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+        },
+        "story_engine_version": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "story_profile": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "article_hash",
+        "story_engine_version",
+        "story_profile"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "cache_key",
+    "components"
+  ],
+  "title": "StoryCacheKey",
+  "type": "object"
+}

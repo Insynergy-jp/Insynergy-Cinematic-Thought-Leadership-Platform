@@ -1,0 +1,329 @@
+{
+  "$defs": {
+    "Toggle": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/build/performance-config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Resolved, runtime-immutable performance configuration. Owner: 6.1.8.",
+  "properties": {
+    "configuration": {
+      "additionalProperties": false,
+      "description": "Configuration versioning block. Owner: 6.1.8.",
+      "properties": {
+        "environment": {
+          "enum": [
+            "local",
+            "github_actions",
+            "staging",
+            "production"
+          ],
+          "type": "string"
+        },
+        "profile_version": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+        },
+        "updated_at": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+        }
+      },
+      "required": [
+        "profile_version",
+        "updated_at"
+      ],
+      "type": "object"
+    },
+    "performance": {
+      "additionalProperties": false,
+      "properties": {
+        "budget": {
+          "additionalProperties": false,
+          "properties": {
+            "estimate_before_submission": {
+              "type": "boolean"
+            },
+            "preview": {
+              "additionalProperties": false,
+              "properties": {
+                "maximum_usd": {
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            },
+            "production": {
+              "additionalProperties": false,
+              "properties": {
+                "maximum_usd": {
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            },
+            "stop_on_budget_exceeded": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "cache": {
+          "additionalProperties": false,
+          "properties": {
+            "composition_cache": {
+              "$ref": "#/$defs/Toggle"
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "local": {
+              "$ref": "#/$defs/Toggle"
+            },
+            "shared": {
+              "$ref": "#/$defs/Toggle"
+            },
+            "validation_cache": {
+              "$ref": "#/$defs/Toggle"
+            }
+          },
+          "type": "object"
+        },
+        "composition": {
+          "additionalProperties": false,
+          "properties": {
+            "ffmpeg": {
+              "additionalProperties": false,
+              "properties": {
+                "hardware_acceleration": {
+                  "enum": [
+                    "auto",
+                    "enabled",
+                    "disabled"
+                  ],
+                  "type": "string"
+                },
+                "parallel_jobs": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "preserve_intermediate_files": {
+                  "type": "boolean"
+                },
+                "temporary_directory": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
+        "polling": {
+          "additionalProperties": false,
+          "properties": {
+            "initial_seconds": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "jitter_ratio": {
+              "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Ratio"
+            },
+            "maximum_seconds": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "multiplier": {
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          "type": "object"
+        },
+        "providers": {
+          "additionalProperties": {
+            "additionalProperties": false,
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "max_parallel_jobs": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "polling_interval_seconds": {
+                "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/DurationSeconds"
+              },
+              "profile": {
+                "type": "string"
+              },
+              "retry_limit": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "timeout_minutes": {
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "enabled"
+            ],
+            "type": "object"
+          },
+          "type": "object"
+        },
+        "recovery": {
+          "additionalProperties": false,
+          "properties": {
+            "automatic_resume": {
+              "type": "boolean"
+            },
+            "checkpoint_interval": {
+              "enum": [
+                "every_stage",
+                "every_task"
+              ],
+              "type": "string"
+            },
+            "verify_assets_before_resume": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "retry": {
+          "additionalProperties": false,
+          "properties": {
+            "exponential_backoff": {
+              "type": "boolean"
+            },
+            "maximum_attempts": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "maximum_delay_seconds": {
+              "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/DurationSeconds"
+            },
+            "multiplier": {
+              "minimum": 1,
+              "type": "number"
+            },
+            "retryable_errors": {
+              "items": {
+                "enum": [
+                  "timeout",
+                  "rate_limit",
+                  "temporary_network"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        "scheduler": {
+          "additionalProperties": false,
+          "properties": {
+            "ffmpeg_workers": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "global_workers": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "packaging_workers": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "planning_workers": {
+              "const": 1,
+              "type": "integer"
+            },
+            "render_workers": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "validation_workers": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "telemetry": {
+          "additionalProperties": false,
+          "properties": {
+            "metrics": {
+              "$ref": "#/$defs/Toggle"
+            },
+            "performance_reports": {
+              "$ref": "#/$defs/Toggle"
+            },
+            "structured_logs": {
+              "$ref": "#/$defs/Toggle"
+            },
+            "tracing": {
+              "$ref": "#/$defs/Toggle"
+            }
+          },
+          "type": "object"
+        },
+        "validation": {
+          "additionalProperties": false,
+          "properties": {
+            "cinematic": {
+              "$ref": "#/$defs/Toggle"
+            },
+            "continuity": {
+              "$ref": "#/$defs/Toggle"
+            },
+            "fail_fast": {
+              "type": "boolean"
+            },
+            "technical": {
+              "$ref": "#/$defs/Toggle"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "scheduler",
+        "providers",
+        "cache",
+        "retry",
+        "polling",
+        "validation",
+        "composition",
+        "budget",
+        "telemetry",
+        "recovery"
+      ],
+      "type": "object"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    }
+  },
+  "required": [
+    "schema_version",
+    "configuration",
+    "performance"
+  ],
+  "title": "PerformanceConfig",
+  "type": "object"
+}

@@ -1,0 +1,83 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/shot/shot-gate-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Per-shot readiness gate (Owner 4.1.12).",
+  "properties": {
+    "checks": {
+      "additionalProperties": false,
+      "properties": {
+        "blocking_defined": {
+          "type": "boolean"
+        },
+        "camera_defined": {
+          "type": "boolean"
+        },
+        "continuity_valid": {
+          "type": "boolean"
+        },
+        "emotion_defined": {
+          "type": "boolean"
+        },
+        "purpose_exists": {
+          "type": "boolean"
+        },
+        "render_strategy_defined": {
+          "type": "boolean"
+        },
+        "single_action": {
+          "type": "boolean"
+        },
+        "single_camera_move": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "purpose_exists",
+        "camera_defined",
+        "blocking_defined",
+        "emotion_defined",
+        "continuity_valid",
+        "render_strategy_defined",
+        "single_action",
+        "single_camera_move"
+      ],
+      "type": "object"
+    },
+    "failed_checks": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "owning_sections": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "rendering_blocked": {
+      "type": "boolean"
+    },
+    "result": {
+      "enum": [
+        "PASS",
+        "FAIL"
+      ],
+      "type": "string"
+    },
+    "shot_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ShotId"
+    }
+  },
+  "required": [
+    "shot_id",
+    "result",
+    "checks",
+    "failed_checks",
+    "owning_sections",
+    "rendering_blocked"
+  ],
+  "title": "Shot Gate Report",
+  "type": "object"
+}

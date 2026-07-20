@@ -1,0 +1,99 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/render/render-queue.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ArtifactEnvelope"
+    }
+  ],
+  "description": "Point-in-time snapshot of render queue state. Owner: 5.1.4, 5.4.1.",
+  "properties": {
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "content_hash": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+    },
+    "queues": {
+      "description": "Depth per queue class.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "depth": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "items": {
+            "description": "References only, never payloads (RIO-309, RIO-310).",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "attempt": {
+                  "maximum": 4,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "render_task_id": {
+                  "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+                },
+                "shot_id": {
+                  "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ShotId"
+                },
+                "visible_at": {
+                  "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601",
+                  "description": "Delayed-visibility target (retry backoff)."
+                }
+              },
+              "required": [
+                "render_task_id",
+                "shot_id",
+                "attempt"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "queue_class": {
+            "description": "One of the fixed queue classes (5.4.1).",
+            "enum": [
+              "READY",
+              "SUBMISSION",
+              "PROVIDER_MONITOR",
+              "DOWNLOAD",
+              "VALIDATION",
+              "RETRY",
+              "CONTROL",
+              "MANUAL_REVIEW",
+              "DEAD_LETTER"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "queue_class",
+          "depth"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    },
+    "snapshot_at": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601",
+      "description": "Time of snapshot."
+    }
+  },
+  "required": [
+    "schema_version",
+    "build_id",
+    "snapshot_at",
+    "content_hash",
+    "queues"
+  ],
+  "title": "RenderQueue",
+  "type": "object",
+  "unevaluatedProperties": false
+}

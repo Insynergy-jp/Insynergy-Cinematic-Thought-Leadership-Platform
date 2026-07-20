@@ -1,0 +1,285 @@
+{
+  "schema_version": "2.0",
+  "schemas": [
+    {
+      "file": "product-contract.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/vision/product-contract.schema.json",
+      "name": "product-contract"
+    },
+    {
+      "file": "layer-contract.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/vision/layer-contract.schema.json",
+      "name": "layer-contract"
+    },
+    {
+      "file": "data-flow.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/vision/data-flow.schema.json",
+      "name": "data-flow"
+    },
+    {
+      "file": "asset-selection.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/vision/asset-selection.schema.json",
+      "name": "asset-selection"
+    },
+    {
+      "file": "approval-record.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/vision/approval-record.schema.json",
+      "name": "approval-record"
+    },
+    {
+      "file": "argument-map.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/story/argument-map.schema.json",
+      "name": "argument-map"
+    },
+    {
+      "file": "theme.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/story/theme.schema.json",
+      "name": "theme"
+    },
+    {
+      "file": "dramatic-question.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/story/dramatic-question.schema.json",
+      "name": "dramatic-question"
+    },
+    {
+      "file": "dramatic-premise.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/story/dramatic-premise.schema.json",
+      "name": "dramatic-premise"
+    },
+    {
+      "file": "logline.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/story/logline.schema.json",
+      "name": "logline"
+    },
+    {
+      "file": "character-bible.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/story/character-bible.schema.json",
+      "name": "character-bible"
+    },
+    {
+      "file": "conflict.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/story/conflict.schema.json",
+      "name": "conflict"
+    },
+    {
+      "file": "stakes.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/story/stakes.schema.json",
+      "name": "stakes"
+    },
+    {
+      "file": "time-pressure.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/story/time-pressure.schema.json",
+      "name": "time-pressure"
+    },
+    {
+      "file": "story-arc.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/story/story-arc.schema.json",
+      "name": "story-arc"
+    },
+    {
+      "file": "three-act-structure.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/story/three-act-structure.schema.json",
+      "name": "three-act-structure"
+    },
+    {
+      "file": "emotional-arc.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/story/emotional-arc.schema.json",
+      "name": "emotional-arc"
+    },
+    {
+      "file": "concept-placement.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/story/concept-placement.schema.json",
+      "name": "concept-placement"
+    },
+    {
+      "file": "story-quality-report.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/story/story-quality-report.schema.json",
+      "name": "story-quality-report"
+    },
+    {
+      "file": "story-metrics.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/story/story-metrics.schema.json",
+      "name": "story-metrics"
+    },
+    {
+      "file": "story-cache-key.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/story/story-cache-key.schema.json",
+      "name": "story-cache-key"
+    },
+    {
+      "file": "screenplay.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/screenplay.schema.json",
+      "name": "screenplay"
+    },
+    {
+      "file": "scene.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/scene.schema.json",
+      "name": "scene"
+    },
+    {
+      "file": "scene-index.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/scene-index.schema.json",
+      "name": "scene-index"
+    },
+    {
+      "file": "dialogue.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/dialogue.schema.json",
+      "name": "dialogue"
+    },
+    {
+      "file": "continuity.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/continuity.schema.json",
+      "name": "continuity"
+    },
+    {
+      "file": "screenplay-metrics.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/screenplay-metrics.schema.json",
+      "name": "screenplay-metrics"
+    },
+    {
+      "file": "screenplay-config.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/screenplay-config.schema.json",
+      "name": "screenplay-config"
+    },
+    {
+      "file": "screenplay-state.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/screenplay-state.schema.json",
+      "name": "screenplay-state"
+    },
+    {
+      "file": "shot-list.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/shot/shot-list.schema.json",
+      "name": "shot-list"
+    },
+    {
+      "file": "shot.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/shot/shot.schema.json",
+      "name": "shot"
+    },
+    {
+      "file": "camera-plan.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/shot/camera-plan.schema.json",
+      "name": "camera-plan"
+    },
+    {
+      "file": "blocking.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/shot/blocking.schema.json",
+      "name": "blocking"
+    },
+    {
+      "file": "storyboard.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/shot/storyboard.schema.json",
+      "name": "storyboard"
+    },
+    {
+      "file": "continuity-report.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/shot/continuity-report.schema.json",
+      "name": "continuity-report"
+    },
+    {
+      "file": "render-strategy.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/shot/render-strategy.schema.json",
+      "name": "render-strategy"
+    },
+    {
+      "file": "shot-metrics.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/shot/shot-metrics.schema.json",
+      "name": "shot-metrics"
+    },
+    {
+      "file": "shot-gate-report.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/shot/shot-gate-report.schema.json",
+      "name": "shot-gate-report"
+    },
+    {
+      "file": "storyboard-gate-report.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/shot/storyboard-gate-report.schema.json",
+      "name": "storyboard-gate-report"
+    },
+    {
+      "file": "shot-cache-key.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/shot/shot-cache-key.schema.json",
+      "name": "shot-cache-key"
+    },
+    {
+      "file": "render-manifest.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/render/render-manifest.schema.json",
+      "name": "render-manifest"
+    },
+    {
+      "file": "render-queue.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/render/render-queue.schema.json",
+      "name": "render-queue"
+    },
+    {
+      "file": "render-results.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/render/render-results.schema.json",
+      "name": "render-results"
+    },
+    {
+      "file": "metadata.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/render/metadata.schema.json",
+      "name": "metadata"
+    },
+    {
+      "file": "render-task.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/render/render-task.schema.json",
+      "name": "render-task"
+    },
+    {
+      "file": "provider-capability.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/render/provider-capability.schema.json",
+      "name": "provider-capability"
+    },
+    {
+      "file": "retry-policy.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/render/retry-policy.schema.json",
+      "name": "retry-policy"
+    },
+    {
+      "file": "prompt-assembly.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/render/prompt-assembly.schema.json",
+      "name": "prompt-assembly"
+    },
+    {
+      "file": "location-bible.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/render/location-bible.schema.json",
+      "name": "location-bible"
+    },
+    {
+      "file": "performance-budget.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/build/performance-budget.schema.json",
+      "name": "performance-budget"
+    },
+    {
+      "file": "execution-plan.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/build/execution-plan.schema.json",
+      "name": "execution-plan"
+    },
+    {
+      "file": "dependency-graph.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/build/dependency-graph.schema.json",
+      "name": "dependency-graph"
+    },
+    {
+      "file": "build-profile.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/build/build-profile.schema.json",
+      "name": "build-profile"
+    },
+    {
+      "file": "performance-config.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/build/performance-config.schema.json",
+      "name": "performance-config"
+    },
+    {
+      "file": "operational-state.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/build/operational-state.schema.json",
+      "name": "operational-state"
+    },
+    {
+      "file": "quality-gate-registry.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/build/quality-gate-registry.schema.json",
+      "name": "quality-gate-registry"
+    }
+  ]
+}

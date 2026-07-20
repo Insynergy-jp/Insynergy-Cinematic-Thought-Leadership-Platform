@@ -1,0 +1,52 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/story/time-pressure.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json"
+    }
+  ],
+  "description": "Countdown deadline, irreversible at expiry and audience-visible. Owner 2.1.5.",
+  "properties": {
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "content_hash": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+    },
+    "duration_seconds": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/DurationSeconds"
+    },
+    "generated_at": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+    },
+    "irreversible_at_expiry": {
+      "const": true,
+      "type": "boolean"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    },
+    "type": {
+      "const": "countdown",
+      "type": "string"
+    },
+    "visible_to_audience": {
+      "const": true,
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "schema_version",
+    "build_id",
+    "generated_at",
+    "content_hash",
+    "type",
+    "duration_seconds",
+    "irreversible_at_expiry",
+    "visible_to_audience"
+  ],
+  "title": "TimePressure",
+  "type": "object",
+  "unevaluatedProperties": false
+}

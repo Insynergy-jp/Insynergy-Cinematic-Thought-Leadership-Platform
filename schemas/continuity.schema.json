@@ -1,0 +1,97 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/continuity.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ArtifactEnvelope"
+    },
+    {
+      "properties": {
+        "checks": {
+          "additionalProperties": false,
+          "properties": {
+            "character": {
+              "type": "boolean"
+            },
+            "countdown": {
+              "type": "boolean"
+            },
+            "emotion": {
+              "type": "boolean"
+            },
+            "location": {
+              "type": "boolean"
+            },
+            "props": {
+              "type": "boolean"
+            },
+            "time": {
+              "type": "boolean"
+            },
+            "wardrobe": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "character",
+            "wardrobe",
+            "location",
+            "time",
+            "emotion",
+            "countdown",
+            "props"
+          ],
+          "type": "object"
+        },
+        "countdown_monotonic": {
+          "type": "boolean"
+        },
+        "emotion_continuous": {
+          "type": "boolean"
+        },
+        "violations": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "detail": {
+                "type": "string"
+              },
+              "dimension": {
+                "enum": [
+                  "character",
+                  "wardrobe",
+                  "location",
+                  "time",
+                  "emotion",
+                  "countdown",
+                  "props"
+                ],
+                "type": "string"
+              },
+              "scene_id": {
+                "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SceneId"
+              }
+            },
+            "required": [
+              "scene_id",
+              "dimension",
+              "detail"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "checks",
+        "countdown_monotonic",
+        "emotion_continuous",
+        "violations"
+      ],
+      "type": "object"
+    }
+  ],
+  "description": "Continuity validation report. Owner: 3.1.8.",
+  "title": "Continuity",
+  "unevaluatedProperties": false
+}

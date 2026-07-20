@@ -1,0 +1,82 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/vision/approval-record.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Human-approval record for one of the two governance gates. Owner: 1.4.1. Outcome absent is treated as rejection; silence is never consent. Both gates are fail-closed.",
+  "properties": {
+    "approval_ref": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ApprovalRef"
+    },
+    "confirms": {
+      "description": "Aspects confirmed at this gate. Owner: 1.4.1.",
+      "items": {
+        "enum": [
+          "screenplay",
+          "pacing",
+          "dialogue",
+          "dramatic_arc",
+          "visual_quality",
+          "timing",
+          "branding",
+          "institutional_accuracy"
+        ],
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "fail_closed": {
+      "const": true,
+      "description": "Fail-closed guarantee; shall be true. Owner: 1.4.1.",
+      "type": "boolean"
+    },
+    "gate": {
+      "description": "Which of the two approval gates this record represents. Owner: 1.4.1.",
+      "enum": [
+        "story_approval",
+        "final_approval"
+      ],
+      "type": "string"
+    },
+    "gates": {
+      "description": "The downstream stage this approval gates. Owner: 1.4.1.",
+      "enum": [
+        "rendering",
+        "packaging"
+      ],
+      "type": "string"
+    },
+    "outcome": {
+      "description": "Approval outcome. absent is treated as rejection; silence is never consent. Owner: 1.4.1.",
+      "enum": [
+        "approved",
+        "rejected",
+        "absent"
+      ],
+      "type": "string"
+    },
+    "position": {
+      "description": "Position of the gate relative to rendering. Owner: 1.4.1.",
+      "enum": [
+        "before_rendering",
+        "after_rendering"
+      ],
+      "type": "string"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    }
+  },
+  "required": [
+    "gate",
+    "outcome",
+    "position",
+    "confirms",
+    "gates",
+    "fail_closed",
+    "approval_ref"
+  ],
+  "title": "Approval Record",
+  "type": "object"
+}

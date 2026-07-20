@@ -1,0 +1,81 @@
+{
+  "$defs": {
+    "ShotListEntry": {
+      "additionalProperties": false,
+      "description": "One unit of work (5.1.4).",
+      "properties": {
+        "character_refs": {
+          "items": {
+            "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/RefId"
+          },
+          "type": "array"
+        },
+        "dependencies": {
+          "items": {
+            "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ShotId"
+          },
+          "type": "array"
+        },
+        "duration_seconds": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/DurationSeconds"
+        },
+        "location_ref": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/RefId"
+        },
+        "scene_index": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "shot_id": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ShotId"
+        },
+        "shot_index": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "shot_type": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ShotType"
+        }
+      },
+      "required": [
+        "shot_id",
+        "scene_index",
+        "shot_index",
+        "duration_seconds",
+        "shot_type",
+        "location_ref"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/shot/shot-list.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ArtifactEnvelope"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "shots": {
+          "items": {
+            "$ref": "#/$defs/ShotListEntry"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "storyboard_id": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/StoryboardId"
+        }
+      },
+      "required": [
+        "storyboard_id",
+        "shots"
+      ],
+      "type": "object"
+    }
+  ],
+  "description": "Enumerated unit-of-work list of shots for a build (Owner 4.1.2; ingest 5.1.4).",
+  "title": "Shot List",
+  "unevaluatedProperties": false
+}

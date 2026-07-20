@@ -1,0 +1,48 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/story/conflict.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json"
+    }
+  ],
+  "description": "Three-layer conflict: external, internal, institutional. Owner 2.1.5.",
+  "properties": {
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "content_hash": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+    },
+    "external": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "generated_at": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+    },
+    "institutional": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "internal": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    }
+  },
+  "required": [
+    "schema_version",
+    "build_id",
+    "generated_at",
+    "content_hash",
+    "external",
+    "internal",
+    "institutional"
+  ],
+  "title": "Conflict",
+  "type": "object",
+  "unevaluatedProperties": false
+}

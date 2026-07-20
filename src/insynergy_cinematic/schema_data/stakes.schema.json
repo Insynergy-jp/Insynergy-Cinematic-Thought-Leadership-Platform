@@ -1,0 +1,70 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/story/stakes.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json"
+    }
+  ],
+  "description": "Concrete, typed stakes with measurability and reversibility. Owner 2.1.5.",
+  "properties": {
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "content_hash": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+    },
+    "generated_at": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    },
+    "stakes": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "measurable": {
+            "type": "boolean"
+          },
+          "quantity": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "reversible": {
+            "type": "boolean"
+          },
+          "stake_type": {
+            "enum": [
+              "financial_loss",
+              "legal_exposure",
+              "operational_failure",
+              "reputational_damage",
+              "institutional_collapse"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "stake_type",
+          "measurable",
+          "quantity",
+          "reversible"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "build_id",
+    "generated_at",
+    "content_hash",
+    "stakes"
+  ],
+  "title": "Stakes",
+  "type": "object",
+  "unevaluatedProperties": false
+}

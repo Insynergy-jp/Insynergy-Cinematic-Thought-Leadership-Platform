@@ -1,0 +1,60 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/screenplay-state.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ArtifactEnvelope"
+    },
+    {
+      "properties": {
+        "scene_states": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "scene_id": {
+                "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SceneId"
+              },
+              "state": {
+                "enum": [
+                  "Drafted",
+                  "Populated",
+                  "Validated",
+                  "Locked"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "scene_id",
+              "state"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "state": {
+          "enum": [
+            "Pending",
+            "Generating",
+            "Generated",
+            "Validating",
+            "Validated",
+            "AwaitingApproval",
+            "Approved",
+            "Exported",
+            "Failed"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "scene_states"
+      ],
+      "type": "object"
+    }
+  ],
+  "description": "Screenplay and per-scene lifecycle state. Owner: 3.1.11.",
+  "title": "ScreenplayState",
+  "unevaluatedProperties": false
+}

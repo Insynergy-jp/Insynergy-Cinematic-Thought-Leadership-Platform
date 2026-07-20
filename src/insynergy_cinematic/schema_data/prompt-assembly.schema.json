@@ -1,0 +1,145 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/render/prompt-assembly.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Deterministic prompt-assembly record. Owner: 5.5.1.",
+  "properties": {
+    "article_free_verified": {
+      "description": "Must be true before submission (content firewall).",
+      "type": "boolean"
+    },
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "canonical_text": {
+      "description": "Deterministic single-string rendering used for hashing + submission.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "complete_verified": {
+      "description": "Must be true before submission (completeness gate).",
+      "type": "boolean"
+    },
+    "components": {
+      "description": "Ordered list of the eight prompt components (fixed order 1..8).",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "enum": [
+              "CHARACTER",
+              "LOCATION",
+              "CAMERA",
+              "LIGHTING",
+              "BLOCKING",
+              "EMOTION",
+              "SHOT_PURPOSE",
+              "VISUAL_STYLE"
+            ],
+            "type": "string"
+          },
+          "order": {
+            "description": "Fixed integer 1..8; immutable.",
+            "maximum": 8,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "present": {
+            "description": "false only for the optional BLOCKING component (PMA-305).",
+            "type": "boolean"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Audit only; NOT serialized into the provider prompt (PMA-308).",
+            "properties": {
+              "artifact": {
+                "type": "string"
+              },
+              "artifact_version": {
+                "type": "string"
+              },
+              "ref": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "resolved_text": {
+            "description": "Canonical normalized descriptive text (the only content in the prompt).",
+            "type": "string"
+          },
+          "source_artifact": {
+            "description": "e.g. character-bible.yaml.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "source_ref": {
+            "description": "e.g. maya_v1; null for inline components.",
+            "oneOf": [
+              {
+                "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/RefId"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "component_id",
+          "order",
+          "source_artifact",
+          "present"
+        ],
+        "type": "object"
+      },
+      "maxItems": 8,
+      "minItems": 7,
+      "type": "array"
+    },
+    "prompt_hash": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash",
+      "description": "sha256 over canonical_text; anchors the render cache key (5.6.3)."
+    },
+    "prompt_schema_version": {
+      "description": "Pins template + normalization rules, e.g. 'pma-1'.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "provider": {
+      "enum": [
+        "runway",
+        "motion",
+        "svg",
+        "typography",
+        "cache"
+      ],
+      "type": "string"
+    },
+    "render_profile": {
+      "description": "From render-strategy.json, e.g. runway_final.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "shot_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ShotId"
+    }
+  },
+  "required": [
+    "prompt_schema_version",
+    "shot_id",
+    "build_id",
+    "render_profile",
+    "provider",
+    "components",
+    "canonical_text",
+    "prompt_hash",
+    "article_free_verified",
+    "complete_verified"
+  ],
+  "title": "PromptAssembly",
+  "type": "object"
+}

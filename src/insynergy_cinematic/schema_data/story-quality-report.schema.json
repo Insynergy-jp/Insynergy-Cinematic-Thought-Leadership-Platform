@@ -1,0 +1,104 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/story/story-quality-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json"
+    }
+  ],
+  "description": "Mandatory all-or-nothing story gate report. Owner 2.1.7.",
+  "properties": {
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "content_hash": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+    },
+    "failed_gate_items": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "forbidden_category": {
+      "enum": [
+        "article_summary",
+        "educational_lecture",
+        "concept_list",
+        "talking_heads",
+        "slideshow_narrative",
+        "narrator_only",
+        "decision_less",
+        null
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "gate": {
+      "additionalProperties": false,
+      "properties": {
+        "conflict_exists": {
+          "type": "boolean"
+        },
+        "decision_exists": {
+          "type": "boolean"
+        },
+        "goal_exists": {
+          "type": "boolean"
+        },
+        "protagonist_exists": {
+          "type": "boolean"
+        },
+        "resolution_exists": {
+          "type": "boolean"
+        },
+        "stakes_exist": {
+          "type": "boolean"
+        },
+        "time_pressure_exists": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "protagonist_exists",
+        "goal_exists",
+        "conflict_exists",
+        "stakes_exist",
+        "time_pressure_exists",
+        "decision_exists",
+        "resolution_exists"
+      ],
+      "type": "object"
+    },
+    "generated_at": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+    },
+    "passed": {
+      "type": "boolean"
+    },
+    "recommended_action": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    }
+  },
+  "required": [
+    "schema_version",
+    "build_id",
+    "generated_at",
+    "content_hash",
+    "passed",
+    "failed_gate_items",
+    "forbidden_category",
+    "recommended_action",
+    "gate"
+  ],
+  "title": "StoryQualityReport",
+  "type": "object",
+  "unevaluatedProperties": false
+}

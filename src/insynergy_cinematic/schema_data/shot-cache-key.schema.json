@@ -1,0 +1,45 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/shot/shot-cache-key.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Embedded deterministic re-plan cache key (Owner 4.1.13).",
+  "properties": {
+    "cache_key": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/CacheKey"
+    },
+    "components": {
+      "additionalProperties": false,
+      "properties": {
+        "camera_profile": {
+          "type": "string"
+        },
+        "character_bible": {
+          "type": "string"
+        },
+        "location_bible": {
+          "type": "string"
+        },
+        "screenplay_hash": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+        },
+        "shot_planner_version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "screenplay_hash",
+        "shot_planner_version",
+        "camera_profile",
+        "character_bible",
+        "location_bible"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "cache_key",
+    "components"
+  ],
+  "title": "Shot Cache Key",
+  "type": "object"
+}

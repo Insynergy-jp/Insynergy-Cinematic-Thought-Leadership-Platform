@@ -1,0 +1,58 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/scene-index.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ArtifactEnvelope"
+    },
+    {
+      "properties": {
+        "scenes": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "act": {
+                "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Act"
+              },
+              "order": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "purpose": {
+                "enum": [
+                  "Introduce protagonist",
+                  "Reveal hidden risk",
+                  "Increase urgency",
+                  "Create reversal",
+                  "Force decision",
+                  "Resolve conflict"
+                ],
+                "type": "string"
+              },
+              "scene_id": {
+                "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SceneId"
+              }
+            },
+            "required": [
+              "scene_id",
+              "act",
+              "order",
+              "purpose"
+            ],
+            "type": "object"
+          },
+          "maxItems": 12,
+          "minItems": 8,
+          "type": "array"
+        }
+      },
+      "required": [
+        "scenes"
+      ],
+      "type": "object"
+    }
+  ],
+  "description": "Ordered stable index over scenes. Owner: 3.1.7.",
+  "title": "SceneIndex",
+  "unevaluatedProperties": false
+}

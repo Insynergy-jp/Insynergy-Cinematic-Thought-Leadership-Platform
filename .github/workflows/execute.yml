@@ -1,0 +1,97 @@
+name: Execute Approved Plan
+
+on:
+  workflow_dispatch:
+    inputs:
+      planning_run_id:
+        description: Run ID of the Plan Article workflow
+        required: true
+        type: string
+      build_id:
+        description: Build ID shown by the planning workflow
+        required: true
+        type: string
+      profile:
+        description: Must match the planning profile
+        required: true
+        default: preview
+        type: choice
+        options: [draft, preview, final]
+      provider:
+        description: Must match the planning provider
+        required: true
+        default: local
+        type: choice
+        options: [local, runway]
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: execute-${{ inputs.build_id }}
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    environment: render-approval
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Validate workflow inputs
+        env:
+          SOURCE_RUN_ID: ${{ inputs.planning_run_id }}
+          BUILD_ID: ${{ inputs.build_id }}
+        run: |
+          case "$SOURCE_RUN_ID" in *[!0-9]*|'') echo "planning_run_id must be numeric" >&2; exit 2 ;; esac
+          case "$BUILD_ID" in [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9]) ;; *) echo "invalid build_id" >&2; exit 2 ;; esac
+      - name: Download planning bundle
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: planning-${{ inputs.planning_run_id }}
+          path: .
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ inputs.planning_run_id }}
+      - name: Verify build identity
+        env:
+          EXPECTED_BUILD_ID: ${{ inputs.build_id }}
+        run: test "$(tr -d '\n' < build-id.txt)" = "$EXPECTED_BUILD_ID"
+      - name: Validate provider configuration
+        env:
+          RENDER_PROVIDER: ${{ inputs.provider }}
+          RUNWAY_API_KEY: ${{ secrets.RUNWAY_API_KEY }}
+          RUNWAY_BASE_URL: ${{ vars.RUNWAY_BASE_URL }}
+          RUNWAY_MODEL_GEN45: ${{ vars.RUNWAY_MODEL_GEN45 }}
+        run: |
+          if [ "$RENDER_PROVIDER" = "runway" ]; then
+            test -n "$RUNWAY_API_KEY" || { echo "RUNWAY_API_KEY environment secret is required" >&2; exit 3; }
+            test -n "$RUNWAY_BASE_URL" || { echo "RUNWAY_BASE_URL environment variable is required" >&2; exit 2; }
+            test -n "$RUNWAY_MODEL_GEN45" || { echo "RUNWAY_MODEL_GEN45 environment variable is required" >&2; exit 2; }
+          fi
+      - name: Record environment approval and execute
+        env:
+          BUILD_ID: ${{ inputs.build_id }}
+          BUILD_PROFILE: ${{ inputs.profile }}
+          RENDER_PROVIDER: ${{ inputs.provider }}
+          APPROVER: ${{ github.actor }}
+          RUNWAY_API_KEY: ${{ secrets.RUNWAY_API_KEY }}
+          RUNWAY_BASE_URL: ${{ vars.RUNWAY_BASE_URL }}
+          RUNWAY_MODEL_GEN45: ${{ vars.RUNWAY_MODEL_GEN45 }}
+        run: |
+          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" approve "$BUILD_ID" --gate execution --actor "$APPROVER"
+          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" execute "$BUILD_ID" > execution-result.json
+          python3 -c 'import json; value=json.load(open("execution-result.json")); assert value["state"] == "READY"'
+      - name: Upload validated build
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: validated-${{ github.run_id }}
+          path: |
+            .insynergy
+            execution-result.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30

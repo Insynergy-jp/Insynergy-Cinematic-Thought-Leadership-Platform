@@ -1,0 +1,92 @@
+{
+  "$defs": {
+    "Edge": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "description": "Dependent node id (executes after 'to').",
+          "type": "string"
+        },
+        "to": {
+          "description": "Dependency node id (must complete first).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "type": "object"
+    },
+    "Node": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "Unique node identifier within the graph.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Stage or artifact class of the node.",
+          "enum": [
+            "story",
+            "screenplay",
+            "storyboard",
+            "shot",
+            "validation",
+            "composition",
+            "packaging"
+          ],
+          "type": "string"
+        },
+        "shot_id": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ShotId",
+          "description": "Present when kind = shot."
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/build/dependency-graph.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Acyclic stage/shot dependency graph. Owner: 6.1.3.",
+  "properties": {
+    "acyclic": {
+      "const": true,
+      "description": "Assertion that the graph contains no cycles. Circular dependencies are prohibited. Owner: 6.1.3."
+    },
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "edges": {
+      "description": "Directed dependency edges (from depends-on target).",
+      "items": {
+        "$ref": "#/$defs/Edge"
+      },
+      "type": "array"
+    },
+    "nodes": {
+      "items": {
+        "$ref": "#/$defs/Node"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    }
+  },
+  "required": [
+    "schema_version",
+    "build_id",
+    "nodes",
+    "edges",
+    "acyclic"
+  ],
+  "title": "DependencyGraph",
+  "type": "object"
+}

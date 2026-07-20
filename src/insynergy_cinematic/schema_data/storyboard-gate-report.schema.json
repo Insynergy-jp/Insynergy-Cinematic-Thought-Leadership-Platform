@@ -1,0 +1,75 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/shot/storyboard-gate-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Storyboard-level gate, post per-shot pass (Owner 4.1.12).",
+  "properties": {
+    "checks": {
+      "additionalProperties": false,
+      "properties": {
+        "composition": {
+          "type": "boolean"
+        },
+        "concept_ratio": {
+          "type": "boolean"
+        },
+        "continuity": {
+          "type": "boolean"
+        },
+        "emotional_rhythm": {
+          "type": "boolean"
+        },
+        "pacing": {
+          "type": "boolean"
+        },
+        "render_balance": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "composition",
+        "continuity",
+        "pacing",
+        "render_balance",
+        "concept_ratio",
+        "emotional_rhythm"
+      ],
+      "type": "object"
+    },
+    "failed_checks": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "owning_sections": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "rendering_blocked": {
+      "type": "boolean"
+    },
+    "result": {
+      "enum": [
+        "PASS",
+        "FAIL"
+      ],
+      "type": "string"
+    },
+    "storyboard_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/StoryboardId"
+    }
+  },
+  "required": [
+    "storyboard_id",
+    "result",
+    "checks",
+    "failed_checks",
+    "owning_sections",
+    "rendering_blocked"
+  ],
+  "title": "Storyboard Gate Report",
+  "type": "object"
+}

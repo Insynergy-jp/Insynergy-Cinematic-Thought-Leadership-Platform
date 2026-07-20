@@ -1,0 +1,109 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/render/render-results.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ArtifactEnvelope"
+    }
+  ],
+  "description": "Final per-shot render outcome roll-up. Owner: 5.1.4.",
+  "properties": {
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "content_hash": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+    },
+    "generated_at": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+    },
+    "input_admission_ref": {
+      "description": "The inputs this result derives from (RIO-304).",
+      "minLength": 1,
+      "type": "string"
+    },
+    "overall_status": {
+      "description": "Build-level outcome.",
+      "enum": [
+        "complete",
+        "partial_blocked",
+        "failed"
+      ],
+      "type": "string"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    },
+    "sealed": {
+      "type": "boolean"
+    },
+    "shots": {
+      "description": "One final outcome per shot.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "attempts_used": {
+            "maximum": 4,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "chosen_asset_uri": {
+            "description": "Final asset in video_assets/; absent if none passed.",
+            "type": "string"
+          },
+          "outcome": {
+            "description": "Final disposition for the shot.",
+            "enum": [
+              "rendered",
+              "cache_hit",
+              "manual_review",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "preview_asset_uri": {
+            "description": "Asset in preview_assets/.",
+            "type": "string"
+          },
+          "quality_score": {
+            "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Score",
+            "description": "Visual quality score (5.6.2); optional."
+          },
+          "shot_id": {
+            "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ShotId"
+          },
+          "strategy": {
+            "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/RenderStrategy",
+            "description": "The strategy actually used."
+          },
+          "thumbnail_uri": {
+            "description": "Asset in thumbnail_assets/.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "shot_id",
+          "outcome",
+          "strategy",
+          "attempts_used"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "build_id",
+    "input_admission_ref",
+    "generated_at",
+    "sealed",
+    "content_hash",
+    "overall_status",
+    "shots"
+  ],
+  "title": "RenderResults",
+  "type": "object",
+  "unevaluatedProperties": false
+}

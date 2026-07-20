@@ -1,0 +1,122 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/scene.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Canonical scene object. Owner: 3.1.3, 3.1.4, 3.1.7.",
+  "properties": {
+    "act": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Act"
+    },
+    "actions": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "characters": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "conflict": {
+      "enum": [
+        "Human vs Machine",
+        "Human vs Institution",
+        "Human vs Time",
+        "Human vs Self",
+        "Institution vs Reality"
+      ],
+      "type": "string"
+    },
+    "dialogue": {
+      "items": {
+        "$ref": "https://schemas.insynergy.co/cttp/v2.0/screenplay/dialogue.schema.json#/$defs/DialogueLine"
+      },
+      "type": "array"
+    },
+    "duration_seconds": {
+      "maximum": 10,
+      "minimum": 4,
+      "type": "integer"
+    },
+    "heading": {
+      "additionalProperties": false,
+      "properties": {
+        "interior": {
+          "type": "boolean"
+        },
+        "location": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "time": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "location",
+        "time",
+        "interior"
+      ],
+      "type": "object"
+    },
+    "objective": {
+      "additionalProperties": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "propertyNames": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "purpose": {
+      "enum": [
+        "Introduce protagonist",
+        "Reveal hidden risk",
+        "Increase urgency",
+        "Create reversal",
+        "Force decision",
+        "Resolve conflict"
+      ],
+      "type": "string"
+    },
+    "scene_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SceneId"
+    },
+    "transition": {
+      "enum": [
+        "Hard Cut",
+        "Fade",
+        "Match Cut",
+        "L Cut",
+        "J Cut"
+      ],
+      "type": "string"
+    },
+    "visual_subtext": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "scene_id",
+    "act",
+    "heading",
+    "purpose",
+    "characters",
+    "objective",
+    "conflict",
+    "actions",
+    "dialogue",
+    "visual_subtext",
+    "duration_seconds",
+    "transition"
+  ],
+  "title": "Scene",
+  "type": "object"
+}

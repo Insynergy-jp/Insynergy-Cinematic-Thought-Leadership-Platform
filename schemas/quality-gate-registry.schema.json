@@ -1,0 +1,91 @@
+{
+  "$defs": {
+    "QualityGate": {
+      "additionalProperties": false,
+      "properties": {
+        "approval_ref": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ApprovalRef",
+          "description": "Approval evidence for human-approval gates."
+        },
+        "blocking": {
+          "const": true,
+          "description": "Gate blocks progression on failure. Owner: 6.1.6."
+        },
+        "fail_closed": {
+          "const": true,
+          "description": "Gate denies by default; it cannot be bypassed. Owner: 6.1.6."
+        },
+        "gate_id": {
+          "description": "Stable identifier of the gate.",
+          "enum": [
+            "story_quality_gate",
+            "screenplay_quality_gate",
+            "shot_quality_gate",
+            "storyboard_quality_gate",
+            "rendering_technical_gate",
+            "rendering_editorial_gate",
+            "execution_approval",
+            "publish_approval"
+          ],
+          "type": "string"
+        },
+        "gate_type": {
+          "enum": [
+            "automated",
+            "human_approval"
+          ],
+          "type": "string"
+        },
+        "owning_section": {
+          "description": "Specification section that owns the gate.",
+          "pattern": "^[0-9]+(\\.[0-9]+)*$",
+          "type": "string"
+        },
+        "stage": {
+          "description": "Pipeline stage the gate guards.",
+          "enum": [
+            "story",
+            "screenplay",
+            "shot_planning",
+            "storyboard",
+            "rendering",
+            "validation",
+            "approval",
+            "publication"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "gate_id",
+        "stage",
+        "blocking",
+        "fail_closed",
+        "owning_section"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/build/quality-gate-registry.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Consolidated registry of platform Quality Gates. Owner: 6.1.6.",
+  "properties": {
+    "gates": {
+      "items": {
+        "$ref": "#/$defs/QualityGate"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    }
+  },
+  "required": [
+    "schema_version",
+    "gates"
+  ],
+  "title": "QualityGateRegistry",
+  "type": "object"
+}

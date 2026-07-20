@@ -1,0 +1,601 @@
+{
+  "$defs": {
+    "RenderTaskEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "asset": {
+          "additionalProperties": false,
+          "description": "Append-on-success; written when a valid asset is produced.",
+          "properties": {
+            "asset_digest": {
+              "description": "sha256 of asset bytes; integrity anchor.",
+              "oneOf": [
+                {
+                  "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "asset_uri": {
+              "description": "Canonical location in Asset Repository; null until READY.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "codec": {
+              "type": "string"
+            },
+            "content_type": {
+              "description": "e.g. video/mp4 | image/png | image/svg+xml.",
+              "type": "string"
+            },
+            "duration_ms": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "frame_rate": {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            "produced_at": {
+              "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+            },
+            "produced_by_attempt": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "resolution": {
+              "pattern": "^[0-9]+x[0-9]+$",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "attempt": {
+          "description": "Current attempt (1..max_retry+1).",
+          "maximum": 4,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "build_id": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+        },
+        "cache_key": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/CacheKey",
+          "description": "sha256 render cache key (5.6.3); immutable."
+        },
+        "entry_revision": {
+          "description": "Optimistic-concurrency version (RMF-408).",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "history": {
+          "description": "Append-only attempt/transition history (RMF-305).",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+              },
+              "attempt": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "failure_class": {
+                "description": "5.4.5.",
+                "enum": [
+                  "transient",
+                  "permanent",
+                  "quality",
+                  "budget",
+                  null
+                ],
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "from_state": {
+                "type": "string"
+              },
+              "provider_task_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "to_state": {
+                "type": "string"
+              },
+              "transition": {
+                "description": "e.g. submit | poll | download | validate | fail | retry.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "attempt",
+              "from_state",
+              "to_state",
+              "transition",
+              "at"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "lease_ref": {
+          "description": "Current queue lease id (advisory mirror of 5.4.1); nullable.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "next_retry_at": {
+          "description": "Delayed re-admission timestamp; null unless RETRY.",
+          "oneOf": [
+            {
+              "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "provenance": {
+          "additionalProperties": false,
+          "description": "Immutable once written.",
+          "properties": {
+            "prompt_digest": {
+              "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash",
+              "description": "Digest of the assembled prompt (5.5); NOT prompt text."
+            },
+            "provider_version": {
+              "description": "Provider/model version used (feeds cache_key, 5.6.3).",
+              "type": "string"
+            },
+            "render_strategy_ref": {
+              "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+            },
+            "source_asset_task_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "storyboard_shot_ref": {
+              "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash",
+              "description": "Content hash of the source Storyboard shot."
+            },
+            "upstream_cache_hit": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "provider": {
+          "description": "Immutable.",
+          "enum": [
+            "runway",
+            "motion",
+            "svg",
+            "typography",
+            "cache"
+          ],
+          "type": "string"
+        },
+        "provider_task_id": {
+          "description": "Provider-assigned job id for the current attempt; opaque; nullable.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "render_profile": {
+          "description": "e.g. runway_preview | runway_final; immutable.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "render_task_id": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash",
+          "description": "Deterministic: sha256(build_id + shot_id); immutable."
+        },
+        "scene_index": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SceneId",
+          "description": "Narrative position; immutable."
+        },
+        "shot_id": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ShotId"
+        },
+        "shot_index": {
+          "description": "Immutable.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "state": {
+          "description": "Canonical per-shot render state (5.4.3); mutable, advances via legal transitions.",
+          "enum": [
+            "NEW",
+            "SUBMITTED",
+            "RUNNING",
+            "DOWNLOADING",
+            "VALIDATING",
+            "READY",
+            "COMPOSED",
+            "FAILED",
+            "RETRY",
+            "MANUAL_REVIEW",
+            "CANCELLED",
+            "CACHED",
+            "DEAD_LETTER"
+          ],
+          "type": "string"
+        },
+        "strategy": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/RenderStrategy",
+          "description": "Immutable; one of the fixed strategy set."
+        },
+        "updated_at": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+        },
+        "validation": {
+          "additionalProperties": false,
+          "description": "Recorded by 5.6.",
+          "properties": {
+            "checks": {
+              "additionalProperties": true,
+              "description": "resolution/duration/codec/frame_rate/decode/integrity.",
+              "type": "object"
+            },
+            "technical": {
+              "description": "5.6.1.",
+              "enum": [
+                "passed",
+                "failed",
+                "pending"
+              ],
+              "type": "string"
+            },
+            "validated_at": {
+              "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+            },
+            "validated_by_attempt": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "visual_quality_passed": {
+              "description": "score >= 0.90.",
+              "type": "boolean"
+            },
+            "visual_quality_score": {
+              "description": "0.00-1.00; null until validated (5.6.2).",
+              "oneOf": [
+                {
+                  "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Score"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "render_task_id",
+        "shot_id",
+        "build_id",
+        "strategy",
+        "render_profile",
+        "provider",
+        "cache_key",
+        "state",
+        "attempt",
+        "updated_at",
+        "entry_revision"
+      ],
+      "type": "object"
+    },
+    "StrategyRollup": {
+      "additionalProperties": false,
+      "properties": {
+        "cached": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "completed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "cost": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "planned": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/render/render-manifest.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ArtifactEnvelope"
+    }
+  ],
+  "description": "Authoritative runtime render manifest for a single build. Owner: 5.1.4, 5.4.4.",
+  "properties": {
+    "build": {
+      "additionalProperties": false,
+      "properties": {
+        "blocked_reason": {
+          "description": "null unless render_state == BLOCKED.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "budget": {
+          "additionalProperties": false,
+          "properties": {
+            "consumed": {
+              "description": "Mutable; monotonically increasing.",
+              "minimum": 0,
+              "type": "number"
+            },
+            "currency": {
+              "const": "usd",
+              "type": "string"
+            },
+            "reserved": {
+              "description": "Immutable reservation for the build.",
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "reserved",
+            "consumed",
+            "currency"
+          ],
+          "type": "object"
+        },
+        "build_profile": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildType",
+          "description": "preview | final; immutable per build."
+        },
+        "counts": {
+          "additionalProperties": false,
+          "description": "Derived aggregate; must equal the sum of per-task states (RMF-401).",
+          "properties": {
+            "cached": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "composed": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "dead_letter": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "downloading": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "failed": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "manual_review": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "new": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "ready": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "retrying": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "running": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "submitted": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "validating": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "new",
+            "submitted",
+            "running",
+            "downloading",
+            "validating",
+            "ready",
+            "composed",
+            "failed",
+            "retrying",
+            "manual_review",
+            "dead_letter",
+            "cached"
+          ],
+          "type": "object"
+        },
+        "fail_closed": {
+          "const": true,
+          "description": "Invariant flag; a partial trailer is never publishable (RMF-402).",
+          "type": "boolean"
+        },
+        "render_state": {
+          "description": "Build-level rollup of task states (5.4.4).",
+          "enum": [
+            "PLANNING",
+            "RENDERING",
+            "VALIDATING",
+            "READY",
+            "BLOCKED",
+            "COMPOSED"
+          ],
+          "type": "string"
+        },
+        "total_tasks": {
+          "description": "Immutable once planning closes.",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "build_profile",
+        "render_state",
+        "total_tasks",
+        "counts",
+        "budget",
+        "fail_closed"
+      ],
+      "type": "object"
+    },
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "content_hash": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+    },
+    "generated_at": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+    },
+    "input_admission_ref": {
+      "description": "Reference to the passed precondition-gate admission record (RIO-307).",
+      "minLength": 1,
+      "type": "string"
+    },
+    "manifest_meta": {
+      "additionalProperties": false,
+      "properties": {
+        "build_id": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+        },
+        "created_at": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+        },
+        "manifest_digest": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash",
+          "description": "Rolling content digest of the tasks map (tamper detection)."
+        },
+        "manifest_id": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash",
+          "description": "Deterministic: sha256(build_id + 'render_manifest'); immutable."
+        },
+        "render_strategy_ref": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash",
+          "description": "Content hash of assigned Render Strategy; immutable."
+        },
+        "revision": {
+          "description": "Monotonic manifest revision counter.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema_version": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+        },
+        "storyboard_ref": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash",
+          "description": "Content hash of approved Storyboard; immutable."
+        },
+        "updated_at": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601",
+          "description": "Advances on every write."
+        }
+      },
+      "required": [
+        "manifest_id",
+        "build_id",
+        "schema_version",
+        "storyboard_ref",
+        "render_strategy_ref",
+        "created_at",
+        "updated_at",
+        "manifest_digest",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    },
+    "sealed": {
+      "description": "true once the build is complete; bytes immutable thereafter (RIO-306).",
+      "type": "boolean"
+    },
+    "strategy_summary": {
+      "additionalProperties": false,
+      "description": "Per-strategy planned/completed/cached/cost rollup.",
+      "properties": {
+        "animated_still": {
+          "$ref": "#/$defs/StrategyRollup"
+        },
+        "cached_asset": {
+          "$ref": "#/$defs/StrategyRollup"
+        },
+        "motion_graphics": {
+          "$ref": "#/$defs/StrategyRollup"
+        },
+        "runway_video": {
+          "$ref": "#/$defs/StrategyRollup"
+        },
+        "svg": {
+          "$ref": "#/$defs/StrategyRollup"
+        },
+        "typography": {
+          "$ref": "#/$defs/StrategyRollup"
+        }
+      },
+      "type": "object"
+    },
+    "tasks": {
+      "description": "One render_task_entry per shot; authoritative render truth.",
+      "items": {
+        "$ref": "#/$defs/RenderTaskEntry"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "build_id",
+    "input_admission_ref",
+    "generated_at",
+    "sealed",
+    "content_hash",
+    "manifest_meta",
+    "build",
+    "tasks"
+  ],
+  "title": "RenderManifest",
+  "type": "object",
+  "unevaluatedProperties": false
+}

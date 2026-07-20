@@ -1,0 +1,61 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/story/concept-placement.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json"
+    }
+  ],
+  "description": "Constraints on concept placement: concept as answer, not opening. Owner 2.1.6.",
+  "properties": {
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "concept_as_answer": {
+      "const": true,
+      "type": "boolean"
+    },
+    "content_hash": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+    },
+    "earliest_allowed_act": {
+      "allOf": [
+        {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Act"
+        }
+      ],
+      "minimum": 2
+    },
+    "generated_at": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+    },
+    "max_concept_ratio": {
+      "allOf": [
+        {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Ratio"
+        }
+      ],
+      "const": 0.2
+    },
+    "requires_prior_tension": {
+      "const": true,
+      "type": "boolean"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    }
+  },
+  "required": [
+    "schema_version",
+    "build_id",
+    "generated_at",
+    "content_hash",
+    "earliest_allowed_act",
+    "requires_prior_tension",
+    "max_concept_ratio",
+    "concept_as_answer"
+  ],
+  "title": "ConceptPlacement",
+  "type": "object",
+  "unevaluatedProperties": false
+}

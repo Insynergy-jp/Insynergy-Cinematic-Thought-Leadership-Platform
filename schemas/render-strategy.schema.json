@@ -1,0 +1,44 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/shot/render-strategy.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ArtifactEnvelope"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "shots": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "render_profile": {
+                "type": "string"
+              },
+              "render_strategy": {
+                "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/RenderStrategy"
+              },
+              "shot_id": {
+                "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ShotId"
+              }
+            },
+            "required": [
+              "shot_id",
+              "render_strategy"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "shots"
+      ],
+      "type": "object"
+    }
+  ],
+  "description": "One render strategy per shot (Owner 4.1.9; ingest 5.1.4).",
+  "title": "Render Strategy",
+  "unevaluatedProperties": false
+}

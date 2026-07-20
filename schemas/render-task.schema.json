@@ -1,0 +1,186 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/render/render-task.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Render task record and state-machine projection. Owner: 5.4.3.",
+  "properties": {
+    "attempt": {
+      "description": "Current render attempt (1 = original). Separated from state (RTS-305).",
+      "maximum": 4,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "attempts_remaining": {
+      "description": "max_attempts - attempt.",
+      "maximum": 3,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "cache_key": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/CacheKey",
+      "description": "Render cache key (5.6.3) and idempotency anchor; immutable."
+    },
+    "created_at": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+    },
+    "delivery_count": {
+      "description": "Transport deliveries (informational; never gates retry).",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "history": {
+      "description": "Append-only transition log (RTS-304 idempotent transitions).",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+          },
+          "attempt": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "event": {
+            "description": "Driving event (5.4.3).",
+            "enum": [
+              "CREATE",
+              "CACHE_HIT",
+              "SUBMIT_OK",
+              "SUBMIT_FAIL",
+              "PROVIDER_RUNNING",
+              "PROVIDER_SUCCEEDED",
+              "PROVIDER_FAILED",
+              "DOWNLOAD_OK",
+              "DOWNLOAD_FAIL",
+              "VALIDATE_OK",
+              "VALIDATE_FAIL",
+              "COMPOSE_OK",
+              "RETRY_AUTHORIZED",
+              "RETRY_EXHAUSTED",
+              "NON_RETRYABLE",
+              "RE_SUBMIT",
+              "TIMEOUT",
+              "CANCEL"
+            ],
+            "type": "string"
+          },
+          "from_state": {
+            "type": "string"
+          },
+          "to_state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "attempt",
+          "from_state",
+          "to_state",
+          "event",
+          "at"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "last_failure_code": {
+      "description": "Most recent classified failure code (5.4.5).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "max_attempts": {
+      "const": 4,
+      "description": "max_retry + 1.",
+      "type": "integer"
+    },
+    "next_retry_at": {
+      "description": "Delayed re-admission time; null unless RETRY.",
+      "oneOf": [
+        {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "provider": {
+      "description": "Immutable.",
+      "enum": [
+        "runway",
+        "motion",
+        "svg",
+        "typography",
+        "cache"
+      ],
+      "type": "string"
+    },
+    "provider_task_id": {
+      "description": "Provider job id for the current attempt; opaque; null pre-submit.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "render_profile": {
+      "description": "e.g. runway_preview | runway_final; immutable.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "shot_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ShotId",
+      "description": "References the approved Storyboard shot; immutable."
+    },
+    "state": {
+      "description": "Closed render-task state enum (5.4.3). Exactly one at all times.",
+      "enum": [
+        "NEW",
+        "SUBMITTED",
+        "RUNNING",
+        "DOWNLOADING",
+        "VALIDATING",
+        "READY",
+        "COMPOSED",
+        "FAILED",
+        "RETRY",
+        "MANUAL_REVIEW",
+        "CANCELLED",
+        "CACHED"
+      ],
+      "type": "string"
+    },
+    "strategy": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/RenderStrategy",
+      "description": "Assigned strategy; immutable; one per shot (no mixed strategies)."
+    },
+    "task_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash",
+      "description": "Deterministic: sha256(build_id + shot_id); immutable."
+    },
+    "terminal": {
+      "description": "true when state is COMPOSED | CACHED | MANUAL_REVIEW | CANCELLED.",
+      "type": "boolean"
+    },
+    "updated_at": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+    }
+  },
+  "required": [
+    "task_id",
+    "shot_id",
+    "build_id",
+    "strategy",
+    "render_profile",
+    "provider",
+    "cache_key",
+    "state",
+    "attempt",
+    "max_attempts"
+  ],
+  "title": "RenderTask",
+  "type": "object"
+}

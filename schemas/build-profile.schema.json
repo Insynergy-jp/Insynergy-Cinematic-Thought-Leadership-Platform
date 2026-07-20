@@ -1,0 +1,126 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/build/build-profile.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Build profile and execution mode. Owner: 6.1.7.",
+  "properties": {
+    "build_type": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildType"
+    },
+    "execution_mode": {
+      "description": "Execution intent, orthogonal to profile (ADR-622). Owner: 6.1.7.",
+      "enum": [
+        "full",
+        "incremental",
+        "resume",
+        "dry_run",
+        "validate_only",
+        "render_only",
+        "compose_only"
+      ],
+      "type": "string"
+    },
+    "profile": {
+      "description": "Standard build profile. Owner: 6.1.7.",
+      "enum": [
+        "development",
+        "preview",
+        "production",
+        "benchmark",
+        "recovery",
+        "cost_optimized",
+        "quality_max"
+      ],
+      "type": "string"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    },
+    "settings": {
+      "additionalProperties": false,
+      "properties": {
+        "cache": {
+          "enum": [
+            "enabled",
+            "aggressive",
+            "maximum",
+            "configurable"
+          ],
+          "type": "string"
+        },
+        "concurrency": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "type": "string"
+        },
+        "placeholders": {
+          "enum": [
+            "enabled",
+            "disabled",
+            "preferred",
+            "prohibited"
+          ],
+          "type": "string"
+        },
+        "render_ratio": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Ratio",
+          "description": "Fraction of shots rendered at fidelity vs placeholder."
+        },
+        "rendering": {
+          "enum": [
+            "optional",
+            "draft",
+            "final",
+            "premium",
+            "missing_only"
+          ],
+          "type": "string"
+        },
+        "retries": {
+          "enum": [
+            "disabled",
+            "enabled",
+            "unlimited_until_budget"
+          ],
+          "type": "string"
+        },
+        "runway_profile": {
+          "description": "Provider render profile (e.g. gen4.5, preview, draft).",
+          "type": "string"
+        },
+        "target_duration": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/DurationSeconds",
+          "description": "Target end-to-end build duration for the profile."
+        },
+        "validation": {
+          "enum": [
+            "basic",
+            "editorial",
+            "strict",
+            "strictest",
+            "verify_existing"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "rendering",
+        "validation",
+        "cache"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "profile",
+    "build_type",
+    "execution_mode",
+    "settings"
+  ],
+  "title": "BuildProfile",
+  "type": "object"
+}

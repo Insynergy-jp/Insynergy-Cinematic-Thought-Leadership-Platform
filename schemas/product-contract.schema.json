@@ -1,0 +1,110 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/vision/product-contract.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "External product contract for the platform. Owner: 1.1.1. Binds exactly one insight article to exactly one cinematic trailer for a CXO audience, with conceptual accuracy preserved and communication required.",
+  "properties": {
+    "excluded": {
+      "additionalProperties": false,
+      "description": "Responsibilities explicitly out of scope. Owner: 1.1.1.",
+      "properties": {
+        "authoring": {
+          "const": "upstream",
+          "type": "string"
+        },
+        "publishing": {
+          "const": "downstream",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authoring",
+        "publishing"
+      ],
+      "type": "object"
+    },
+    "guarantees": {
+      "additionalProperties": false,
+      "description": "Transformation guarantees. Owner: 1.1.1.",
+      "properties": {
+        "communication": {
+          "const": "required",
+          "type": "string"
+        },
+        "conceptual_accuracy": {
+          "const": "preserved",
+          "type": "string"
+        },
+        "illustration_only": {
+          "const": "rejected",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conceptual_accuracy",
+        "communication",
+        "illustration_only"
+      ],
+      "type": "object"
+    },
+    "input": {
+      "additionalProperties": false,
+      "description": "The single accepted input artifact. Owner: 1.1.1.",
+      "properties": {
+        "cardinality": {
+          "const": "exactly_one",
+          "type": "string"
+        },
+        "format": {
+          "const": "structured_markdown",
+          "type": "string"
+        },
+        "type": {
+          "const": "insight_article",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "cardinality",
+        "format"
+      ],
+      "type": "object"
+    },
+    "output": {
+      "additionalProperties": false,
+      "description": "The single emitted output artifact. Owner: 1.1.1.",
+      "properties": {
+        "audience": {
+          "const": "cxo",
+          "type": "string"
+        },
+        "cardinality": {
+          "const": "exactly_one",
+          "type": "string"
+        },
+        "type": {
+          "const": "cinematic_trailer",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "cardinality",
+        "audience"
+      ],
+      "type": "object"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    }
+  },
+  "required": [
+    "input",
+    "output",
+    "guarantees",
+    "excluded"
+  ],
+  "title": "Product Contract",
+  "type": "object"
+}

@@ -1,0 +1,119 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/shot/continuity-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Countdown temporal continuity for a scene (Owner 4.1.8).",
+  "properties": {
+    "direction": {
+      "const": "forward_only",
+      "type": "string"
+    },
+    "flashback_tracks": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "enclosing_shot": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "return_marker": {
+            "oneOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "const": "STOP",
+                "type": "string"
+              }
+            ]
+          },
+          "track_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "track_id",
+          "enclosing_shot",
+          "return_marker"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "markers": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "shot": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "value": {
+            "oneOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "const": "STOP",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "required": [
+          "shot",
+          "value"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "monotonic": {
+      "type": "boolean"
+    },
+    "scene_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SceneId"
+    },
+    "temporal_representation": {
+      "const": "countdown",
+      "type": "string"
+    },
+    "terminal_marker": {
+      "const": "STOP",
+      "type": "string"
+    },
+    "violations": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "current": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "previous": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "previous",
+          "current"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "scene_id",
+    "temporal_representation",
+    "markers",
+    "monotonic",
+    "direction",
+    "terminal_marker"
+  ],
+  "title": "Continuity Report",
+  "type": "object"
+}

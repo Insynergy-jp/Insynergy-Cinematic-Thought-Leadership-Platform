@@ -1,0 +1,83 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/render/location-bible.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ArtifactEnvelope"
+    }
+  ],
+  "description": "Immutable location reference bible keyed by RefId. Owner: 5.1.4, 4.1.7.",
+  "properties": {
+    "approval_ref": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ApprovalRef"
+    },
+    "approved": {
+      "const": true,
+      "description": "Must be true (passed upstream Quality Gate).",
+      "type": "boolean"
+    },
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "content_hash": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+    },
+    "generated_at": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+    },
+    "locations": {
+      "description": "Keyed by ref id; every ref unique.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "description": "Canonical environment description; immutable.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "display_name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "environment_lock": {
+            "const": true,
+            "description": "Must be true (immutable environment).",
+            "type": "boolean"
+          },
+          "ref": {
+            "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/RefId",
+            "description": "e.g. operations_center_night; stable, unique."
+          },
+          "time_of_day": {
+            "description": "Optional; e.g. night | day.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref",
+          "display_name",
+          "description",
+          "environment_lock"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    }
+  },
+  "required": [
+    "schema_version",
+    "build_id",
+    "approved",
+    "approval_ref",
+    "generated_at",
+    "content_hash",
+    "locations"
+  ],
+  "title": "LocationBible",
+  "type": "object",
+  "unevaluatedProperties": false
+}

@@ -1,0 +1,153 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/story/character-bible.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json"
+    }
+  ],
+  "description": "Story-side character bible: one protagonist, 0..3 supporting, 0..1 antagonistic. Owner 2.1.4.",
+  "properties": {
+    "antagonistic": {
+      "additionalProperties": false,
+      "properties": {
+        "function": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "id": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/RefId"
+        },
+        "is_institutional": {
+          "type": "boolean"
+        },
+        "pressure_applied": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "relationship_to_protagonist": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "function",
+        "is_institutional",
+        "pressure_applied",
+        "relationship_to_protagonist"
+      ],
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "content_hash": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+    },
+    "generated_at": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+    },
+    "protagonist": {
+      "additionalProperties": false,
+      "properties": {
+        "arc": {
+          "description": "Ordered, continuous emotional progression, e.g. Control -> Understanding -> Institutional Design.",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 2,
+          "type": "array"
+        },
+        "competence": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "decision_required": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "fear": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "flaw": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "goal": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "id": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/RefId"
+        },
+        "role": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "goal",
+        "fear",
+        "flaw",
+        "competence",
+        "decision_required",
+        "arc"
+      ],
+      "type": "object"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    },
+    "supporting": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "function": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/RefId"
+          },
+          "pressure_applied": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "relationship_to_protagonist": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "function",
+          "pressure_applied",
+          "relationship_to_protagonist"
+        ],
+        "type": "object"
+      },
+      "maxItems": 3,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "build_id",
+    "generated_at",
+    "content_hash",
+    "protagonist",
+    "supporting",
+    "antagonistic"
+  ],
+  "title": "CharacterBible",
+  "type": "object",
+  "unevaluatedProperties": false
+}

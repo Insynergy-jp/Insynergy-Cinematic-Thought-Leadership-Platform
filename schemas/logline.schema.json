@@ -1,0 +1,69 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/story/logline.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json"
+    }
+  ],
+  "description": "Declarative logline (<=50 words) derived from the premise. Owner 2.1.3.",
+  "properties": {
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "content_hash": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+    },
+    "generated_at": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+    },
+    "goal_present": {
+      "const": true,
+      "type": "boolean"
+    },
+    "incident_present": {
+      "const": true,
+      "type": "boolean"
+    },
+    "logline": {
+      "description": "Declarative sentence, <=50 words (word limit enforced by INV-9.3.5-A).",
+      "minLength": 1,
+      "type": "string"
+    },
+    "loss_present": {
+      "const": true,
+      "type": "boolean"
+    },
+    "protagonist_present": {
+      "const": true,
+      "type": "boolean"
+    },
+    "question_form": {
+      "const": false,
+      "type": "boolean"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    },
+    "stakes_present": {
+      "const": true,
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "schema_version",
+    "build_id",
+    "generated_at",
+    "content_hash",
+    "logline",
+    "incident_present",
+    "protagonist_present",
+    "goal_present",
+    "stakes_present",
+    "loss_present",
+    "question_form"
+  ],
+  "title": "Logline",
+  "type": "object",
+  "unevaluatedProperties": false
+}

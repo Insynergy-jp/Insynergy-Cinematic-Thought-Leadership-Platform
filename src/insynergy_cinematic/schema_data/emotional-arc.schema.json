@@ -1,0 +1,76 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/story/emotional-arc.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json"
+    }
+  ],
+  "description": "Ordered emotional transitions with continuity rules. Owner 2.1.6.",
+  "properties": {
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "content_hash": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+    },
+    "generated_at": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+    },
+    "max_stage_jump": {
+      "const": 1,
+      "type": "integer"
+    },
+    "monotonic_toward_decision": {
+      "const": true,
+      "type": "boolean"
+    },
+    "motivated_by_event": {
+      "const": true,
+      "type": "boolean"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    },
+    "transitions": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "motivated_by": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "to": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "motivated_by"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "build_id",
+    "generated_at",
+    "content_hash",
+    "transitions",
+    "max_stage_jump",
+    "monotonic_toward_decision",
+    "motivated_by_event"
+  ],
+  "title": "EmotionalArc",
+  "type": "object",
+  "unevaluatedProperties": false
+}

@@ -1,0 +1,155 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/render/retry-policy.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Retry, backoff, and failure-classification config. Owner: 5.4.5.",
+  "properties": {
+    "authorization": {
+      "additionalProperties": false,
+      "properties": {
+        "check_budget": {
+          "type": "boolean"
+        },
+        "check_cancellation": {
+          "type": "boolean"
+        },
+        "require_manifest_record": {
+          "const": true,
+          "description": "RTB-303.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "require_manifest_record",
+        "check_budget",
+        "check_cancellation"
+      ],
+      "type": "object"
+    },
+    "backoff": {
+      "additionalProperties": false,
+      "properties": {
+        "base": {
+          "const": "10s",
+          "description": "Initial backoff interval.",
+          "type": "string"
+        },
+        "cap": {
+          "const": "120s",
+          "description": "Maximum backoff before jitter.",
+          "type": "string"
+        },
+        "jitter_max": {
+          "const": "5s",
+          "description": "Deterministic jitter ceiling.",
+          "type": "string"
+        },
+        "strategy": {
+          "const": "exponential",
+          "type": "string"
+        }
+      },
+      "required": [
+        "strategy",
+        "base",
+        "cap",
+        "jitter_max"
+      ],
+      "type": "object"
+    },
+    "classification": {
+      "additionalProperties": false,
+      "properties": {
+        "non_retryable_codes": {
+          "items": {
+            "enum": [
+              "FAILED_QUALITY_VALIDATION",
+              "INVALID_PROMPT",
+              "UNSUPPORTED_INPUT",
+              "ASSET_TECHNICAL_INVALID",
+              "PROVIDER_PERMANENT_REJECTION",
+              "BUDGET_EXHAUSTED",
+              "UNKNOWN_FAILURE"
+            ],
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "retryable_codes": {
+          "items": {
+            "enum": [
+              "PROVIDER_TIMEOUT",
+              "TEMPORARY_API_FAILURE",
+              "CORRUPTED_DOWNLOAD",
+              "PROVIDER_RATE_LIMITED",
+              "NETWORK_TRANSIENT"
+            ],
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "unknown_default": {
+          "const": "NON_RETRYABLE",
+          "description": "Fail-safe (RTB-301).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "retryable_codes",
+        "non_retryable_codes",
+        "unknown_default"
+      ],
+      "type": "object"
+    },
+    "deadline_guard": {
+      "additionalProperties": false,
+      "properties": {
+        "respect_overall_timeout": {
+          "const": true,
+          "description": "No retry scheduled past 5.4.6 overall_timeout (RTB-411).",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "respect_overall_timeout"
+      ],
+      "type": "object"
+    },
+    "max_retry": {
+      "default": 3,
+      "description": "Canonical 3; total attempts = max_retry + 1.",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "routing": {
+      "additionalProperties": false,
+      "properties": {
+        "exhausted": {
+          "const": "DEAD_LETTER",
+          "type": "string"
+        },
+        "non_retryable": {
+          "const": "MANUAL_REVIEW",
+          "type": "string"
+        }
+      },
+      "required": [
+        "exhausted",
+        "non_retryable"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "max_retry",
+    "backoff",
+    "classification",
+    "authorization",
+    "routing",
+    "deadline_guard"
+  ],
+  "title": "RetryPolicy",
+  "type": "object"
+}

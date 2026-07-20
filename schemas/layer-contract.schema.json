@@ -1,0 +1,74 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/vision/layer-contract.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Per-layer capability and dependency contract for one of the eight logical layers. Owner: 1.3.3. A layer depends only on layer id-1; only the Rendering layer (id 5) may be provider_aware.",
+  "properties": {
+    "consumes": {
+      "description": "Artifact this layer consumes from its predecessor. Owner: 1.3.3.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "depends_on": {
+      "description": "Identifier of the sole layer this layer depends on; equals id-1. The Knowledge layer (id 1) has no predecessor and shall set null. Owner: 1.3.3.",
+      "maximum": 7,
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "id": {
+      "description": "Ordinal layer identifier, 1..8. Owner: 1.3.3.",
+      "maximum": 8,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "name": {
+      "description": "Human-readable layer name. Owner: 1.3.3.",
+      "enum": [
+        "Knowledge",
+        "Narrative",
+        "Screenplay",
+        "Direction",
+        "Rendering",
+        "Composition",
+        "Validation",
+        "Publishing"
+      ],
+      "type": "string"
+    },
+    "produces": {
+      "description": "Artifact this layer produces. Owner: 1.3.3.",
+      "enum": [
+        "Structured Article Model",
+        "Story Model",
+        "Screenplay",
+        "Shot Plan",
+        "Visual Assets",
+        "Master Video",
+        "Approved Build",
+        "Distributable Package"
+      ],
+      "type": "string"
+    },
+    "provider_aware": {
+      "default": false,
+      "description": "Whether the layer may be aware of external rendering providers. Only the Rendering layer (id 5) may set true. Owner: 1.3.3.",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "consumes",
+    "produces",
+    "depends_on",
+    "provider_aware"
+  ],
+  "title": "Layer Contract",
+  "type": "object"
+}

@@ -1,0 +1,12 @@
+name: Test Insynergy Cinematic Platform
+description: Compile and run the deterministic platform test suite
+runs:
+  using: composite
+  steps:
+    - name: Compile Python sources
+      shell: bash
+      run: PYTHONPATH=src python3 -m compileall -q src
+    - name: Run unit and integration tests
+      shell: bash
+      run: PYTHONPATH=src python3 -m unittest discover -s tests -v
+

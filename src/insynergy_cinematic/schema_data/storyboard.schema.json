@@ -1,0 +1,120 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/shot/storyboard.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ArtifactEnvelope"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "shots": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "blocking": {
+                "type": "object"
+              },
+              "camera": {
+                "type": "object"
+              },
+              "continuity_group": {
+                "type": "string"
+              },
+              "emotion": {
+                "type": "object"
+              },
+              "focal_subject": {
+                "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/RefId"
+              },
+              "frame": {
+                "additionalProperties": false,
+                "properties": {
+                  "composition": {
+                    "enum": [
+                      "rule_of_thirds",
+                      "centered",
+                      "leading_lines",
+                      "symmetry",
+                      "negative_space"
+                    ],
+                    "type": "string"
+                  },
+                  "depth": {
+                    "enum": [
+                      "deep_focus",
+                      "shallow_focus",
+                      "flat"
+                    ],
+                    "type": "string"
+                  },
+                  "lighting": {
+                    "enum": [
+                      "low_key",
+                      "high_key",
+                      "natural",
+                      "silhouette",
+                      "rim"
+                    ],
+                    "type": "string"
+                  },
+                  "palette": {
+                    "enum": [
+                      "graphite",
+                      "amber",
+                      "steel",
+                      "monochrome",
+                      "warm",
+                      "cool"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "composition",
+                  "lighting",
+                  "palette",
+                  "depth"
+                ],
+                "type": "object"
+              },
+              "shot_id": {
+                "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ShotId"
+              },
+              "shot_purpose": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "visual_notes": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "shot_id",
+              "frame",
+              "focal_subject",
+              "camera",
+              "blocking",
+              "emotion",
+              "shot_purpose"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "storyboard_id": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/StoryboardId"
+        }
+      },
+      "required": [
+        "storyboard_id",
+        "shots"
+      ],
+      "type": "object"
+    }
+  ],
+  "description": "Technology-free visual frame plan (Owner 4.1.6; ingest 5.1.4).",
+  "title": "Storyboard",
+  "unevaluatedProperties": false
+}

@@ -1,0 +1,34 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/shot/shot-metrics.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Embedded plan-level counts and strategy ratios (Owner 4.1.13).",
+  "properties": {
+    "animated_ratio": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Ratio"
+    },
+    "average_duration": {
+      "minimum": 0,
+      "type": "number"
+    },
+    "graphics_ratio": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Ratio"
+    },
+    "runway_ratio": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Ratio"
+    },
+    "shots": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "shots",
+    "average_duration",
+    "runway_ratio",
+    "animated_ratio",
+    "graphics_ratio"
+  ],
+  "title": "Shot Metrics",
+  "type": "object"
+}

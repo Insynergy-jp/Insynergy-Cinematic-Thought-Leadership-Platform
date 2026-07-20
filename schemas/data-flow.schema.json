@@ -1,0 +1,90 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/vision/data-flow.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Typed adjacency graph of the pipeline. Owner: 1.3.2. Render Strategy is the sole branch point; FFmpeg Composer is the sole convergence point.",
+  "properties": {
+    "edges": {
+      "description": "Directed, typed edges of the pipeline graph. Owner: 1.3.2.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "description": "Source component. Owner: 1.3.2.",
+            "enum": [
+              "Article Loader",
+              "Argument Extractor",
+              "Dramatic Premise Engine",
+              "Story Development",
+              "Three Act Structure",
+              "Screenplay Engine",
+              "Shot Planner",
+              "Render Strategy",
+              "Animated Assets",
+              "Runway Provider",
+              "FFmpeg Composer",
+              "Quality Gates",
+              "Human Approval",
+              "Publish Package"
+            ],
+            "type": "string"
+          },
+          "payload": {
+            "description": "Typed payload carried by the edge. Owner: 1.3.2.",
+            "enum": [
+              "structured_article_model",
+              "extracted_argument",
+              "dramatic_premise",
+              "developed_story",
+              "three_act_model",
+              "screenplay",
+              "shot_plan",
+              "render_routing",
+              "visual_assets",
+              "master_video",
+              "validated_build",
+              "approved_build"
+            ],
+            "type": "string"
+          },
+          "to": {
+            "description": "Destination component. Owner: 1.3.2.",
+            "enum": [
+              "Article Loader",
+              "Argument Extractor",
+              "Dramatic Premise Engine",
+              "Story Development",
+              "Three Act Structure",
+              "Screenplay Engine",
+              "Shot Planner",
+              "Render Strategy",
+              "Animated Assets",
+              "Runway Provider",
+              "FFmpeg Composer",
+              "Quality Gates",
+              "Human Approval",
+              "Publish Package"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "payload"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    }
+  },
+  "required": [
+    "edges"
+  ],
+  "title": "Data Flow",
+  "type": "object"
+}

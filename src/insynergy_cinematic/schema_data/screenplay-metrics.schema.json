@@ -1,0 +1,36 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/screenplay-metrics.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Embedded quantitative metrics. Owner: 3.1.8.",
+  "properties": {
+    "action_ratio": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Ratio"
+    },
+    "average_scene_duration": {
+      "maximum": 10,
+      "minimum": 4,
+      "type": "number"
+    },
+    "continuity_score": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Score"
+    },
+    "dialogue_ratio": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Ratio"
+    },
+    "scene_count": {
+      "maximum": 12,
+      "minimum": 8,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "scene_count",
+    "dialogue_ratio",
+    "action_ratio",
+    "average_scene_duration",
+    "continuity_score"
+  ],
+  "title": "ScreenplayMetrics",
+  "type": "object"
+}

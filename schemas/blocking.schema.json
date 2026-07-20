@@ -1,0 +1,90 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/shot/blocking.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Observable movement, emotion arc, gaze and breathing per shot (Owner 4.1.5).",
+  "properties": {
+    "shots": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "blocking": {
+            "additionalProperties": {
+              "additionalProperties": false,
+              "properties": {
+                "action": {
+                  "type": "string"
+                },
+                "end": {
+                  "type": "string"
+                },
+                "start": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "start",
+                "action",
+                "end"
+              ],
+              "type": "object"
+            },
+            "description": "Map of CHARACTER token to a single movement beat.",
+            "type": "object"
+          },
+          "breathing": {
+            "type": "string"
+          },
+          "emotion": {
+            "additionalProperties": false,
+            "properties": {
+              "after": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "before": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "before",
+              "after"
+            ],
+            "type": "object"
+          },
+          "eyes": {
+            "additionalProperties": false,
+            "properties": {
+              "focus": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "focus"
+            ],
+            "type": "object"
+          },
+          "shot_id": {
+            "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ShotId"
+          }
+        },
+        "required": [
+          "shot_id",
+          "blocking",
+          "emotion",
+          "eyes",
+          "breathing"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "shots"
+  ],
+  "title": "Blocking",
+  "type": "object"
+}

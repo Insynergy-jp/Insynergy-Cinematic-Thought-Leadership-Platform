@@ -1,0 +1,32 @@
+{
+  "schema_version": "2.0",
+  "profile": "preview",
+  "deterministic": true,
+  "render": {
+    "provider": "local",
+    "max_parallel_shots": 4,
+    "max_attempts": 3,
+    "quality_threshold": 0.9,
+    "budget_usd": 20.0,
+    "estimate_before_submission": true,
+    "preview": {
+      "width": 1280,
+      "height": 720,
+      "frame_rate": 24,
+      "max_duration_seconds": 5
+    },
+    "final": {
+      "width": 1920,
+      "height": 1080,
+      "frame_rate": 24,
+      "max_duration_seconds": 10
+    }
+  },
+  "story": {
+    "concept_ratio_max": 0.2,
+    "supporting_role_max": 3
+  },
+  "quality": {
+    "fail_closed": true
+  }
+}

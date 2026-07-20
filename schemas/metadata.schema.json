@@ -1,0 +1,145 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/render/metadata.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ArtifactEnvelope"
+    }
+  ],
+  "description": "Build/render provenance and lineage index. Owner: 5.1.4.",
+  "properties": {
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "content_hash": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+    },
+    "generated_at": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+    },
+    "input_lineage": {
+      "description": "Exact inputs consumed, by verified content hash (RIO-304, RIO-308).",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_ref": {
+            "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ApprovalRef"
+          },
+          "artifact": {
+            "description": "e.g. shot-list.json.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "content_hash": {
+            "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash",
+            "description": "Verified at the precondition gate."
+          },
+          "producer": {
+            "description": "Upstream engine.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifact",
+          "content_hash",
+          "producer",
+          "approval_ref"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "output_index": {
+      "additionalProperties": false,
+      "description": "The sealed output set.",
+      "properties": {
+        "asset_directories": {
+          "description": "video_assets/ preview_assets/ thumbnail_assets/.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "render_manifest": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+        },
+        "render_queue": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+        },
+        "render_results": {
+          "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+        }
+      },
+      "required": [
+        "render_manifest",
+        "render_results",
+        "render_queue",
+        "asset_directories"
+      ],
+      "type": "object"
+    },
+    "producer": {
+      "additionalProperties": false,
+      "properties": {
+        "component": {
+          "const": "RenderingPlatform",
+          "type": "string"
+        },
+        "version": {
+          "description": "Rendering platform version.",
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "component",
+        "version"
+      ],
+      "type": "object"
+    },
+    "provider_versions": {
+      "description": "Provider + model versions used.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "provider": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "provider_version": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "provider_version"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    },
+    "sealed": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "schema_version",
+    "build_id",
+    "generated_at",
+    "sealed",
+    "content_hash",
+    "producer",
+    "input_lineage",
+    "provider_versions",
+    "output_index"
+  ],
+  "title": "RenderMetadata",
+  "type": "object",
+  "unevaluatedProperties": false
+}

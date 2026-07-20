@@ -1,0 +1,97 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v2.0/story/dramatic-premise.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json"
+    }
+  ],
+  "description": "One-paragraph, character-first dramatic premise. Owner 2.1.3.",
+  "properties": {
+    "build_id": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/BuildId"
+    },
+    "concept_first": {
+      "const": false,
+      "type": "boolean"
+    },
+    "content_hash": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/ContentHash"
+    },
+    "decision_required": {
+      "const": true,
+      "type": "boolean"
+    },
+    "generated_at": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/Iso8601"
+    },
+    "institutional_tension_present": {
+      "const": true,
+      "type": "boolean"
+    },
+    "irreversible_deadline_present": {
+      "const": true,
+      "type": "boolean"
+    },
+    "paragraph_count": {
+      "const": 1,
+      "type": "integer"
+    },
+    "premise": {
+      "additionalProperties": false,
+      "properties": {
+        "discovery": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "institutional_tension": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "irreversible_deadline": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "protagonist_situation": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "required_decision": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "protagonist_situation",
+        "discovery",
+        "institutional_tension",
+        "irreversible_deadline",
+        "required_decision"
+      ],
+      "type": "object"
+    },
+    "protagonist_present": {
+      "const": true,
+      "type": "boolean"
+    },
+    "schema_version": {
+      "$ref": "https://schemas.insynergy.co/cttp/v2.0/common/defs.schema.json#/$defs/SchemaVersion"
+    }
+  },
+  "required": [
+    "schema_version",
+    "build_id",
+    "generated_at",
+    "content_hash",
+    "premise",
+    "paragraph_count",
+    "protagonist_present",
+    "institutional_tension_present",
+    "irreversible_deadline_present",
+    "decision_required",
+    "concept_first"
+  ],
+  "title": "DramaticPremise",
+  "type": "object",
+  "unevaluatedProperties": false
+}
