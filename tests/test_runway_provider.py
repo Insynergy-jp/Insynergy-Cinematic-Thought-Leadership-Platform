@@ -105,7 +105,7 @@ class RunwayProviderTests(unittest.TestCase):
             self.assertEqual(submitted.get_method(), "POST")
             self.assertEqual(
                 submitted.full_url,
-                "https://api.dev.runwayml.com/v1/text_to_video",
+                "https://api.dev.runwayml.com/v1/image_to_video",
             )
             self.assertEqual(timeout, 30)
             headers = dict(submitted.header_items())
@@ -227,7 +227,7 @@ class RunwayProviderTests(unittest.TestCase):
 
     def test_http_retryability_and_health_endpoint(self) -> None:
         too_many_requests = urllib.error.HTTPError(
-            "https://api.dev.runwayml.com/v1/text_to_video",
+            "https://api.dev.runwayml.com/v1/image_to_video",
             429,
             "Too Many Requests",
             {},

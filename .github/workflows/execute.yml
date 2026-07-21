@@ -113,6 +113,20 @@ jobs:
           fi
           PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" execute "$BUILD_ID" > execution-result.json
           python3 -c 'import json; value=json.load(open("execution-result.json")); assert value["state"] == "READY"'
+      - name: Upload safe execution diagnostics
+        if: failure()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: execution-diagnostics-${{ github.run_id }}
+          path: |
+            execution-result.json
+            .insynergy/builds/${{ inputs.build_id }}/manifest.json
+            .insynergy/builds/${{ inputs.build_id }}/artifacts/render_manifest.json
+            .insynergy/builds/${{ inputs.build_id }}/artifacts/render_results.json
+            .insynergy/providers/runway/jobs.json
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
       - name: Upload validated build
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
