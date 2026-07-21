@@ -40,4 +40,6 @@ Operation sequence:
 7. Run `Publish Approved Build` with the execution run ID and Build ID. `publication-approval` remains a separate approval barrier.
 8. Download `publication-<run_id>`. The Artifact root contains `master.mp4`, `<build_id>.zip`, `manifest.json`, and `publication-result.json`; no hidden directory navigation or nested ZIP extraction is required to play the Master.
 
+Preview execution limits paid generation to storyboard frames classified as `runway_video`. The remaining frames are rendered as deterministic, text-bearing local motion graphics. English narration is synthesized offline with `espeak-ng` and mixed into the Master without an API call. Composition validation rejects missing or silent audio and visually uniform placeholder video; an audio stream by itself is not sufficient to pass.
+
 Workflows use read-only repository permissions, pinned external Action SHAs, explicit timeouts, non-cancelling Build concurrency, and validated `workflow_dispatch` inputs. Required pull-request CI uses the fake review provider and never performs a live OpenAI call. Provider secrets remain confined to their own Environment and never cross the planning, rendering, or publication boundary.

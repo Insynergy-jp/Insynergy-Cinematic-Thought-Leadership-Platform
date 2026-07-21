@@ -24,9 +24,11 @@ jobs:
       - name: Install FFmpeg
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends ffmpeg
-      - name: Verify FFmpeg
-        run: ffmpeg -version | head -1
+          sudo apt-get install --yes --no-install-recommends espeak-ng ffmpeg fonts-dejavu-core
+      - name: Verify media toolchain
+        run: |
+          ffmpeg -version | head -1
+          espeak-ng --version | head -1
       - name: Test platform
         uses: ./.github/actions/test-platform
       - name: Verify workflow supply-chain policy

@@ -204,6 +204,7 @@ class RenderRequest:
     frame_rate: int
     provider: str
     strategy: str
+    visible_action: str = ""
     camera_parameters: dict[str, Any] = field(default_factory=dict)
     style_tokens: tuple[str, ...] = ()
     negative_style_tokens: tuple[str, ...] = ()

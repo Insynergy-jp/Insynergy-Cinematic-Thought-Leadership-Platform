@@ -91,6 +91,8 @@ def composition_gate(
         "frame_rate": validation["checks"]["frame_rate"],
         "duration": validation["checks"]["duration"],
         "audio_stream": validation["checks"]["audio"],
+        "audio_signal": validation["checks"]["audio_signal"],
+        "visual_content": validation["checks"]["visual_content"],
     }
     score = sum(checks.values()) / len(checks)
     return {

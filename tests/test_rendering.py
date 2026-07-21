@@ -1,11 +1,14 @@
 from pathlib import Path
 from copy import deepcopy
 import json
+import shutil
+import subprocess
 import tempfile
 import unittest
 
 from insynergy_cinematic.config import DEFAULT_CONFIG
-from insynergy_cinematic.errors import StateConflictError
+from insynergy_cinematic.errors import AssetValidationError, StateConflictError
+from insynergy_cinematic.media import AssetValidator
 from insynergy_cinematic.models import BuildState, RenderRequest
 from insynergy_cinematic.orchestrator import BuildOrchestrator
 from insynergy_cinematic.providers.runway import RunwayProvider
@@ -16,6 +19,50 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class RenderingTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg required")
+    def test_content_gate_rejects_silent_solid_placeholder(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            placeholder = Path(temporary) / "placeholder.mp4"
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-y",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "color=c=black:s=320x180:r=24:d=1",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "anullsrc=r=48000:cl=stereo:d=1",
+                    "-c:v",
+                    "libx264",
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-c:a",
+                    "aac",
+                    "-shortest",
+                    str(placeholder),
+                ],
+                check=True,
+            )
+
+            with self.assertRaises(AssetValidationError) as raised:
+                AssetValidator().validate(
+                    placeholder,
+                    width=320,
+                    height=180,
+                    frame_rate=24,
+                    duration_seconds=1,
+                    require_audio=True,
+                )
+
+            self.assertFalse(raised.exception.details["checks"]["audio_signal"])
+            self.assertFalse(raised.exception.details["checks"]["visual_content"])
+
     def test_exact_cache_key_changes_with_profile_and_provider(self) -> None:
         base = dict(shot_hash="sha256:a", prompt_hash="sha256:b", provider="local", provider_version="1", profile="preview")
         first = RenderCache.key(**base)
@@ -77,6 +124,14 @@ class RenderingTests(unittest.TestCase):
                 mismatched.execute(build_id)
             ready = orchestrator.execute(build_id)
             self.assertEqual(ready["state"], BuildState.READY.value)
+            composition_gate = ready["gates"]["composition_quality_gate"]
+            self.assertTrue(composition_gate["checks"]["visual_content"])
+            self.assertTrue(composition_gate["checks"]["audio_signal"])
+            self.assertGreater(composition_gate["validation"]["spatial_stddev"], 4.0)
+            self.assertGreater(composition_gate["validation"]["audio_rms_dbfs"], -45.0)
+            self.assertTrue(
+                ready["gates"]["narration_audio_quality_gate"]["checks"]["audio_non_silent"]
+            )
             master = Path(temporary) / ".insynergy" / "builds" / build_id / "output" / "master.mp4"
             self.assertTrue(master.is_file())
             orchestrator.approve(build_id, gate="publish", actor="test-operator")
