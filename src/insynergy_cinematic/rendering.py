@@ -104,8 +104,8 @@ class RenderingPlatform:
         self.quality_gate = quality_gate or RenderQualityGate(config.quality_threshold)
 
     def _provider_name(self, frame: dict[str, Any]) -> str:
-        strategy_provider = frame["render_strategy"]["provider"]
-        if strategy_provider == "runway":
+        strategy = frame["render_strategy"]["asset_class"]
+        if strategy == "runway_video":
             return self.config.provider
         return "local"
 

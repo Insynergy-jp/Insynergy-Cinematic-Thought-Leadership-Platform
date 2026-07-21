@@ -41,6 +41,15 @@ AR-MULTIPLE_PREMISES, AR-EARLY_CONCEPT_DISCLOSURE,
 AR-NON_OBSERVABLE_ACTION, AR-MISSING_SCENE_COVERAGE,
 AR-CONTINUITY_BREAK, AR-DECISION_BOUNDARY, AR-PROVIDER_LEAKAGE,
 AR-EXECUTION_INFEASIBLE. Other valid AR- codes must be non-blocking.
+
+Interpret provider confinement precisely. The canonical asset-class token
+`runway_video` is the provider-neutral generative-motion strategy mandated by
+ADR-563; the token alone is not provider leakage. A provider/model/API/
+credential field or implementation parameter in Story, Screenplay, Shot List,
+or Storyboard is leakage. Rendering feasibility must compare visible action
+and camera movement with the declared `execution_capability`, and must treat a
+signed Authorization Owner field as an observable assignment of decision
+authority and accountability.
 """.strip()
 
 

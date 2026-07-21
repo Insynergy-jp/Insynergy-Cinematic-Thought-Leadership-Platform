@@ -36,8 +36,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "timeout_seconds": 120,
         "max_input_bytes": 524288,
         "max_output_tokens": 16000,
-        "agent_version": "3.0.1",
-        "prompt_version": "agent-review-v1",
+        "agent_version": "3.0.2",
+        "prompt_version": "agent-review-v2",
         "allowed_models": ["gpt-5.6-sol"],
         "policy_version": "agent-review-policy/1",
     },
@@ -199,8 +199,8 @@ def load_config(
     allowed_models = tuple(str(value) for value in raw_allowed_models)
     if not review_model or not allowed_models or review_model not in allowed_models:
         raise ValidationError("OPENAI_MODEL_REVIEW is not allow-listed")
-    agent_version = str(agent_review.get("agent_version", "3.0.1"))
-    prompt_version = str(agent_review.get("prompt_version", "agent-review-v1"))
+    agent_version = str(agent_review.get("agent_version", "3.0.2"))
+    prompt_version = str(agent_review.get("prompt_version", "agent-review-v2"))
     policy_version = str(
         agent_review.get("policy_version", "agent-review-policy/1")
     )

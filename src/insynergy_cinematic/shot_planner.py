@@ -8,13 +8,20 @@ from .errors import QualityGateError, ValidationError
 
 
 SHOT_LANGUAGE = (
-    ("wide", "35mm", "static", "eye_level"),
-    ("medium", "50mm", "slow_push", "eye_level"),
-    ("close_up", "85mm", "static", "eye_level"),
-    ("insert", "65mm", "controlled_pan", "high_angle"),
-    ("medium_close_up", "75mm", "slow_push", "eye_level"),
-    ("wide", "35mm", "slow_pull", "eye_level"),
+    ("wide", "35mm", "eye_level"),
+    ("medium", "50mm", "eye_level"),
+    ("close_up", "85mm", "eye_level"),
+    ("insert", "65mm", "high_angle"),
+    ("medium_close_up", "75mm", "eye_level"),
+    ("wide", "35mm", "eye_level"),
 )
+
+STRATEGY_CAPABILITIES = {
+    "runway_video": "generative_natural_motion",
+    "animated_still": "static_live_action_tableau",
+    "motion_graphics": "designed_graphical_motion",
+    "title_card": "typographic_card",
+}
 
 
 class ShotPlanner:
@@ -36,7 +43,7 @@ class ShotPlanner:
         for scene in scenes:
             for position in range(2):
                 order += 1
-                framing, lens, movement, angle = SHOT_LANGUAGE[order - 1]
+                framing, lens, angle = SHOT_LANGUAGE[order - 1]
                 shot_id = f"{scene['scene_id']}-shot-{position + 1:02d}"
                 is_climax = scene["act"] == 3 and position == 0
                 if is_climax:
@@ -47,6 +54,7 @@ class ShotPlanner:
                     strategy = "title_card"
                 else:
                     strategy = "motion_graphics"
+                movement = "slow_push" if strategy == "runway_video" else "static"
                 action = scene["actions"][min(position, len(scene["actions"]) - 1)]
                 dialogue = scene["dialogue"][min(position, len(scene["dialogue"]) - 1)]["line"]
                 duration = scene["duration_seconds"] / 2
@@ -76,7 +84,7 @@ class ShotPlanner:
                     "character_continuity": continuity_keys,
                     "render_strategy": {
                         "asset_class": strategy,
-                        "provider": "runway" if strategy == "runway_video" else "local",
+                        "execution_capability": STRATEGY_CAPABILITIES[strategy],
                         "narrative_value": 1.0 if is_climax else 0.65,
                         "justification": (
                             "climactic human decision warrants generative motion"
@@ -190,10 +198,15 @@ class ShotPlanner:
             "blocking_observable": all(bool(shot["blocking"]["primary_action"]) for shot in shots),
             "strict_order": [shot["order"] for shot in shots] == list(range(1, len(shots) + 1)),
             "hybrid_rendering": 0 < runway_ratio <= 0.30,
+            "provider_neutral": all(
+                "provider" not in shot["render_strategy"] for shot in shots
+            ),
         }
         storyboard_checks = {
             "one_frame_per_shot": len(frames) == len(shots),
-            "all_frames_renderable": all(bool(frame["visible_action"]) for frame in frames),
+            "all_frames_renderable": all(
+                ShotPlanner._frame_renderable(frame) for frame in frames
+            ),
             "identity_injected": all(bool(frame["character_continuity"]) for frame in frames),
             "style_enforced": all(bool(frame["style"] and frame["forbidden_style"]) for frame in frames),
             "continuity_valid": True,
@@ -220,3 +233,24 @@ class ShotPlanner:
             },
             "score": min(shot_score, board_score),
         }
+
+    @staticmethod
+    def _frame_renderable(frame: dict[str, Any]) -> bool:
+        action = str(frame.get("visible_action", "")).casefold()
+        strategy = frame.get("render_strategy", {})
+        asset_class = strategy.get("asset_class")
+        capability = strategy.get("execution_capability")
+        movement = frame.get("camera", {}).get("movement")
+        if not action or asset_class not in STRATEGY_CAPABILITIES:
+            return False
+        if strategy.get("provider") is not None:
+            return False
+        if capability != STRATEGY_CAPABILITIES[asset_class]:
+            return False
+        if asset_class != "runway_video" and movement != "static":
+            return False
+        if asset_class == "title_card" and "title card reads:" not in action:
+            return False
+        if asset_class == "runway_video" and movement == "static":
+            return False
+        return True

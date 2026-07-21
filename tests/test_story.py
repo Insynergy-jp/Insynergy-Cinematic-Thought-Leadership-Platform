@@ -19,8 +19,13 @@ class StoryEngineTests(unittest.TestCase):
         self.assertEqual(first["three_act_structure"]["act_count"], 3)
         self.assertEqual(first["dramatic_question"]["resolved_in_act"], 3)
         self.assertTrue(first["story_quality_report"]["passed"])
+        protagonist = next(
+            character
+            for character in first["character_bible"]["characters"]
+            if character["role"] == "protagonist"
+        )
+        self.assertEqual(protagonist["name"], "Enterprise Risk Director")
 
 
 if __name__ == "__main__":
     unittest.main()
-
