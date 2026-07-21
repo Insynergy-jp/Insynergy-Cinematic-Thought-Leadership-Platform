@@ -194,10 +194,19 @@ class RenderingPlatform:
                     status = provider.get_status(job)
                     state = RenderState(status["state"])
                 if state != RenderState.COMPLETED:
-                    raise RenderingError(
+                    terminal_error = RenderingError(
                         f"Provider entered terminal state {state.value}",
                         render_task_id=request.render_task_id,
+                        details={
+                            key: status[key]
+                            for key in ("failure_code", "provider_task_id")
+                            if key in status
+                        },
                     )
+                    terminal_error.failure_class = str(
+                        status.get("failure_class", "permanent")
+                    )
+                    raise terminal_error
                 asset = self.build_root / "renders" / f"{request.shot_id}.mp4"
                 download = provider.download(job, asset)
                 validation = self.validator.validate(

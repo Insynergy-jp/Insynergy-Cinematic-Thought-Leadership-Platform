@@ -39,6 +39,25 @@ class ApprovalRequiredError(PlatformError):
     exit_code = 6
 
 
+class AgentReviewError(PlatformError):
+    code = "AGENT_REVIEW_FAILED"
+    exit_code = 7
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        error_class: str = "INTERNAL",
+        retryable: bool = False,
+        unavailable: bool = False,
+        details: dict | None = None,
+    ) -> None:
+        super().__init__(message, details=details)
+        self.error_class = error_class
+        self.retryable = retryable
+        self.unavailable = unavailable
+
+
 class StateConflictError(PlatformError):
     code = "STATE_CONFLICT"
     exit_code = 6

@@ -11,6 +11,11 @@ from pathlib import Path
 from typing import Any
 
 from .errors import NotFoundError, StateConflictError, ValidationError
+from .agent_review import (
+    build_report_validation_request,
+    validate_agent_review_report,
+    validate_review_approval_binding,
+)
 from .models import ArtifactEnvelope, BuildState
 from .schemas import validate_envelope
 from .util import atomic_write_json, canonical_json, content_hash, now_iso, read_json
@@ -168,6 +173,13 @@ class BuildRepository:
             "approvals": {},
             "render_tasks": {},
             "metrics": {},
+            "agent_review": {
+                "mode": "off",
+                "status": "DISABLED",
+                "review_key": None,
+                "report_ref": None,
+                "report_content_hash": None,
+            },
             "transitions": [
                 {
                     "previous_state": None,
@@ -252,12 +264,63 @@ class BuildRepository:
             raise NotFoundError(f"Artifact not found: {artifact_type}")
         return read_json(Path(reference["path"]))
 
+    def store_sealed_document(
+        self,
+        manifest: dict,
+        *,
+        artifact_type: str,
+        document: dict[str, Any],
+        artifact_id: str,
+    ) -> dict[str, Any]:
+        """Store a Part 9 sealed document that is not wrapped in ArtifactEnvelope."""
+        if artifact_type == "agent_review_report":
+            validate_agent_review_report(document)
+        elif artifact_type == "review_approval_binding":
+            validate_review_approval_binding(document)
+        else:
+            raise ValidationError(f"Unsupported sealed document: {artifact_type}")
+        existing = manifest.get("artifacts", {}).get(artifact_type)
+        if existing:
+            if existing.get("content_hash") != document["content_hash"]:
+                raise StateConflictError(
+                    f"Sealed document is immutable: {artifact_type}"
+                )
+            return self.load_artifact(manifest, artifact_type)
+        key, _cas_path = self.cas.put_json(document)
+        artifact_dir = self.build_dir(manifest["build_id"]) / "artifacts"
+        artifact_path = artifact_dir / f"{artifact_type}.json"
+        atomic_write_json(artifact_path, document)
+        manifest["artifacts"][artifact_type] = {
+            "artifact_id": artifact_id,
+            "content_hash": document["content_hash"],
+            "cas_ref": key,
+            "path": str(artifact_path),
+            "immutable": True,
+            "sealed_document": True,
+        }
+        return document
+
     def verify_artifacts(self, manifest: dict) -> None:
         for artifact_type, reference in manifest.get("artifacts", {}).items():
             path = Path(reference["path"])
             if not path.exists():
                 raise ValidationError(f"Missing artifact: {artifact_type}")
             document = read_json(path)
+            if reference.get("sealed_document") is True:
+                if artifact_type == "agent_review_report":
+                    request = build_report_validation_request(
+                        manifest, self, document.get("review_key", "")
+                    )
+                    validate_agent_review_report(document, request)
+                elif artifact_type == "review_approval_binding":
+                    validate_review_approval_binding(document)
+                else:
+                    raise ValidationError(
+                        f"Unknown sealed document artifact: {artifact_type}"
+                    )
+                if document.get("content_hash") != reference["content_hash"]:
+                    raise ValidationError(f"Artifact integrity failure: {artifact_type}")
+                continue
             validate_envelope(document, expected_type=artifact_type)
             actual = content_hash(document["data"])
             if actual != reference["content_hash"]:

@@ -43,6 +43,20 @@ class ApprovalDecision(StrEnum):
     REJECTED = "REJECTED"
 
 
+class AgentReviewMode(StrEnum):
+    OFF = "off"
+    REVIEW = "review"
+
+
+class AgentReviewStatus(StrEnum):
+    DISABLED = "DISABLED"
+    PENDING = "PENDING"
+    PASS = "PASS"
+    MANUAL_REVIEW_REQUIRED = "MANUAL_REVIEW_REQUIRED"
+    UNAVAILABLE = "UNAVAILABLE"
+    ERROR = "ERROR"
+
+
 class RenderState(StrEnum):
     CREATED = "CREATED"
     PLANNED = "PLANNED"
@@ -161,6 +175,12 @@ class ApprovalRecord:
     artifact_hash: str
     approved_at: str
     comment: str = ""
+    agent_review_mode: str = "off"
+    agent_review_report_hash: str | None = None
+    agent_disposition: str | None = None
+    agent_exception_code: str | None = None
+    agent_exception_rationale: str | None = None
+    agent_policy_version: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         value = asdict(self)

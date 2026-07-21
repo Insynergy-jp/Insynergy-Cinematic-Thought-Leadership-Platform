@@ -1,5 +1,6 @@
 {
   "schema_version": "2.0",
+  "platform_version": "3.0.0",
   "profile": "preview",
   "deterministic": true,
   "render": {
@@ -28,5 +29,18 @@
   },
   "quality": {
     "fail_closed": true
+  },
+  "agent_review": {
+    "mode": "off",
+    "model": "gpt-5.6-sol",
+    "reasoning_effort": "medium",
+    "trace_mode": "disabled",
+    "timeout_seconds": 120,
+    "max_input_bytes": 524288,
+    "max_output_tokens": 8000,
+    "agent_version": "3.0.0",
+    "prompt_version": "agent-review-v1",
+    "allowed_models": ["gpt-5.6-sol"],
+    "policy_version": "agent-review-policy/1"
   }
 }

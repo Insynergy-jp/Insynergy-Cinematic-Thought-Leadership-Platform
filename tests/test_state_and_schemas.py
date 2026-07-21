@@ -26,6 +26,10 @@ class StateAndSchemaTests(unittest.TestCase):
             self.assertEqual(count, len(SCHEMA_NAMES) + 2)
             self.assertTrue((Path(temporary) / "render-manifest.schema.json").is_file())
             self.assertTrue((Path(temporary) / "quality-gate-registry.schema.json").is_file())
+            self.assertTrue((Path(temporary) / "agent-review-report.schema.json").is_file())
+            self.assertTrue(
+                (Path(temporary) / "review-approval-binding.schema.json").is_file()
+            )
 
     def test_every_schema_reference_resolves(self) -> None:
         root = Path(__file__).resolve().parents[1] / "schemas"

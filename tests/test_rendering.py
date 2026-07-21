@@ -29,7 +29,7 @@ class RenderingTests(unittest.TestCase):
 
     def test_runway_mapping_is_deterministic_and_prompt_is_verbatim(self) -> None:
         provider = RunwayProvider(
-            base_url="https://provider.invalid", api_key="secret", model_id="configured-model"
+            base_url="https://provider.invalid", api_key="secret", model_id="gen4.5"
         )
         request = RenderRequest(
             render_task_id="render-task-1",
@@ -51,8 +51,10 @@ class RenderingTests(unittest.TestCase):
         first = provider.map_request(request)
         second = provider.map_request(request)
         self.assertEqual(first, second)
-        self.assertEqual(first["prompt_text"], request.assembled_prompt)
+        self.assertEqual(first["promptText"], request.assembled_prompt)
         self.assertEqual(first["duration"], 5)
+        self.assertEqual(first["ratio"], "1280:720")
+        self.assertNotIn("negative_prompt", first)
         self.assertNotIn("secret", json.dumps(first))
 
     def test_end_to_end_local_build_and_cache_reuse(self) -> None:
@@ -68,7 +70,7 @@ class RenderingTests(unittest.TestCase):
                 environ={
                     "RUNWAY_BASE_URL": "https://provider.invalid",
                     "RUNWAY_API_KEY": "secret",
-                    "RUNWAY_MODEL_GEN45": "configured-model",
+                    "RUNWAY_MODEL_GEN45": "gen4.5",
                 },
             )
             with self.assertRaises(StateConflictError):

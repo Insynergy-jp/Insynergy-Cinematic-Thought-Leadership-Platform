@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.insynergy.co/cttp/v2.1/review/review-approval-binding.schema.json",
+  "title": "ReviewApprovalBinding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "build_id",
+    "gate",
+    "approval_ref",
+    "mode",
+    "execution_plan_content_hash",
+    "agent_review_report_content_hash",
+    "agent_disposition",
+    "bound_at",
+    "content_hash"
+  ],
+  "properties": {
+    "schema_version": { "const": "2.1.0" },
+    "build_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "gate": { "const": "story_approval" },
+    "approval_ref": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "mode": { "enum": ["off", "review"] },
+    "execution_plan_content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "agent_review_report_content_hash": {
+      "type": ["string", "null"],
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "agent_disposition": {
+      "oneOf": [
+        { "type": "null" },
+        { "enum": ["PASS", "MANUAL_REVIEW_REQUIRED", "UNAVAILABLE", "ERROR"] }
+      ]
+    },
+    "bound_at": { "type": "string", "format": "date-time" },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "mode": { "const": "review" } } },
+      "then": {
+        "properties": {
+          "agent_review_report_content_hash": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "agent_disposition": {
+            "enum": ["PASS", "MANUAL_REVIEW_REQUIRED", "UNAVAILABLE", "ERROR"]
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "mode": { "const": "off" } } },
+      "then": {
+        "properties": {
+          "agent_review_report_content_hash": { "type": "null" },
+          "agent_disposition": { "type": "null" }
+        }
+      }
+    }
+  ]
+}
