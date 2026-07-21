@@ -22,9 +22,9 @@ on:
       agent_review_mode:
         description: Optional OpenAI Agents SDK planning review
         required: true
-        default: off
+        default: "off"
         type: choice
-        options: [off, review]
+        options: ["off", review]
 
 permissions:
   contents: read

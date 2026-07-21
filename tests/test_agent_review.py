@@ -18,6 +18,7 @@ from insynergy_cinematic.config import DEFAULT_CONFIG
 from insynergy_cinematic.errors import ApprovalRequiredError, ValidationError
 from insynergy_cinematic.models import BuildState
 from insynergy_cinematic.orchestrator import BuildOrchestrator
+from insynergy_cinematic.providers.openai_agents import _translate_provider_exception
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,6 +26,26 @@ ARTICLE = ROOT / "examples" / "decision-boundary.md"
 
 
 class AgentReviewTests(unittest.TestCase):
+    def test_provider_failures_are_classified_without_leaking_raw_output(self) -> None:
+        ModelBehaviorError = type("ModelBehaviorError", (Exception,), {})
+        sensitive = "sk-" + "x" * 32
+
+        invalid = _translate_provider_exception(
+            ModelBehaviorError(f"Invalid JSON when parsing {sensitive}")
+        )
+        self.assertIsNotNone(invalid)
+        self.assertEqual(invalid.error_class, "INVALID_STRUCTURED_OUTPUT")
+        self.assertNotIn(sensitive, invalid.message)
+
+        budget = _translate_provider_exception(
+            ModelBehaviorError(
+                "Responses stream ended with response.incomplete; "
+                "incomplete_details=max_output_tokens"
+            )
+        )
+        self.assertIsNotNone(budget)
+        self.assertEqual(budget.error_class, "BUDGET")
+
     def test_off_mode_preserves_existing_path_without_provider_call(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             provider = FakeAgentReviewProvider()

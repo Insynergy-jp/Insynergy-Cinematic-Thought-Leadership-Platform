@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from importlib.metadata import PackageNotFoundError, version
-from typing import Any
+from typing import Any, Literal
 
 from ..agent_review import (
     AGENT_REVIEW_AGENT_NAME,
@@ -65,6 +65,11 @@ class OpenAIAgentsReviewProvider:
                 retryable=True,
                 unavailable=True,
             ) from exc
+        except Exception as exc:
+            translated = _translate_provider_exception(exc)
+            if translated is not None:
+                raise translated from exc
+            raise
 
     async def _review(self, request: AgentReviewRequest) -> AgentReviewProviderResult:
         sdk = _load_sdk()
@@ -187,11 +192,22 @@ def _review_output_type() -> type[Any]:
         content_hash: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
         json_pointer: str = Field(max_length=1024)
 
+    DimensionCode = Literal[
+        "SOURCE_FIDELITY",
+        "DRAMATIC_COHERENCE",
+        "STRUCTURE_AND_CONCEPT",
+        "SCREENPLAY_OBSERVABILITY",
+        "VISUAL_COVERAGE",
+        "CONTINUITY",
+        "DECISION_BOUNDARY",
+        "EXECUTION_FEASIBILITY",
+    ]
+
     class Finding(BaseModel):
         model_config = ConfigDict(extra="forbid")
         code: str = Field(pattern=r"^AR-[A-Z0-9_]{3,64}$")
-        dimension: str
-        severity: str
+        dimension: DimensionCode
+        severity: Literal["INFO", "WARNING", "BLOCKING"]
         blocking: bool
         title: str = Field(min_length=1, max_length=200)
         rationale: str = Field(min_length=1, max_length=2000)
@@ -201,14 +217,14 @@ def _review_output_type() -> type[Any]:
 
     class DimensionResult(BaseModel):
         model_config = ConfigDict(extra="forbid")
-        code: str
+        code: DimensionCode
         score: float = Field(ge=0, le=1)
         passed: bool
         summary: str = Field(min_length=1, max_length=1000)
 
     class AgentReviewOutput(BaseModel):
         model_config = ConfigDict(extra="forbid")
-        status: str
+        status: Literal["PASS", "MANUAL_REVIEW_REQUIRED"]
         dimensions: list[DimensionResult] = Field(
             min_length=len(DIMENSION_CODES), max_length=len(DIMENSION_CODES)
         )
@@ -224,6 +240,36 @@ def _review_output_type() -> type[Any]:
     )
     AgentReviewOutput.__name__ = "AgentReviewOutput"
     return AgentReviewOutput
+
+
+def _translate_provider_exception(error: Exception) -> AgentReviewError | None:
+    """Convert SDK failures into stable, non-sensitive review evidence."""
+
+    error_name = type(error).__name__.casefold()
+    message = str(error).casefold()
+    if "modelrefusal" in error_name:
+        return AgentReviewError(
+            "Agent Review model refused to produce structured output",
+            error_class="INVALID_STRUCTURED_OUTPUT",
+        )
+    if "modelbehavior" in error_name or "validation" in error_name:
+        if "max_output_tokens" in message:
+            return AgentReviewError(
+                "Agent Review response exceeded the output token budget",
+                error_class="BUDGET",
+            )
+        if "response.failed" in message:
+            return AgentReviewError(
+                "Agent Review provider failed before producing structured output",
+                error_class="PROVIDER_UNAVAILABLE",
+                retryable=True,
+                unavailable=True,
+            )
+        return AgentReviewError(
+            "Agents SDK could not validate the structured review output",
+            error_class="INVALID_STRUCTURED_OUTPUT",
+        )
+    return None
 
 
 def _result_metadata(result: Any) -> tuple[dict[str, int], str | None]:
