@@ -13,7 +13,7 @@ from .errors import ValidationError
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "schema_version": "2.0",
-    "platform_version": "3.0.1",
+    "platform_version": "3.1.0",
     "profile": "preview",
     "deterministic": True,
     "render": {
@@ -28,6 +28,22 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     "story": {"concept_ratio_max": 0.2, "supporting_role_max": 3},
     "quality": {"fail_closed": True},
+    "narration": {
+        "provider": "offline",
+        "openai_model": "gpt-4o-mini-tts",
+        "openai_voice": "marin",
+        "openai_instructions": (
+            "Speak in a calm, authoritative, natural executive documentary style. "
+            "Use measured pacing, precise diction, restrained emotion, and brief pauses."
+        ),
+    },
+    "youtube": {
+        "video_bitrate": "8M",
+        "audio_bitrate": "384k",
+        "audio_sample_rate": 48000,
+        "integrated_loudness_lufs": -14.0,
+        "true_peak_db": -1.0,
+    },
     "agent_review": {
         "mode": "off",
         "model": "gpt-5.6-sol",
@@ -67,6 +83,15 @@ class PlatformConfig:
     concept_ratio_max: float
     supporting_role_max: int
     fail_closed: bool
+    narration_provider: str
+    narration_openai_model: str
+    narration_openai_voice: str
+    narration_openai_instructions: str
+    youtube_video_bitrate: str
+    youtube_audio_bitrate: str
+    youtube_audio_sample_rate: int
+    youtube_integrated_loudness_lufs: float
+    youtube_true_peak_db: float
     agent_review_mode: str
     agent_review_model: str
     agent_review_reasoning_effort: str
@@ -84,6 +109,7 @@ class PlatformConfig:
     runway_model: str | None = None
     api_token: str | None = None
     openai_api_key: str | None = None
+    openai_tts_api_key: str | None = None
 
     def render_profile(self, profile: str | None = None) -> RenderProfileConfig:
         selected = profile or self.profile
@@ -111,6 +137,7 @@ def load_config(
     config_path: Path | None = None,
     profile: str | None = None,
     provider: str | None = None,
+    narration_provider: str | None = None,
     agent_review_mode: str | None = None,
     environ: dict[str, str] | None = None,
 ) -> PlatformConfig:
@@ -125,12 +152,17 @@ def load_config(
     story = values.get("story", {})
     quality = values.get("quality", {})
     agent_review = values.get("agent_review", {})
+    narration = values.get("narration", {})
+    youtube = values.get("youtube", {})
     selected_profile = profile or values.get("profile", "preview")
     selected_provider = provider or environment.get(
         "INSYNERGY_RENDER_PROVIDER", render.get("provider", "local")
     )
     selected_agent_review_mode = agent_review_mode or environment.get(
         "INSYNERGY_AGENT_REVIEW_MODE", agent_review.get("mode", "off")
+    )
+    selected_narration_provider = narration_provider or environment.get(
+        "INSYNERGY_NARRATION_PROVIDER", narration.get("provider", "offline")
     )
     if selected_profile not in {"draft", "preview", "final"}:
         raise ValidationError(f"Unsupported build profile: {selected_profile}")
@@ -140,6 +172,31 @@ def load_config(
         raise ValidationError(
             f"Unsupported Agent Review mode: {selected_agent_review_mode}"
         )
+    if selected_narration_provider not in {"offline", "openai"}:
+        raise ValidationError(
+            f"Unsupported narration provider: {selected_narration_provider}"
+        )
+    narration_model = str(narration.get("openai_model", "gpt-4o-mini-tts"))
+    if narration_model != "gpt-4o-mini-tts":
+        raise ValidationError("narration.openai_model is not allow-listed")
+    narration_voice = str(narration.get("openai_voice", "marin"))
+    if narration_voice not in {
+        "alloy", "ash", "ballad", "coral", "echo", "fable", "nova",
+        "onyx", "sage", "shimmer", "verse", "marin", "cedar",
+    }:
+        raise ValidationError("narration.openai_voice is not allow-listed")
+    narration_instructions = str(narration.get("openai_instructions", "")).strip()
+    if not narration_instructions or len(narration_instructions.encode("utf-8")) > 2048:
+        raise ValidationError("narration.openai_instructions must be 1-2048 bytes")
+    youtube_sample_rate = int(youtube.get("audio_sample_rate", 48000))
+    if youtube_sample_rate != 48000:
+        raise ValidationError("youtube.audio_sample_rate must be 48000")
+    youtube_loudness = float(youtube.get("integrated_loudness_lufs", -14.0))
+    youtube_true_peak = float(youtube.get("true_peak_db", -1.0))
+    if not -24.0 <= youtube_loudness <= -12.0:
+        raise ValidationError("youtube.integrated_loudness_lufs is out of range")
+    if not -3.0 <= youtube_true_peak <= -0.5:
+        raise ValidationError("youtube.true_peak_db is out of range")
 
     def profile_config(name: str) -> RenderProfileConfig:
         raw = render.get(name, {})
@@ -220,6 +277,15 @@ def load_config(
         concept_ratio_max=float(story.get("concept_ratio_max", 0.2)),
         supporting_role_max=int(story.get("supporting_role_max", 3)),
         fail_closed=bool(quality.get("fail_closed", True)),
+        narration_provider=selected_narration_provider,
+        narration_openai_model=narration_model,
+        narration_openai_voice=narration_voice,
+        narration_openai_instructions=narration_instructions,
+        youtube_video_bitrate=str(youtube.get("video_bitrate", "8M")),
+        youtube_audio_bitrate=str(youtube.get("audio_bitrate", "384k")),
+        youtube_audio_sample_rate=youtube_sample_rate,
+        youtube_integrated_loudness_lufs=youtube_loudness,
+        youtube_true_peak_db=youtube_true_peak,
         agent_review_mode=selected_agent_review_mode,
         agent_review_model=review_model,
         agent_review_reasoning_effort=reasoning_effort,
@@ -237,4 +303,5 @@ def load_config(
         runway_model=environment.get("RUNWAY_MODEL_GEN45"),
         api_token=environment.get("INSYNERGY_API_TOKEN"),
         openai_api_key=environment.get("OPENAI_API_KEY"),
+        openai_tts_api_key=environment.get("OPENAI_TTS_API_KEY"),
     )

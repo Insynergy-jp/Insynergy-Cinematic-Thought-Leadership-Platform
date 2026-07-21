@@ -9,6 +9,8 @@ import os
 import shutil
 import subprocess
 import tempfile
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -131,6 +133,58 @@ class AssetValidator:
             "active_sample_ratio": round(active_ratio, 6),
         }
 
+    def _loudness_metrics(self, asset: Path) -> dict[str, Any]:
+        completed = subprocess.run(
+            [
+                self.ffmpeg_binary,
+                "-hide_banner",
+                "-nostats",
+                "-i",
+                str(asset),
+                "-map",
+                "0:a:0",
+                "-af",
+                "loudnorm=I=-14:TP=-1:LRA=7:print_format=json",
+                "-f",
+                "null",
+                "-",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        start = completed.stderr.rfind("{")
+        end = completed.stderr.rfind("}")
+        if completed.returncode or start < 0 or end <= start:
+            return {
+                "integrated_loudness_lufs": -120.0,
+                "true_peak_db": -120.0,
+                "loudness_target_met": False,
+            }
+        try:
+            report = json.loads(completed.stderr[start : end + 1])
+            integrated = float(report["input_i"])
+            true_peak = float(report["input_tp"])
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            return {
+                "integrated_loudness_lufs": -120.0,
+                "true_peak_db": -120.0,
+                "loudness_target_met": False,
+            }
+        return {
+            "integrated_loudness_lufs": integrated,
+            "true_peak_db": true_peak,
+            "loudness_target_met": -16.0 <= integrated <= -12.0 and true_peak <= -0.5,
+        }
+
+    @staticmethod
+    def _faststart(asset: Path) -> bool:
+        with asset.open("rb") as handle:
+            header = handle.read(4 * 1024 * 1024)
+        moov = header.find(b"moov")
+        mdat = header.find(b"mdat")
+        return moov >= 0 and (mdat < 0 or moov < mdat)
+
     def validate(
         self,
         asset: Path,
@@ -140,6 +194,7 @@ class AssetValidator:
         frame_rate: int,
         duration_seconds: float,
         require_audio: bool = False,
+        require_youtube_ready: bool = False,
     ) -> dict[str, Any]:
         if not asset.is_file() or asset.stat().st_size == 0:
             raise AssetValidationError("Rendered asset is missing or empty")
@@ -182,6 +237,32 @@ class AssetValidator:
             "audio_peak_dbfs": -120.0,
             "active_sample_ratio": 0.0,
         }
+        youtube_checks = {
+            "h264_high_profile": video.get("codec_name") == "h264"
+            and str(video.get("profile", "")).lower() == "high",
+            "progressive": str(video.get("field_order", "progressive"))
+            in {"progressive", "unknown"},
+            "yuv420p": video.get("pix_fmt") == "yuv420p",
+            "bt709": all(
+                video.get(field) == "bt709"
+                for field in ("color_space", "color_transfer", "color_primaries")
+            ),
+            "aac_stereo_48khz": bool(audio)
+            and audio.get("codec_name") == "aac"
+            and int(audio.get("sample_rate", 0)) == 48000
+            and int(audio.get("channels", 0)) == 2,
+            "faststart": self._faststart(asset),
+        }
+        loudness_metrics = (
+            self._loudness_metrics(asset)
+            if require_youtube_ready and audio
+            else {
+                "integrated_loudness_lufs": -120.0,
+                "true_peak_db": -120.0,
+                "loudness_target_met": not require_youtube_ready,
+            }
+        )
+        youtube_checks["loudness"] = loudness_metrics["loudness_target_met"]
         checks = {
             "decodable": True,
             "width": int(video.get("width", 0)) == width,
@@ -193,11 +274,19 @@ class AssetValidator:
             "audio": audio is not None if require_audio else True,
             "audio_signal": audio_metrics["audio_non_silent"] if require_audio else True,
             "visual_content": visual_metrics["visual_content_present"],
+            "youtube_delivery": all(youtube_checks.values())
+            if require_youtube_ready
+            else True,
         }
         if not all(checks.values()):
             raise AssetValidationError(
                 "Asset failed technical validation",
-                details={"checks": checks, "probe": probe},
+                details={
+                    "checks": checks,
+                    "youtube_checks": youtube_checks,
+                    "loudness": loudness_metrics,
+                    "probe": probe,
+                },
             )
         return {
             "passed": True,
@@ -209,6 +298,9 @@ class AssetValidator:
             "frame_rate": actual_rate,
             "asset_hash": file_hash(asset),
             "audio_stream_present": audio is not None,
+            "youtube_ready": all(youtube_checks.values()),
+            "youtube_checks": youtube_checks,
+            **loudness_metrics,
             **visual_metrics,
             **audio_metrics,
         }
@@ -296,7 +388,90 @@ class FFmpegComposer:
         }
 
 
-class OfflineNarrator:
+class _NarrationMixer:
+    def __init__(self, *, ffmpeg_binary: str = "ffmpeg") -> None:
+        self.ffmpeg_binary = ffmpeg_binary
+
+    def _mix_wavs(
+        self,
+        master: Path,
+        timeline: list[dict[str, Any]],
+        wav_paths: list[Path],
+        *,
+        duration_seconds: float,
+        integrated_loudness_lufs: float,
+        true_peak_db: float,
+        audio_bitrate: str,
+    ) -> None:
+        temporary_master = master.with_suffix(".narrated.mp4")
+        temporary_master.unlink(missing_ok=True)
+        command = [
+            self.ffmpeg_binary,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-i",
+            str(master),
+        ]
+        for wav_path in wav_paths:
+            command.extend(("-i", str(wav_path)))
+        filters: list[str] = []
+        labels: list[str] = []
+        for index, segment in enumerate(timeline, start=1):
+            start = max(0.0, float(segment["start_seconds"]))
+            end = min(duration_seconds, float(segment.get("end_seconds", duration_seconds)))
+            available = max(0.25, end - start)
+            fade_start = max(0.0, available - 0.12)
+            delay_ms = round(start * 1000)
+            label = f"narration{index}"
+            labels.append(f"[{label}]")
+            filters.append(
+                f"[{index}:a]aresample=48000,aformat=channel_layouts=stereo,"
+                f"atrim=duration={available},afade=t=out:st={fade_start}:d=0.12,"
+                f"adelay={delay_ms}:all=1,volume=1.0[{label}]"
+            )
+        filters.append(
+            "".join(labels)
+            + f"amix=inputs={len(labels)}:duration=longest:dropout_transition=0,"
+            + f"loudnorm=I={integrated_loudness_lufs}:TP={true_peak_db}:LRA=7,"
+            + f"apad,atrim=duration={duration_seconds}[narration]"
+        )
+        command.extend(
+            (
+                "-filter_complex",
+                ";".join(filters),
+                "-map",
+                "0:v:0",
+                "-map",
+                "[narration]",
+                "-c:v",
+                "copy",
+                "-c:a",
+                "aac",
+                "-b:a",
+                audio_bitrate,
+                "-ar",
+                "48000",
+                "-ac",
+                "2",
+                "-movflags",
+                "+faststart",
+                "-t",
+                str(duration_seconds),
+                str(temporary_master),
+            )
+        )
+        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+        if completed.returncode:
+            temporary_master.unlink(missing_ok=True)
+            raise ValidationError(
+                "Narration mix failed", details={"stderr": completed.stderr[-2000:]}
+            )
+        os.replace(temporary_master, master)
+
+
+class OfflineNarrator(_NarrationMixer):
     """Generate deterministic, zero-API-cost English narration and bind it to the Master."""
 
     def __init__(
@@ -305,7 +480,7 @@ class OfflineNarrator:
         ffmpeg_binary: str = "ffmpeg",
         speech_binary: str = "espeak-ng",
     ) -> None:
-        self.ffmpeg_binary = ffmpeg_binary
+        super().__init__(ffmpeg_binary=ffmpeg_binary)
         self.speech_binary = speech_binary
 
     def mix(
@@ -321,8 +496,6 @@ class OfflineNarrator:
             raise ValidationError("ffmpeg is required for narration mixing")
         if not shutil.which(self.speech_binary):
             raise ValidationError("espeak-ng is required for zero-cost narration")
-        temporary_master = master.with_suffix(".narrated.mp4")
-        temporary_master.unlink(missing_ok=True)
         with tempfile.TemporaryDirectory(prefix="insynergy-narration-") as temporary:
             root = Path(temporary)
             wav_paths: list[Path] = []
@@ -353,56 +526,330 @@ class OfflineNarrator:
                         details={"stderr": completed.stderr[-1000:]},
                     )
                 wav_paths.append(wav_path)
-            command = [self.ffmpeg_binary, "-hide_banner", "-loglevel", "error", "-y", "-i", str(master)]
-            for wav_path in wav_paths:
-                command.extend(("-i", str(wav_path)))
-            filters: list[str] = []
-            labels: list[str] = []
-            for index, segment in enumerate(timeline, start=1):
-                delay_ms = max(0, round(float(segment["start_seconds"]) * 1000))
-                label = f"narration{index}"
-                labels.append(f"[{label}]")
-                filters.append(
-                    f"[{index}:a]aresample=48000,aformat=channel_layouts=stereo,"
-                    f"adelay={delay_ms}:all=1,volume=1.0[{label}]"
-                )
-            filters.append(
-                "".join(labels)
-                + f"amix=inputs={len(labels)}:duration=longest:dropout_transition=0,"
-                + "loudnorm=I=-16:TP=-1.5:LRA=11,"
-                + f"apad,atrim=duration={duration_seconds}[narration]"
+            self._mix_wavs(
+                master,
+                timeline,
+                wav_paths,
+                duration_seconds=duration_seconds,
+                integrated_loudness_lufs=-16.0,
+                true_peak_db=-1.5,
+                audio_bitrate="192k",
             )
-            command.extend(
-                (
-                    "-filter_complex",
-                    ";".join(filters),
-                    "-map",
-                    "0:v:0",
-                    "-map",
-                    "[narration]",
-                    "-c:v",
-                    "copy",
-                    "-c:a",
-                    "aac",
-                    "-b:a",
-                    "192k",
-                    "-movflags",
-                    "+faststart",
-                    "-t",
-                    str(duration_seconds),
-                    str(temporary_master),
-                )
-            )
-            completed = subprocess.run(command, capture_output=True, text=True, check=False)
-            if completed.returncode:
-                temporary_master.unlink(missing_ok=True)
-                raise ValidationError(
-                    "Narration mix failed", details={"stderr": completed.stderr[-2000:]}
-                )
-        os.replace(temporary_master, master)
         return {
             "asset_hash": file_hash(master),
             "narration_engine": "espeak-ng-offline",
             "narration_segment_count": len(timeline),
             "narration_api_cost_usd": 0.0,
         }
+
+
+class OpenAITTSNarrator(_NarrationMixer):
+    """Create production narration with the OpenAI Speech API without retrying billable calls."""
+
+    API_URL = "https://api.openai.com/v1/audio/speech"
+
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        model: str = "gpt-4o-mini-tts",
+        voice: str = "marin",
+        instructions: str,
+        ffmpeg_binary: str = "ffmpeg",
+        timeout_seconds: int = 120,
+    ) -> None:
+        super().__init__(ffmpeg_binary=ffmpeg_binary)
+        if not api_key:
+            raise ValidationError("OPENAI_TTS_API_KEY is required for OpenAI narration")
+        if model != "gpt-4o-mini-tts":
+            raise ValidationError("OpenAI narration model is not allow-listed")
+        self.api_key = api_key
+        self.model = model
+        self.voice = voice
+        self.instructions = instructions
+        self.timeout_seconds = timeout_seconds
+
+    def _synthesize(self, text: str, destination: Path) -> None:
+        payload = json.dumps(
+            {
+                "model": self.model,
+                "voice": self.voice,
+                "input": text,
+                "instructions": self.instructions,
+                "response_format": "wav",
+            }
+        ).encode("utf-8")
+        request = urllib.request.Request(
+            self.API_URL,
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
+                audio = response.read()
+        except urllib.error.HTTPError as exc:
+            raise ValidationError(
+                "OpenAI narration request failed", details={"http_status": exc.code}
+            ) from exc
+        except (urllib.error.URLError, TimeoutError) as exc:
+            raise ValidationError(
+                "OpenAI narration request outcome is unknown; automatic retry is disabled"
+            ) from exc
+        if len(audio) < 44 or audio[:4] != b"RIFF" or audio[8:12] != b"WAVE":
+            raise ValidationError("OpenAI narration response is not a valid WAV file")
+        destination.write_bytes(audio)
+
+    def mix(
+        self,
+        master: Path,
+        timeline: list[dict[str, Any]],
+        *,
+        duration_seconds: float,
+        integrated_loudness_lufs: float = -14.0,
+        true_peak_db: float = -1.0,
+        audio_bitrate: str = "384k",
+    ) -> dict[str, Any]:
+        if not timeline:
+            raise ValidationError("Narration timeline must contain at least one segment")
+        if not shutil.which(self.ffmpeg_binary):
+            raise ValidationError("ffmpeg is required for narration mixing")
+        with tempfile.TemporaryDirectory(prefix="insynergy-openai-narration-") as temporary:
+            root = Path(temporary)
+            wav_paths: list[Path] = []
+            for index, segment in enumerate(timeline, start=1):
+                wav_path = root / f"segment-{index:02d}.wav"
+                self._synthesize(str(segment["text"]), wav_path)
+                wav_paths.append(wav_path)
+            self._mix_wavs(
+                master,
+                timeline,
+                wav_paths,
+                duration_seconds=duration_seconds,
+                integrated_loudness_lufs=integrated_loudness_lufs,
+                true_peak_db=true_peak_db,
+                audio_bitrate=audio_bitrate,
+            )
+        return {
+            "asset_hash": file_hash(master),
+            "narration_engine": "openai-speech-api",
+            "narration_model": self.model,
+            "narration_voice": self.voice,
+            "narration_segment_count": len(timeline),
+            "narration_billing": "metered",
+            "ai_generated_voice": True,
+        }
+
+
+class YouTubeMastering:
+    """Encode a final SDR master using YouTube's recommended delivery characteristics."""
+
+    def __init__(self, ffmpeg_binary: str = "ffmpeg") -> None:
+        self.ffmpeg_binary = ffmpeg_binary
+
+    def _loudnorm_filter(
+        self,
+        source: Path,
+        *,
+        integrated_loudness_lufs: float,
+        true_peak_db: float,
+    ) -> str:
+        completed = subprocess.run(
+            [
+                self.ffmpeg_binary,
+                "-hide_banner",
+                "-nostats",
+                "-i",
+                str(source),
+                "-map",
+                "0:a:0",
+                "-af",
+                (
+                    f"loudnorm=I={integrated_loudness_lufs}:TP={true_peak_db}:"
+                    "LRA=7:print_format=json"
+                ),
+                "-f",
+                "null",
+                "-",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        start = completed.stderr.rfind("{")
+        end = completed.stderr.rfind("}")
+        if completed.returncode or start < 0 or end <= start:
+            raise ValidationError("YouTube loudness analysis failed")
+        try:
+            report = json.loads(completed.stderr[start : end + 1])
+            measured = {
+                key: float(report[key])
+                for key in (
+                    "input_i",
+                    "input_tp",
+                    "input_lra",
+                    "input_thresh",
+                    "target_offset",
+                )
+            }
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise ValidationError("YouTube loudness analysis is invalid") from exc
+        if not all(math.isfinite(value) for value in measured.values()):
+            raise ValidationError("YouTube loudness analysis is non-finite")
+        return (
+            f"loudnorm=I={integrated_loudness_lufs}:TP={true_peak_db}:LRA=7:"
+            f"measured_I={measured['input_i']}:measured_TP={measured['input_tp']}:"
+            f"measured_LRA={measured['input_lra']}:"
+            f"measured_thresh={measured['input_thresh']}:"
+            f"offset={measured['target_offset']}:linear=true:print_format=summary"
+        )
+
+    def master(
+        self,
+        source: Path,
+        *,
+        width: int,
+        height: int,
+        frame_rate: int,
+        video_bitrate: str = "8M",
+        audio_bitrate: str = "384k",
+        audio_sample_rate: int = 48000,
+        integrated_loudness_lufs: float = -14.0,
+        true_peak_db: float = -1.0,
+    ) -> dict[str, Any]:
+        if not shutil.which(self.ffmpeg_binary):
+            raise ValidationError("ffmpeg is required for YouTube mastering")
+        destination = source.with_suffix(".youtube.mp4")
+        destination.unlink(missing_ok=True)
+        gop = max(1, frame_rate // 2)
+        loudnorm_filter = self._loudnorm_filter(
+            source,
+            integrated_loudness_lufs=integrated_loudness_lufs,
+            true_peak_db=true_peak_db,
+        )
+        command = [
+            self.ffmpeg_binary,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-i",
+            str(source),
+            "-map",
+            "0:v:0",
+            "-map",
+            "0:a:0",
+            "-vf",
+            (
+                f"scale={width}:{height}:flags=lanczos,setsar=1,format=yuv420p,"
+                "setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709"
+            ),
+            "-af",
+            loudnorm_filter,
+            "-map_metadata",
+            "-1",
+            "-metadata",
+            "creation_time=1970-01-01T00:00:00Z",
+            "-metadata",
+            "comment=This video contains an AI-generated narration voice.",
+            "-c:v",
+            "libx264",
+            "-profile:v",
+            "high",
+            "-level:v",
+            "4.0",
+            "-preset",
+            "slow",
+            "-b:v",
+            video_bitrate,
+            "-maxrate",
+            video_bitrate,
+            "-bufsize",
+            "16M",
+            "-g",
+            str(gop),
+            "-keyint_min",
+            str(gop),
+            "-sc_threshold",
+            "0",
+            "-bf",
+            "2",
+            "-flags",
+            "+cgop",
+            "-pix_fmt",
+            "yuv420p",
+            "-color_primaries",
+            "bt709",
+            "-color_trc",
+            "bt709",
+            "-colorspace",
+            "bt709",
+            "-c:a",
+            "aac",
+            "-b:a",
+            audio_bitrate,
+            "-ar",
+            str(audio_sample_rate),
+            "-ac",
+            "2",
+            "-movflags",
+            "+faststart",
+            str(destination),
+        ]
+        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+        if completed.returncode:
+            destination.unlink(missing_ok=True)
+            raise ValidationError(
+                "YouTube mastering failed", details={"stderr": completed.stderr[-2000:]}
+            )
+        os.replace(destination, source)
+        return {
+            "asset_hash": file_hash(source),
+            "delivery_profile": "youtube-1080p-sdr-v1",
+            "container": "mp4",
+            "video_codec": "h264-high",
+            "video_bitrate": video_bitrate,
+            "pixel_format": "yuv420p",
+            "color_space": "bt709",
+            "audio_codec": "aac-lc",
+            "audio_bitrate": audio_bitrate,
+            "audio_sample_rate": audio_sample_rate,
+            "faststart": True,
+        }
+
+
+def _srt_timestamp(seconds: float) -> str:
+    milliseconds = max(0, round(seconds * 1000))
+    hours, remainder = divmod(milliseconds, 3_600_000)
+    minutes, remainder = divmod(remainder, 60_000)
+    secs, millis = divmod(remainder, 1000)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
+
+
+def write_srt(
+    destination: Path,
+    timeline: list[dict[str, Any]],
+    *,
+    duration_seconds: float,
+) -> dict[str, Any]:
+    blocks: list[str] = []
+    for index, segment in enumerate(timeline, start=1):
+        start = max(0.0, float(segment["start_seconds"]))
+        end = min(duration_seconds, float(segment.get("end_seconds", duration_seconds)))
+        if end <= start:
+            raise ValidationError("Caption segment has an invalid time range")
+        text = str(segment["text"]).strip().replace("\r", " ").replace("\n", " ")
+        blocks.append(
+            f"{index}\n{_srt_timestamp(start)} --> {_srt_timestamp(end)}\n{text}\n"
+        )
+    atomic_write_text(destination, "\n".join(blocks))
+    return {
+        "caption_uri": str(destination.resolve()),
+        "caption_hash": file_hash(destination),
+        "caption_format": "srt",
+        "caption_language": "en",
+        "caption_segment_count": len(timeline),
+    }

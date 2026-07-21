@@ -23,6 +23,12 @@ on:
         default: local
         type: choice
         options: [local, runway]
+      narration_provider:
+        description: Must match the planning narration provider
+        required: true
+        default: offline
+        type: choice
+        options: [offline, openai]
       allow_agent_exception:
         description: Permit a human exception for a non-PASS Agent Review
         required: true
@@ -88,6 +94,8 @@ jobs:
           RUNWAY_API_KEY: ${{ secrets.RUNWAY_API_KEY }}
           RUNWAY_BASE_URL: ${{ vars.RUNWAY_BASE_URL }}
           RUNWAY_MODEL_GEN45: ${{ vars.RUNWAY_MODEL_GEN45 }}
+          NARRATION_PROVIDER: ${{ inputs.narration_provider }}
+          OPENAI_TTS_API_KEY: ${{ secrets.OPENAI_TTS_API_KEY }}
         run: |
           if [ "$RENDER_PROVIDER" = "runway" ]; then
             test -n "$RUNWAY_API_KEY" || { echo "RUNWAY_API_KEY environment secret is required" >&2; exit 3; }
@@ -95,6 +103,9 @@ jobs:
             test -n "$RUNWAY_MODEL_GEN45" || { echo "RUNWAY_MODEL_GEN45 environment variable is required" >&2; exit 2; }
             test "$RUNWAY_BASE_URL" = "https://api.dev.runwayml.com" || { echo "RUNWAY_BASE_URL must use the official Runway API origin" >&2; exit 2; }
             test "$RUNWAY_MODEL_GEN45" = "gen4.5" || { echo "RUNWAY_MODEL_GEN45 must be gen4.5" >&2; exit 2; }
+          fi
+          if [ "$NARRATION_PROVIDER" = "openai" ]; then
+            test -n "$OPENAI_TTS_API_KEY" || { echo "OPENAI_TTS_API_KEY environment secret is required" >&2; exit 3; }
           fi
       - name: Record environment approval and execute
         env:
@@ -105,15 +116,17 @@ jobs:
           RUNWAY_API_KEY: ${{ secrets.RUNWAY_API_KEY }}
           RUNWAY_BASE_URL: ${{ vars.RUNWAY_BASE_URL }}
           RUNWAY_MODEL_GEN45: ${{ vars.RUNWAY_MODEL_GEN45 }}
+          NARRATION_PROVIDER: ${{ inputs.narration_provider }}
+          OPENAI_TTS_API_KEY: ${{ secrets.OPENAI_TTS_API_KEY }}
           ALLOW_AGENT_EXCEPTION: ${{ inputs.allow_agent_exception }}
           AGENT_EXCEPTION_REASON: ${{ inputs.agent_exception_reason }}
         run: |
           if [ "$ALLOW_AGENT_EXCEPTION" = "true" ]; then
-            PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" approve "$BUILD_ID" --gate execution --actor "$APPROVER" --allow-agent-exception --agent-exception-reason "$AGENT_EXCEPTION_REASON"
+            PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --narration-provider "$NARRATION_PROVIDER" approve "$BUILD_ID" --gate execution --actor "$APPROVER" --allow-agent-exception --agent-exception-reason "$AGENT_EXCEPTION_REASON"
           else
-            PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" approve "$BUILD_ID" --gate execution --actor "$APPROVER"
+            PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --narration-provider "$NARRATION_PROVIDER" approve "$BUILD_ID" --gate execution --actor "$APPROVER"
           fi
-          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" execute "$BUILD_ID" > execution-result.json
+          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --narration-provider "$NARRATION_PROVIDER" execute "$BUILD_ID" > execution-result.json
           python3 -c 'import json; value=json.load(open("execution-result.json")); assert value["state"] == "READY"'
       - name: Upload safe execution diagnostics
         if: failure()

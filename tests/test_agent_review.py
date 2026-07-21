@@ -332,10 +332,16 @@ class AgentReviewTests(unittest.TestCase):
                 Path(temporary),
                 agent_review_mode="review",
                 review_provider=FakeAgentReviewProvider(),
-                environ={"OPENAI_API_KEY": "sk-test-secret-value-abcdefghijklmnopqrstuvwxyz"},
+                environ={
+                    "OPENAI_API_KEY": "sk-test-secret-value-abcdefghijklmnopqrstuvwxyz",
+                    "OPENAI_TTS_API_KEY": "tts-test-secret-value-abcdefghijklmnopqrstuvwxyz",
+                },
             )
             self.assertNotIn(
                 "sk-test-secret-value", json.dumps(orchestrator._config_snapshot())
+            )
+            self.assertNotIn(
+                "tts-test-secret-value", json.dumps(orchestrator._config_snapshot())
             )
 
     def test_tampered_report_is_rejected_before_execution(self) -> None:

@@ -23,6 +23,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", type=Path)
     parser.add_argument("--profile", choices=("draft", "preview", "final"))
     parser.add_argument("--provider", choices=("local", "runway"))
+    parser.add_argument("--narration-provider", choices=("offline", "openai"))
     parser.add_argument("--agent-review-mode", choices=("off", "review"))
     parser.add_argument("--compact", action="store_true", help="Emit compact JSON")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -89,6 +90,7 @@ def main(argv: list[str] | None = None) -> int:
             config_path=args.config,
             profile=args.profile,
             provider=args.provider,
+            narration_provider=args.narration_provider,
             agent_review_mode=args.agent_review_mode,
         )
         if args.command == "serve":

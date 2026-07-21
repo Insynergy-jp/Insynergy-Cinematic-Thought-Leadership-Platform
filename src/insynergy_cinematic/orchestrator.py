@@ -25,7 +25,13 @@ from .errors import (
     StateConflictError,
     ValidationError,
 )
-from .media import FFmpegComposer, OfflineNarrator
+from .media import (
+    FFmpegComposer,
+    OfflineNarrator,
+    OpenAITTSNarrator,
+    YouTubeMastering,
+    write_srt,
+)
 from .models import (
     AgentReviewStatus,
     ApprovalDecision,
@@ -42,7 +48,14 @@ from .screenplay import ScreenplayEngine
 from .shot_planner import ShotPlanner
 from .storage import BuildRepository
 from .story import StoryEngine
-from .util import PLATFORM_VERSION, content_hash, file_hash, now_iso, stable_id
+from .util import (
+    PLATFORM_VERSION,
+    atomic_write_text,
+    content_hash,
+    file_hash,
+    now_iso,
+    stable_id,
+)
 
 
 PLANNING_ARTIFACTS = {
@@ -90,6 +103,7 @@ class BuildOrchestrator:
         config_path: Path | None = None,
         profile: str | None = None,
         provider: str | None = None,
+        narration_provider: str | None = None,
         agent_review_mode: str | None = None,
         environ: dict[str, str] | None = None,
         review_provider: AgentReviewProvider | None = None,
@@ -100,6 +114,7 @@ class BuildOrchestrator:
             config_path=config_path,
             profile=profile,
             provider=provider,
+            narration_provider=narration_provider,
             agent_review_mode=agent_review_mode,
             environ=environ,
         )
@@ -130,6 +145,19 @@ class BuildOrchestrator:
                 "supporting_role_max": self.config.supporting_role_max,
             },
             "quality": {"fail_closed": self.config.fail_closed},
+            "narration": {
+                "provider": self.config.narration_provider,
+                "openai_model": self.config.narration_openai_model,
+                "openai_voice": self.config.narration_openai_voice,
+                "openai_instructions": self.config.narration_openai_instructions,
+            },
+            "youtube": {
+                "video_bitrate": self.config.youtube_video_bitrate,
+                "audio_bitrate": self.config.youtube_audio_bitrate,
+                "audio_sample_rate": self.config.youtube_audio_sample_rate,
+                "integrated_loudness_lufs": self.config.youtube_integrated_loudness_lufs,
+                "true_peak_db": self.config.youtube_true_peak_db,
+            },
             "agent_review": {
                 "mode": self.config.agent_review_mode,
                 "model": self.config.agent_review_model,
@@ -866,6 +894,10 @@ class BuildOrchestrator:
             return self._view(manifest)
         if state not in {BuildState.AWAITING_EXECUTION_APPROVAL, BuildState.PAUSED}:
             raise StateConflictError(f"Build cannot execute from {state.value}")
+        if self.config.narration_provider == "openai" and not self.config.openai_tts_api_key:
+            raise ValidationError(
+                "OPENAI_TTS_API_KEY is required before any paid rendering begins"
+            )
         approval = manifest.get("approvals", {}).get("execution")
         if not approval or approval.get("decision") != ApprovalDecision.APPROVED.value:
             raise ApprovalRequiredError("Execution approval is required")
@@ -1004,20 +1036,81 @@ class BuildOrchestrator:
             for scene_id in scene_order:
                 text = narration_by_scene.get(scene_id, "").strip()
                 if text:
+                    segment_start = scene_start + 0.65
+                    segment_end = scene_start + scene_durations[scene_id] - 0.35
                     narration_timeline.append(
                         {
                             "scene_id": scene_id,
-                            "start_seconds": scene_start + 0.65,
+                            "start_seconds": segment_start,
+                            "end_seconds": max(segment_start + 0.25, segment_end),
                             "text": text,
                         }
                     )
                 scene_start += scene_durations[scene_id]
-            narration_mix = OfflineNarrator().mix(
-                output,
-                narration_timeline,
-                duration_seconds=storyboard_duration,
-            )
+            if self.config.narration_provider == "openai":
+                narrator = OpenAITTSNarrator(
+                    api_key=self.config.openai_tts_api_key or "",
+                    model=self.config.narration_openai_model,
+                    voice=self.config.narration_openai_voice,
+                    instructions=self.config.narration_openai_instructions,
+                )
+                narration_mix = narrator.mix(
+                    output,
+                    narration_timeline,
+                    duration_seconds=storyboard_duration,
+                    integrated_loudness_lufs=(
+                        self.config.youtube_integrated_loudness_lufs
+                    ),
+                    true_peak_db=self.config.youtube_true_peak_db,
+                    audio_bitrate=self.config.youtube_audio_bitrate,
+                )
+            else:
+                narration_mix = OfflineNarrator().mix(
+                    output,
+                    narration_timeline,
+                    duration_seconds=storyboard_duration,
+                )
             composition.update(narration_mix)
+            captions_path = output.parent / "captions.en.srt"
+            composition.update(
+                write_srt(
+                    captions_path,
+                    narration_timeline,
+                    duration_seconds=storyboard_duration,
+                )
+            )
+            if self.config.profile == "final":
+                composition.update(
+                    YouTubeMastering().master(
+                        output,
+                        width=profile.width,
+                        height=profile.height,
+                        frame_rate=profile.frame_rate,
+                        video_bitrate=self.config.youtube_video_bitrate,
+                        audio_bitrate=self.config.youtube_audio_bitrate,
+                        audio_sample_rate=self.config.youtube_audio_sample_rate,
+                        integrated_loudness_lufs=(
+                            self.config.youtube_integrated_loudness_lufs
+                        ),
+                        true_peak_db=self.config.youtube_true_peak_db,
+                    )
+                )
+                article_data = self.repository.load_artifact(
+                    manifest, "structured_article"
+                )["data"]
+                disclosure_path = output.parent / "youtube-description.txt"
+                atomic_write_text(
+                    disclosure_path,
+                    f"{article_data['title']}\n\n"
+                    "Disclosure: This video contains an AI-generated narration voice.\n",
+                )
+                composition.update(
+                    {
+                        "youtube_description_uri": str(disclosure_path.resolve()),
+                        "youtube_description_hash": file_hash(disclosure_path),
+                        "ai_voice_disclosure_required": True,
+                    }
+                )
             self.repository.store_artifact(
                 manifest,
                 ArtifactEnvelope(
@@ -1041,17 +1134,36 @@ class BuildOrchestrator:
                 height=profile.height,
                 frame_rate=profile.frame_rate,
                 expected_duration=storyboard_duration,
+                youtube_ready=self.config.profile == "final",
             )
             manifest["gates"]["composition_quality_gate"] = report
             manifest["gates"]["narration_audio_quality_gate"] = {
                 "gate_id": "narration_audio_quality_gate",
-                "passed": report["validation"]["audio_non_silent"] is True,
-                "score": 1.0 if report["validation"]["audio_non_silent"] else 0.0,
+                "passed": report["validation"]["audio_non_silent"] is True
+                and (
+                    composition["narration_engine"] == "openai-speech-api"
+                    if self.config.narration_provider == "openai"
+                    else True
+                ),
+                "score": 1.0
+                if report["validation"]["audio_non_silent"]
+                and (
+                    composition["narration_engine"] == "openai-speech-api"
+                    if self.config.narration_provider == "openai"
+                    else True
+                )
+                else 0.0,
                 "threshold": 1.0,
                 "checks": {
                     "audio_stream_present": report["validation"]["audio_stream_present"],
                     "audio_non_silent": report["validation"]["audio_non_silent"],
+                    "production_voice": (
+                        composition["narration_engine"] == "openai-speech-api"
+                        if self.config.narration_provider == "openai"
+                        else True
+                    ),
                 },
+                "narration_engine": composition["narration_engine"],
                 "audio_rms_dbfs": report["validation"]["audio_rms_dbfs"],
                 "audio_peak_dbfs": report["validation"]["audio_peak_dbfs"],
                 "blocking": True,
@@ -1230,6 +1342,7 @@ class BuildOrchestrator:
 
     def health(self) -> dict[str, Any]:
         from importlib.util import find_spec
+        from shutil import which
 
         local = LocalVideoProvider(self.repository.root / "providers" / "local")
         local_health = local.health_check()
@@ -1247,11 +1360,26 @@ class BuildOrchestrator:
                 "credential_available": key_available,
                 "model": self.config.agent_review_model,
             }
+        if self.config.narration_provider == "openai":
+            narration_health = {
+                "status": "HEALTHY" if self.config.openai_tts_api_key else "DEGRADED",
+                "provider": "openai",
+                "credential_available": bool(self.config.openai_tts_api_key),
+                "model": self.config.narration_openai_model,
+                "voice": self.config.narration_openai_voice,
+            }
+        else:
+            narration_health = {
+                "status": "HEALTHY" if which("espeak-ng") else "DEGRADED",
+                "provider": "offline",
+                "binary_available": bool(which("espeak-ng")),
+            }
         return {
             "status": (
                 "HEALTHY"
                 if local_health["status"] == "HEALTHY"
                 and review_health["status"] in {"HEALTHY", "DISABLED"}
+                and narration_health["status"] == "HEALTHY"
                 else "DEGRADED"
             ),
             "version": PLATFORM_VERSION,
@@ -1259,6 +1387,7 @@ class BuildOrchestrator:
             "dependencies": {
                 "local_provider": local_health,
                 "agent_review": review_health,
+                "narration": narration_health,
             },
         }
 

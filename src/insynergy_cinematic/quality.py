@@ -74,6 +74,7 @@ def composition_gate(
     height: int,
     frame_rate: int,
     expected_duration: float,
+    youtube_ready: bool = False,
 ) -> dict[str, Any]:
     validation = AssetValidator().validate(
         master,
@@ -82,6 +83,7 @@ def composition_gate(
         frame_rate=frame_rate,
         duration_seconds=expected_duration,
         require_audio=True,
+        require_youtube_ready=youtube_ready,
     )
     checks = {
         "file_integrity": validation["checks"]["nonempty"],
@@ -93,6 +95,7 @@ def composition_gate(
         "audio_stream": validation["checks"]["audio"],
         "audio_signal": validation["checks"]["audio_signal"],
         "visual_content": validation["checks"]["visual_content"],
+        "youtube_delivery": validation["checks"]["youtube_delivery"],
     }
     score = sum(checks.values()) / len(checks)
     return {
