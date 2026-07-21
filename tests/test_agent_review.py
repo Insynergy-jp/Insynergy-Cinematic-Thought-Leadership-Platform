@@ -35,12 +35,28 @@ class AgentReviewTests(unittest.TestCase):
         ModelBehaviorError = type("ModelBehaviorError", (Exception,), {})
         sensitive = "sk-" + "x" * 32
 
-        invalid = _translate_provider_exception(
-            ModelBehaviorError(f"Invalid JSON when parsing {sensitive}")
-        )
+        model_error = ModelBehaviorError(f"Invalid JSON when parsing {sensitive}")
+        invalid = _translate_provider_exception(model_error)
         self.assertIsNotNone(invalid)
         self.assertEqual(invalid.error_class, "INVALID_STRUCTURED_OUTPUT")
         self.assertNotIn(sensitive, invalid.message)
+        self.assertIn("exception=ModelBehaviorError", invalid.message)
+
+        class SafeValidationError(Exception):
+            def errors(self, **_kwargs):
+                return [
+                    {
+                        "type": "literal_error",
+                        "loc": ("dimensions", 0, "code"),
+                        "input": sensitive,
+                    }
+                ]
+
+        model_error.__cause__ = SafeValidationError("contains " + sensitive)
+        diagnosed = _translate_provider_exception(model_error)
+        self.assertIsNotNone(diagnosed)
+        self.assertIn("literal_error@dimensions.0.code", diagnosed.message)
+        self.assertNotIn(sensitive, diagnosed.message)
 
         budget = _translate_provider_exception(
             ModelBehaviorError(

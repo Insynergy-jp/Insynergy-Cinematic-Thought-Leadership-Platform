@@ -265,11 +265,49 @@ def _translate_provider_exception(error: Exception) -> AgentReviewError | None:
                 retryable=True,
                 unavailable=True,
             )
+        diagnostic = _safe_validation_diagnostic(error)
         return AgentReviewError(
-            "Agents SDK could not validate the structured review output",
+            "Agents SDK could not validate the structured review output"
+            + (f" ({diagnostic})" if diagnostic else ""),
             error_class="INVALID_STRUCTURED_OUTPUT",
         )
     return None
+
+
+def _safe_validation_diagnostic(error: Exception) -> str | None:
+    """Return only validation types and schema locations, never model values."""
+
+    current: BaseException | None = error
+    visited: set[int] = set()
+    while current is not None and id(current) not in visited:
+        visited.add(id(current))
+        errors = getattr(current, "errors", None)
+        if callable(errors):
+            try:
+                entries = errors(
+                    include_url=False,
+                    include_context=False,
+                    include_input=False,
+                )
+            except TypeError:
+                entries = errors()
+            signatures: list[str] = []
+            for entry in entries[:8]:
+                if not isinstance(entry, dict):
+                    continue
+                error_type = str(entry.get("type", "validation_error"))[:80]
+                raw_location = entry.get("loc", ())
+                if isinstance(raw_location, (list, tuple)):
+                    location = ".".join(str(value)[:80] for value in raw_location)
+                else:
+                    location = str(raw_location)[:160]
+                signatures.append(
+                    f"{error_type}@{location or '<root>'}"
+                )
+            if signatures:
+                return "validation=" + ",".join(signatures)
+        current = current.__cause__ or current.__context__
+    return f"exception={type(error).__name__}"
 
 
 def _result_metadata(result: Any) -> tuple[dict[str, int], str | None]:
