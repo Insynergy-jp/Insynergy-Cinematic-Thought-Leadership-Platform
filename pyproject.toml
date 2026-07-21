@@ -13,7 +13,7 @@ authors = [{name = "Insynergy"}]
 dependencies = []
 
 [project.optional-dependencies]
-agent-review = ["openai-agents==0.16.0"]
+agent-review = ["openai-agents==0.16.0", "openai==2.44.0"]
 
 [project.scripts]
 insynergy-cinematic = "insynergy_cinematic.cli:main"

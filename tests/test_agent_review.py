@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 import time
+import tomllib
 import unittest
 
 from insynergy_cinematic.agent_review import (
@@ -26,6 +27,12 @@ ARTICLE = ROOT / "examples" / "decision-boundary.md"
 
 
 class AgentReviewTests(unittest.TestCase):
+    def test_agent_review_dependencies_pin_sdk_compatible_openai_client(self) -> None:
+        project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+        dependencies = project["project"]["optional-dependencies"]["agent-review"]
+        self.assertIn("openai-agents==0.16.0", dependencies)
+        self.assertIn("openai==2.44.0", dependencies)
+
     def test_live_defaults_version_the_expanded_structured_output_budget(self) -> None:
         review = DEFAULT_CONFIG["agent_review"]
         self.assertEqual(review["max_output_tokens"], 16000)
