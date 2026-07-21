@@ -23,6 +23,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", type=Path)
     parser.add_argument("--profile", choices=("draft", "preview", "final"))
     parser.add_argument("--provider", choices=("local", "runway"))
+    parser.add_argument("--runway-scope", choices=("hybrid", "all_shots"))
     parser.add_argument("--narration-provider", choices=("offline", "openai"))
     parser.add_argument("--agent-review-mode", choices=("off", "review"))
     parser.add_argument("--compact", action="store_true", help="Emit compact JSON")
@@ -90,6 +91,7 @@ def main(argv: list[str] | None = None) -> int:
             config_path=args.config,
             profile=args.profile,
             provider=args.provider,
+            runway_scope=args.runway_scope,
             narration_provider=args.narration_provider,
             agent_review_mode=args.agent_review_mode,
         )

@@ -49,7 +49,7 @@ class APIHandler(BaseHTTPRequestHandler):
             "error": error,
             "metadata": {
                 "api_version": "v2",
-                "server_version": "3.1.0",
+                "server_version": "3.2.0",
                 "occurred_at": now_iso(),
             },
         }

@@ -13,11 +13,13 @@ from .errors import ValidationError
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "schema_version": "2.0",
-    "platform_version": "3.1.0",
+    "platform_version": "3.2.0",
     "profile": "preview",
     "deterministic": True,
     "render": {
         "provider": "local",
+        "runway_scope": "hybrid",
+        "max_runway_credits": 360,
         "max_parallel_shots": 4,
         "max_attempts": 3,
         "quality_threshold": 0.9,
@@ -73,6 +75,8 @@ class PlatformConfig:
     profile: str
     deterministic: bool
     provider: str
+    runway_scope: str
+    max_runway_credits: int
     max_parallel_shots: int
     max_attempts: int
     quality_threshold: float
@@ -137,6 +141,7 @@ def load_config(
     config_path: Path | None = None,
     profile: str | None = None,
     provider: str | None = None,
+    runway_scope: str | None = None,
     narration_provider: str | None = None,
     agent_review_mode: str | None = None,
     environ: dict[str, str] | None = None,
@@ -158,6 +163,9 @@ def load_config(
     selected_provider = provider or environment.get(
         "INSYNERGY_RENDER_PROVIDER", render.get("provider", "local")
     )
+    selected_runway_scope = runway_scope or environment.get(
+        "INSYNERGY_RUNWAY_SCOPE", render.get("runway_scope", "hybrid")
+    )
     selected_agent_review_mode = agent_review_mode or environment.get(
         "INSYNERGY_AGENT_REVIEW_MODE", agent_review.get("mode", "off")
     )
@@ -168,6 +176,10 @@ def load_config(
         raise ValidationError(f"Unsupported build profile: {selected_profile}")
     if selected_provider not in {"local", "runway"}:
         raise ValidationError(f"Unsupported render provider: {selected_provider}")
+    if selected_runway_scope not in {"hybrid", "all_shots"}:
+        raise ValidationError(f"Unsupported Runway scope: {selected_runway_scope}")
+    if selected_runway_scope == "all_shots" and selected_provider != "runway":
+        raise ValidationError("all_shots Runway scope requires provider=runway")
     if selected_agent_review_mode not in {"off", "review"}:
         raise ValidationError(
             f"Unsupported Agent Review mode: {selected_agent_review_mode}"
@@ -216,6 +228,9 @@ def load_config(
     parallelism = int(render.get("max_parallel_shots", 4))
     if parallelism < 1:
         raise ValidationError("render.max_parallel_shots must be positive")
+    max_runway_credits = int(render.get("max_runway_credits", 360))
+    if max_runway_credits < 1:
+        raise ValidationError("render.max_runway_credits must be positive")
     reasoning_effort = environment.get(
         "OPENAI_REASONING_EFFORT",
         str(agent_review.get("reasoning_effort", "medium")),
@@ -267,6 +282,8 @@ def load_config(
         profile=selected_profile,
         deterministic=bool(values.get("deterministic", True)),
         provider=selected_provider,
+        runway_scope=selected_runway_scope,
+        max_runway_credits=max_runway_credits,
         max_parallel_shots=parallelism,
         max_attempts=int(render.get("max_attempts", 3)),
         quality_threshold=threshold,
