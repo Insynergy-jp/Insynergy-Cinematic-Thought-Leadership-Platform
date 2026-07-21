@@ -2,6 +2,7 @@ from pathlib import Path
 import unittest
 
 from insynergy_cinematic.article import load_article
+from insynergy_cinematic.models import Article
 from insynergy_cinematic.story import StoryEngine
 from insynergy_cinematic.util import canonical_json
 
@@ -25,6 +26,36 @@ class StoryEngineTests(unittest.TestCase):
             if character["role"] == "protagonist"
         )
         self.assertEqual(protagonist["name"], "Enterprise Risk Director")
+
+    def test_numeric_stakes_preserve_the_source_claim(self) -> None:
+        article = Article(
+            title="A 31-Second Correction",
+            body=(
+                "A security team saw an automated attack fail and adapt. "
+                "The corrective payload arrived 31 seconds after the failed action. "
+                "Those 31 seconds describe one failure-to-correction sequence, not a threshold. "
+                "A Chief Information Security Officer must assign containment authority before "
+                "an incident begins so reversible action can proceed without inventing approval facts."
+            ),
+        )
+
+        artifacts = StoryEngine().generate(article)
+
+        measurable_stake = artifacts["stakes"]["measurable_stakes"][0]
+        self.assertEqual(
+            measurable_stake,
+            "The corrective payload arrived 31 seconds after the failed action.",
+        )
+        self.assertNotIn("documented threshold", measurable_stake.casefold())
+
+    def test_logline_is_complete_without_mid_sentence_truncation(self) -> None:
+        article = load_article(ROOT / "articles" / "insights" / "jadepuffer-31-second-correction-cyber-defense-authority.md")
+
+        logline = StoryEngine().generate(article)["logline"]["logline"]
+
+        self.assertLessEqual(len(logline.split()), 50)
+        self.assertTrue(logline.endswith("becomes real."))
+        self.assertNotIn("will accept a.", logline)
 
 
 if __name__ == "__main__":
