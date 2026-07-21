@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "platform_version": "3.0.1",
+  "platform_version": "3.1.0",
   "profile": "preview",
   "deterministic": true,
   "render": {
@@ -29,6 +29,19 @@
   },
   "quality": {
     "fail_closed": true
+  },
+  "narration": {
+    "provider": "offline",
+    "openai_model": "gpt-4o-mini-tts",
+    "openai_voice": "marin",
+    "openai_instructions": "Speak in a calm, authoritative, natural executive documentary style. Use measured pacing, precise diction, restrained emotion, and brief pauses."
+  },
+  "youtube": {
+    "video_bitrate": "8M",
+    "audio_bitrate": "384k",
+    "audio_sample_rate": 48000,
+    "integrated_loudness_lufs": -14.0,
+    "true_peak_db": -1.0
   },
   "agent_review": {
     "mode": "off",

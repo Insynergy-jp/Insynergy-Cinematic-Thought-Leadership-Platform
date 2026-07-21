@@ -22,24 +22,25 @@ Configure the following values on the protected `render-approval` Environment:
 | Type | Name | Value |
 | --- | --- | --- |
 | Environment secret | `RUNWAY_API_KEY` | Runway API key |
+| Environment secret | `OPENAI_TTS_API_KEY` | Dedicated OpenAI project key for Speech API narration |
 | Environment variable | `RUNWAY_BASE_URL` | `https://api.dev.runwayml.com` |
 | Environment variable | `RUNWAY_MODEL_GEN45` | `gen4.5` |
 
-The Runway API key must be an Environment secret, not a repository secret, workflow input, repository file, repository variable, or command argument. The workflow exposes it only to provider validation and execution inside `render-approval`. GitHub masks the secret, and the Configuration Loader excludes it from the immutable Build snapshot, Manifest, Events, and Artifacts. `render-approval` must not contain `OPENAI_API_KEY`.
+The Runway and TTS API keys must be Environment secrets, not repository secrets, variables, workflow inputs, checked-in files, cache values, job outputs, or command arguments. The workflow exposes them only to their adapters inside `render-approval`; the Configuration Loader excludes both from the immutable Build snapshot, Manifest, Events, and Artifacts. `OPENAI_TTS_API_KEY` should be a dedicated project key for Speech API use. `render-approval` must not contain the Agents SDK credential named `OPENAI_API_KEY`.
 
 The adapter pins Runway API version `2024-11-06`. It submits to `/v1/text_to_video` or `/v1/image_to_video`, polls and cancels through `/v1/tasks/{id}`, and downloads the successful task's signed output URL without forwarding the API key. Accepted task IDs are persisted under the ignored `.insynergy/providers/runway/` runtime directory for client-side replay protection. An ambiguous submission timeout is never automatically retried because that could create a second billable task.
 
 Operation sequence:
 
-1. Run `Plan Article`; select `agent_review_mode: off` for compatibility or `review` for the Agents SDK review. The deterministic `plan` job receives no provider secret.
+1. Run `Plan Article`; select `agent_review_mode: off` for compatibility or `review` for the Agents SDK review. Select `narration_provider: offline` for zero-cost previews or `openai` for production narration. The deterministic `plan` job receives no provider secret.
 2. In `review`, the isolated `agent-review` job enters `planning-ai`, validates the sealed planning bundle, executes one typed model turn, validates all evidence pointers, and publishes the immutable `planning-<run_id>` artifact. `off` creates the same artifact without importing the SDK or resolving an OpenAI secret.
 3. Review the planning bundle, deterministic gate summary, Agent disposition, report hash, blocking finding codes, and evidence locations.
-4. Run `Execute Approved Plan` with the planning run ID, Build ID, identical Profile, and identical Provider. `render-approval` approval becomes the actor recorded by the platform and is bound to both the Execution Plan hash and Agent Review Report hash.
+4. Run `Execute Approved Plan` with the planning run ID, Build ID, identical Profile, Provider, and Narration Provider. `render-approval` approval becomes the actor recorded by the platform and is bound to both the Execution Plan hash and Agent Review Report hash.
 5. If disposition is not `PASS`, set `allow_agent_exception: true` and provide a non-empty `agent_exception_reason`. This records an attributable human exception. Missing reports, invalid schemas, unresolved evidence, and hash mismatches remain non-waivable.
 6. Review the validated Master and evidence artifact.
 7. Run `Publish Approved Build` with the execution run ID and Build ID. `publication-approval` remains a separate approval barrier.
-8. Download `publication-<run_id>`. The Artifact root contains `master.mp4`, `<build_id>.zip`, `manifest.json`, and `publication-result.json`; no hidden directory navigation or nested ZIP extraction is required to play the Master.
+8. Download `publication-<run_id>`. The Artifact root contains `master.mp4`, `<build_id>.zip`, `manifest.json`, and `publication-result.json`. Final-profile packages also contain `captions.en.srt` and `youtube-description.txt` with the required AI-voice disclosure.
 
-Preview execution limits paid generation to storyboard frames classified as `runway_video`. The remaining frames are rendered as deterministic, text-bearing local motion graphics. English narration is synthesized offline with `espeak-ng` and mixed into the Master without an API call. Composition validation rejects missing or silent audio and visually uniform placeholder video; an audio stream by itself is not sufficient to pass.
+Preview execution limits paid generation to storyboard frames classified as `runway_video`. The remaining frames are rendered as deterministic, text-bearing local motion graphics. `offline` narration uses `espeak-ng` without an API call. `openai` narration uses the Speech API with `gpt-4o-mini-tts` and the `marin` voice. Final-profile Masters are encoded as 1080p SDR H.264 High Profile, BT.709, 4:2:0, AAC stereo at 48 kHz, and Fast Start; the delivery gate fails closed if those characteristics are absent. Composition validation also rejects missing or silent audio and visually uniform placeholder video.
 
 Workflows use read-only repository permissions, pinned external Action SHAs, explicit timeouts, non-cancelling Build concurrency, and validated `workflow_dispatch` inputs. Required pull-request CI uses the fake review provider and never performs a live OpenAI call. Provider secrets remain confined to their own Environment and never cross the planning, rendering, or publication boundary.

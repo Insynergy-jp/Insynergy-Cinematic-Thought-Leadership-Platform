@@ -62,6 +62,7 @@ jobs:
       - name: Prepare browser-visible publication files
         env:
           BUILD_ID: ${{ inputs.build_id }}
+          BUILD_PROFILE: ${{ inputs.profile }}
         run: |
           PACKAGE_PATH=".insynergy/builds/${BUILD_ID}/package/${BUILD_ID}.zip"
           MASTER_PATH=".insynergy/builds/${BUILD_ID}/output/master.mp4"
@@ -74,6 +75,14 @@ jobs:
           install -m 0644 "$MASTER_PATH" publication-delivery/master.mp4
           install -m 0644 "$MANIFEST_PATH" publication-delivery/manifest.json
           install -m 0644 publication-result.json publication-delivery/publication-result.json
+          if [ "$BUILD_PROFILE" = "final" ]; then
+            CAPTIONS_PATH=".insynergy/builds/${BUILD_ID}/output/captions.en.srt"
+            DESCRIPTION_PATH=".insynergy/builds/${BUILD_ID}/output/youtube-description.txt"
+            test -s "$CAPTIONS_PATH"
+            test -s "$DESCRIPTION_PATH"
+            install -m 0644 "$CAPTIONS_PATH" publication-delivery/captions.en.srt
+            install -m 0644 "$DESCRIPTION_PATH" publication-delivery/youtube-description.txt
+          fi
       - name: Upload publication package and evidence
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
@@ -83,5 +92,7 @@ jobs:
             publication-delivery/master.mp4
             publication-delivery/manifest.json
             publication-delivery/publication-result.json
+            publication-delivery/captions.en.srt
+            publication-delivery/youtube-description.txt
           if-no-files-found: error
           retention-days: 90

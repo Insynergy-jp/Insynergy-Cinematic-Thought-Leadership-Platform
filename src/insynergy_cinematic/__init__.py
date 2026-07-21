@@ -3,4 +3,4 @@
 from .orchestrator import BuildOrchestrator
 
 __all__ = ["BuildOrchestrator"]
-__version__ = "3.0.1"
+__version__ = "3.1.0"
