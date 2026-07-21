@@ -6,6 +6,7 @@ import unittest
 from insynergy_cinematic.models import BuildState
 from insynergy_cinematic.orchestrator import BuildOrchestrator
 from insynergy_cinematic.prompt import PromptAssembler
+from insynergy_cinematic.shot_planner import ShotPlanner
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,6 +38,25 @@ class PlanningTests(unittest.TestCase):
             self.assertTrue(
                 all(shot["render_strategy"]["asset_class"] in allowed for shot in shots)
             )
+            self.assertTrue(
+                all("provider" not in shot["render_strategy"] for shot in shots)
+            )
+            self.assertTrue(
+                all(shot["render_strategy"]["execution_capability"] for shot in shots)
+            )
+            screenplay = orchestrator.repository.load_artifact(manifest, "screenplay")["data"]
+            resolution = screenplay["scenes"][2]
+            self.assertIn("Authorization Owner", resolution["actions"][0])
+            self.assertIn("signs the decision record", resolution["actions"][0])
+            storyboard = orchestrator.repository.load_artifact(manifest, "storyboard")["data"]
+            final_frame = storyboard["frames"][-1]
+            self.assertEqual(final_frame["render_strategy"]["asset_class"], "title_card")
+            self.assertEqual(final_frame["camera"]["movement"], "static")
+            self.assertIn("TITLE CARD READS:", final_frame["visible_action"].upper())
+            gate = orchestrator.repository.load_artifact(
+                manifest, "storyboard_gate_report"
+            )["data"]
+            self.assertTrue(gate["checks"]["all_frames_renderable"])
 
     def test_prompt_is_bound_to_storyboard(self) -> None:
         frame = {
@@ -57,6 +77,29 @@ class PlanningTests(unittest.TestCase):
         assembler.verify(prompt, frame)
         self.assertEqual(prompt["source_contract"], "storyboard_only")
         self.assertNotIn("article", prompt["prompt"].casefold())
+
+    def test_renderability_gate_rejects_capability_contradictions(self) -> None:
+        frame = {
+            "visible_action": "A title card reads: AUTHORIZATION OWNER — RISK DIRECTOR.",
+            "camera": {"movement": "static"},
+            "render_strategy": {
+                "asset_class": "title_card",
+                "execution_capability": "typographic_card",
+            },
+        }
+        self.assertTrue(ShotPlanner._frame_renderable(frame))
+
+        incompatible_camera = {
+            **frame,
+            "camera": {"movement": "slow_pull"},
+        }
+        self.assertFalse(ShotPlanner._frame_renderable(incompatible_camera))
+
+        provider_leak = {
+            **frame,
+            "render_strategy": {**frame["render_strategy"], "provider": "runway"},
+        }
+        self.assertFalse(ShotPlanner._frame_renderable(provider_leak))
 
 
 if __name__ == "__main__":

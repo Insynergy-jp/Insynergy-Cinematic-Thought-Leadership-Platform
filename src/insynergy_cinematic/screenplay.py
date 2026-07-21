@@ -54,8 +54,8 @@ class ScreenplayEngine:
                 "emotion_start": "control",
                 "emotion_end": "alarm",
                 "actions": [
-                    f"{protagonist['name']} scrolls to the final approval field.",
-                    "The owner field is blank. A countdown changes from 02:00 to 01:59.",
+                    f"{protagonist['name']} faces the final approval field on the review screen.",
+                    "The owner field is blank beside a countdown fixed at 01:59.",
                 ],
                 "dialogue": [
                     {
@@ -91,8 +91,8 @@ class ScreenplayEngine:
                 "emotion_start": "alarm",
                 "emotion_end": "doubt",
                 "actions": [
-                    f"{counterpart['name']} places a red deadline folder over the empty field.",
-                    f"{protagonist['name']} removes the folder and turns the approval screen toward the room.",
+                    f"A red deadline folder lies beside {counterpart['name']} and the empty owner field.",
+                    "The approval screen shows the blank owner field beside the deadline warning.",
                 ],
                 "dialogue": [
                     {
@@ -127,15 +127,26 @@ class ScreenplayEngine:
                 "emotion_start": "doubt",
                 "emotion_end": "resolve",
                 "actions": [
-                    f"{protagonist['name']} presses HOLD before the countdown reaches zero.",
-                    "On the glass board, they draw one line between recommendation and authority.",
+                    (
+                        f"{protagonist['name']} selects HOLD, enters their role as Authorization "
+                        "Owner, and signs the decision record."
+                    ),
+                    (
+                        f"A title card reads: AUTHORIZATION OWNER — {protagonist['name'].upper()}; "
+                        "ACCOUNTABILITY — RECORDED BEFORE EXECUTION."
+                    ),
                 ],
                 "dialogue": [
                     {
                         "character_id": protagonist["character_id"],
-                        "line": f"This is not a system error. It is {concept}.",
+                        "line": "I am the authorization owner. Execution remains on hold until I sign.",
+                        "purpose": "decision",
+                    },
+                    {
+                        "character_id": protagonist["character_id"],
+                        "line": f"Recommendation is not authorization. That is the {concept}.",
                         "purpose": "realization",
-                    }
+                    },
                 ],
                 "subtext": question,
                 "transition": "FADE OUT",
@@ -192,7 +203,10 @@ class ScreenplayEngine:
                     },
                     {
                         "scene_id": "scene-003",
-                        "text": f"The boundary is a human design choice: {story['concept_placement']['concept']}.",
+                        "text": (
+                            "Authority becomes legitimate when one human owner accepts it on the "
+                            f"record: {story['concept_placement']['concept']}."
+                        ),
                     },
                 ],
                 "throughline": True,

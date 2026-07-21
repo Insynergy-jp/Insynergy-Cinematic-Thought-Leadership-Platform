@@ -12,3 +12,4 @@ The failure becomes visible only near an irreversible deadline. Stopping the pro
 
 Decision Design makes this hidden structure explicit. A Decision Boundary separates recommendation, authorization, execution, and accountability before the next binding decision occurs. The institution must choose who owns each judgment; software cannot make that governance choice on its behalf.
 
+In the pending approval, the Enterprise Risk Director therefore selects HOLD, records their role as the Authorization Owner, and signs the decision record before execution can resume. That observable assignment makes one human accountable for accepting or rejecting the recommendation; the automated system remains a recommender, not the decision owner.

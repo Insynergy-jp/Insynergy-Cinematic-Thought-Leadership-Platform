@@ -66,6 +66,9 @@ def _score_theme(text: str) -> tuple[str, list[dict[str, Any]]]:
 
 def _protagonist(text: str) -> str:
     lowered = text.casefold()
+    for role, _keywords in PROTAGONISTS:
+        if role.casefold() in lowered:
+            return role
     scores = []
     for order, (role, keywords) in enumerate(PROTAGONISTS):
         scores.append((sum(lowered.count(word) for word in keywords), -order, role))
@@ -187,7 +190,10 @@ class StoryEngine:
                 "act": 3,
                 "name": "Resolution",
                 "purpose": "Resolve the dramatic question through a human decision.",
-                "event": f"The {protagonist} stops the approval and names the missing decision boundary.",
+                "event": (
+                    f"The {protagonist} stops the approval, records their role as Authorization "
+                    "Owner, and signs the decision record before execution can resume."
+                ),
                 "emotion": "resolve",
                 "concepts_allowed": True,
                 "concept": solution,
@@ -323,4 +329,3 @@ class StoryEngine:
             "forbidden_story_categories": [],
             "fail_closed": True,
         }
-
