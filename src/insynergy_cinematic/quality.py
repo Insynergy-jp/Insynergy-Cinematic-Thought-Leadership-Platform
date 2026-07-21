@@ -13,6 +13,7 @@ QUALITY_GATE_REGISTRY = {
     "screenplay_quality_gate": ("screenplay", "3.1.8"),
     "shot_quality_gate": ("shot_planning", "4.1.12"),
     "storyboard_quality_gate": ("storyboard", "4.1.12"),
+    "agent_review_gate": ("planning_review", "7.0.1"),
     "rendering_technical_gate": ("rendering", "5.6.1"),
     "rendering_editorial_gate": ("validation", "5.6.2"),
     "composition_quality_gate": ("composition", "7.2.7"),
@@ -29,6 +30,7 @@ def registry_document() -> dict[str, Any]:
         "screenplay_quality_gate",
         "shot_quality_gate",
         "storyboard_quality_gate",
+        "agent_review_gate",
         "rendering_technical_gate",
         "rendering_editorial_gate",
         "execution_approval",
@@ -40,7 +42,13 @@ def registry_document() -> dict[str, Any]:
             {
                 "gate_id": gate_id,
                 "stage": stage,
-                "gate_type": "human_approval" if "approval" in gate_id else "automated",
+                "gate_type": (
+                    "human_approval"
+                    if "approval" in gate_id
+                    else "hybrid_review"
+                    if gate_id == "agent_review_gate"
+                    else "automated"
+                ),
                 "blocking": True,
                 "fail_closed": True,
                 "owning_section": section,

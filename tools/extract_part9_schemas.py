@@ -1,4 +1,4 @@
-"""Extract the 56 normative JSON Schema documents from Part 9.
+"""Extract the 58 normative JSON Schema documents from Part 9.
 
 This is a maintainer tool. Runtime code consumes the checked-in schemas.
 """
@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 def extract(source: Path, destination: Path) -> list[Path]:
     text = source.read_text(encoding="utf-8")
     pattern = re.compile(
-        r"^# Canonical Schema\s*$.*?^```json\s*$\n(.*?)^```\s*$",
+        r"^(?:# Canonical Schema|## Agent Review Report schema|## Review Approval Binding schema)\s*$.*?^```json\s*$\n(.*?)^```\s*$",
         flags=re.MULTILINE | re.DOTALL,
     )
     destination.mkdir(parents=True, exist_ok=True)
@@ -36,8 +36,8 @@ def extract(source: Path, destination: Path) -> list[Path]:
             encoding="utf-8",
         )
         written.append(path)
-    if len(written) != 56:
-        raise ValueError(f"Expected 56 canonical schemas, extracted {len(written)}")
+    if len(written) != 58:
+        raise ValueError(f"Expected 58 canonical schemas, extracted {len(written)}")
     return written
 
 

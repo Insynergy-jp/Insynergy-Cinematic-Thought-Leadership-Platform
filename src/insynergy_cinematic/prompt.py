@@ -40,6 +40,7 @@ class PromptAssembler:
             f"Lighting: {frame['lighting']}",
             f"Emotion: {frame['emotion']}",
             "Style: " + ", ".join(frame["style"]),
+            "Excluded visual styles: " + ", ".join(frame["forbidden_style"]),
         ]
         prompt = ". ".join(component.rstrip(".") for component in components) + "."
         provenance = content_hash(frame)
@@ -64,4 +65,3 @@ class PromptAssembler:
         claimed = comparable.pop("prompt_hash", None)
         if claimed != content_hash(comparable):
             raise ValidationError("Prompt hash mismatch")
-

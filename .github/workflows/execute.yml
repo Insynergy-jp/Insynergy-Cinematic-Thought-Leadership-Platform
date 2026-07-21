@@ -23,6 +23,15 @@ on:
         default: local
         type: choice
         options: [local, runway]
+      allow_agent_exception:
+        description: Permit a human exception for a non-PASS Agent Review
+        required: true
+        default: false
+        type: boolean
+      agent_exception_reason:
+        description: Required rationale when an Agent Review exception is permitted
+        required: false
+        type: string
 
 permissions:
   actions: read
@@ -46,9 +55,14 @@ jobs:
         env:
           SOURCE_RUN_ID: ${{ inputs.planning_run_id }}
           BUILD_ID: ${{ inputs.build_id }}
+          ALLOW_AGENT_EXCEPTION: ${{ inputs.allow_agent_exception }}
+          AGENT_EXCEPTION_REASON: ${{ inputs.agent_exception_reason }}
         run: |
           case "$SOURCE_RUN_ID" in *[!0-9]*|'') echo "planning_run_id must be numeric" >&2; exit 2 ;; esac
           case "$BUILD_ID" in [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9]) ;; *) echo "invalid build_id" >&2; exit 2 ;; esac
+          if [ "$ALLOW_AGENT_EXCEPTION" = "true" ]; then
+            test -n "$AGENT_EXCEPTION_REASON" || { echo "agent_exception_reason is required" >&2; exit 2; }
+          fi
       - name: Download planning bundle
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
@@ -71,6 +85,8 @@ jobs:
             test -n "$RUNWAY_API_KEY" || { echo "RUNWAY_API_KEY environment secret is required" >&2; exit 3; }
             test -n "$RUNWAY_BASE_URL" || { echo "RUNWAY_BASE_URL environment variable is required" >&2; exit 2; }
             test -n "$RUNWAY_MODEL_GEN45" || { echo "RUNWAY_MODEL_GEN45 environment variable is required" >&2; exit 2; }
+            test "$RUNWAY_BASE_URL" = "https://api.dev.runwayml.com" || { echo "RUNWAY_BASE_URL must use the official Runway API origin" >&2; exit 2; }
+            test "$RUNWAY_MODEL_GEN45" = "gen4.5" || { echo "RUNWAY_MODEL_GEN45 must be gen4.5" >&2; exit 2; }
           fi
       - name: Record environment approval and execute
         env:
@@ -81,8 +97,14 @@ jobs:
           RUNWAY_API_KEY: ${{ secrets.RUNWAY_API_KEY }}
           RUNWAY_BASE_URL: ${{ vars.RUNWAY_BASE_URL }}
           RUNWAY_MODEL_GEN45: ${{ vars.RUNWAY_MODEL_GEN45 }}
+          ALLOW_AGENT_EXCEPTION: ${{ inputs.allow_agent_exception }}
+          AGENT_EXCEPTION_REASON: ${{ inputs.agent_exception_reason }}
         run: |
-          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" approve "$BUILD_ID" --gate execution --actor "$APPROVER"
+          if [ "$ALLOW_AGENT_EXCEPTION" = "true" ]; then
+            PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" approve "$BUILD_ID" --gate execution --actor "$APPROVER" --allow-agent-exception --agent-exception-reason "$AGENT_EXCEPTION_REASON"
+          else
+            PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" approve "$BUILD_ID" --gate execution --actor "$APPROVER"
+          fi
           PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" execute "$BUILD_ID" > execution-result.json
           python3 -c 'import json; value=json.load(open("execution-result.json")); assert value["state"] == "READY"'
       - name: Upload validated build

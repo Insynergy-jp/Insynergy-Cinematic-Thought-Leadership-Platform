@@ -1,0 +1,329 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.insynergy.co/cttp/v2.1/review/agent-review-report.schema.json",
+  "title": "AgentReviewReport",
+  "description": "Immutable, structured review evidence for a sealed planning bundle. Raw reasoning and credentials are prohibited by the closed schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract_version",
+    "review_id",
+    "build_id",
+    "review_key",
+    "mode",
+    "status",
+    "agent",
+    "inputs",
+    "dimensions",
+    "findings",
+    "summary",
+    "usage",
+    "error",
+    "generated_at",
+    "content_hash"
+  ],
+  "properties": {
+    "schema_version": { "const": "2.1.0" },
+    "contract_version": { "const": "agent-review/1" },
+    "review_id": {
+      "type": "string",
+      "pattern": "^ARV-[A-Za-z0-9._:-]{8,128}$"
+    },
+    "build_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "review_key": { "$ref": "#/$defs/ContentHash" },
+    "mode": { "const": "review" },
+    "status": {
+      "enum": ["PASS", "MANUAL_REVIEW_REQUIRED", "UNAVAILABLE", "ERROR"]
+    },
+    "agent": { "$ref": "#/$defs/AgentProvenance" },
+    "inputs": { "$ref": "#/$defs/ReviewInputs" },
+    "dimensions": {
+      "type": "array",
+      "maxItems": 8,
+      "items": { "$ref": "#/$defs/DimensionResult" }
+    },
+    "findings": {
+      "type": "array",
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/Finding" }
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "usage": { "$ref": "#/$defs/Usage" },
+    "error": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/ReviewError" }
+      ]
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "content_hash": { "$ref": "#/$defs/ContentHash" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "PASS" } } },
+      "then": {
+        "properties": {
+          "dimensions": { "minItems": 8 },
+          "findings": {
+            "items": {
+              "allOf": [
+                { "$ref": "#/$defs/Finding" },
+                { "properties": { "blocking": { "const": false } } }
+              ]
+            }
+          },
+          "error": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": { "const": "MANUAL_REVIEW_REQUIRED" }
+        }
+      },
+      "then": {
+        "properties": {
+          "dimensions": { "minItems": 8 },
+          "findings": {
+            "minItems": 1,
+            "contains": {
+              "type": "object",
+              "required": ["blocking"],
+              "properties": { "blocking": { "const": true } }
+            }
+          },
+          "error": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": { "enum": ["UNAVAILABLE", "ERROR"] }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": { "$ref": "#/$defs/ReviewError" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "ContentHash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "ArtifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_type", "artifact_id", "content_hash"],
+      "properties": {
+        "artifact_type": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+        },
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "content_hash": { "$ref": "#/$defs/ContentHash" }
+      }
+    },
+    "ReviewInputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "article",
+        "story_artifacts",
+        "screenplay_artifacts",
+        "shot_list",
+        "storyboard",
+        "quality_evidence"
+      ],
+      "properties": {
+        "article": { "$ref": "#/$defs/ArtifactRef" },
+        "story_artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/ArtifactRef" }
+        },
+        "screenplay_artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/ArtifactRef" }
+        },
+        "shot_list": { "$ref": "#/$defs/ArtifactRef" },
+        "storyboard": { "$ref": "#/$defs/ArtifactRef" },
+        "quality_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/ArtifactRef" }
+        }
+      }
+    },
+    "AgentProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sdk_name",
+        "sdk_version",
+        "agent_name",
+        "agent_version",
+        "prompt_version",
+        "model_requested",
+        "model_resolved",
+        "reasoning_effort"
+      ],
+      "properties": {
+        "sdk_name": { "const": "openai-agents" },
+        "sdk_version": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "agent_name": { "const": "insynergy_planning_reviewer" },
+        "agent_version": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "prompt_version": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "model_requested": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "model_resolved": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "reasoning_effort": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "trace_id": { "type": ["string", "null"], "maxLength": 256 },
+        "response_id": { "type": ["string", "null"], "maxLength": 256 }
+      }
+    },
+    "DimensionCode": {
+      "enum": [
+        "SOURCE_FIDELITY",
+        "DRAMATIC_COHERENCE",
+        "STRUCTURE_AND_CONCEPT",
+        "SCREENPLAY_OBSERVABILITY",
+        "VISUAL_COVERAGE",
+        "CONTINUITY",
+        "DECISION_BOUNDARY",
+        "EXECUTION_FEASIBILITY"
+      ]
+    },
+    "DimensionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "score", "passed", "summary"],
+      "properties": {
+        "code": { "$ref": "#/$defs/DimensionCode" },
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "passed": { "type": "boolean" },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      }
+    },
+    "EvidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_type", "artifact_id", "content_hash", "json_pointer"],
+      "properties": {
+        "artifact_type": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+        },
+        "artifact_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "content_hash": { "$ref": "#/$defs/ContentHash" },
+        "json_pointer": {
+          "type": "string",
+          "pattern": "^(?:/(?:[^~/]|~0|~1)*)*$",
+          "maxLength": 1024
+        }
+      }
+    },
+    "Finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "dimension",
+        "severity",
+        "blocking",
+        "title",
+        "rationale",
+        "evidence_refs",
+        "specification_refs",
+        "recommendation"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^AR-[A-Z0-9_]{3,64}$"
+        },
+        "dimension": { "$ref": "#/$defs/DimensionCode" },
+        "severity": { "enum": ["INFO", "WARNING", "BLOCKING"] },
+        "blocking": { "type": "boolean" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "rationale": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": { "$ref": "#/$defs/EvidenceRef" }
+        },
+        "specification_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^(INV|ADR|AC)-[A-Za-z0-9._-]{2,128}$"
+          }
+        },
+        "recommendation": { "type": "string", "minLength": 1, "maxLength": 2000 }
+      }
+    },
+    "Usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input_tokens", "output_tokens", "total_tokens"],
+      "properties": {
+        "input_tokens": { "type": "integer", "minimum": 0 },
+        "output_tokens": { "type": "integer", "minimum": 0 },
+        "total_tokens": { "type": "integer", "minimum": 0 },
+        "cached_input_tokens": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "ReviewError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class", "retryable", "message"],
+      "properties": {
+        "class": {
+          "enum": [
+            "AUTHENTICATION",
+            "AUTHORIZATION",
+            "BUDGET",
+            "INPUT_LIMIT",
+            "RATE_LIMIT",
+            "QUOTA",
+            "TIMEOUT",
+            "PROVIDER_UNAVAILABLE",
+            "INVALID_STRUCTURED_OUTPUT",
+            "SCHEMA_VALIDATION",
+            "EVIDENCE_RESOLUTION",
+            "INTERNAL"
+          ]
+        },
+        "retryable": { "type": "boolean" },
+        "message": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      }
+    }
+  }
+}

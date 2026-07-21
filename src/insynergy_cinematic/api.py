@@ -19,7 +19,7 @@ from .util import now_iso, stable_id
 
 class APIHandler(BaseHTTPRequestHandler):
     orchestrator: BuildOrchestrator
-    server_version = "InsynergyCinematic/2.0"
+    server_version = "InsynergyCinematic/3.0"
 
     def log_message(self, format: str, *args: object) -> None:
         # The API intentionally leaves structured access logging to its host.
@@ -49,7 +49,7 @@ class APIHandler(BaseHTTPRequestHandler):
             "error": error,
             "metadata": {
                 "api_version": "v2",
-                "server_version": "2.0.0",
+                "server_version": "3.0.0",
                 "occurred_at": now_iso(),
             },
         }
@@ -105,7 +105,10 @@ class APIHandler(BaseHTTPRequestHandler):
             }
             self._send(HTTPStatus.ACCEPTED, operation)
             return
-        action_match = re.fullmatch(r"/api/v2/builds/([^/]+)/(approve|execute|publish|pause|resume|cancel)", path)
+        action_match = re.fullmatch(
+            r"/api/v2/builds/([^/]+)/(review|approve|execute|publish|pause|resume|cancel)",
+            path,
+        )
         if method == "POST" and action_match:
             self._mutation_guard()
             build_id, action = action_match.groups()
@@ -117,6 +120,8 @@ class APIHandler(BaseHTTPRequestHandler):
                     actor=body.get("actor", "api-operator"),
                     decision=body.get("decision", "APPROVED"),
                     comment=body.get("comment", ""),
+                    allow_agent_exception=body.get("allow_agent_exception", False) is True,
+                    agent_exception_reason=body.get("agent_exception_reason", ""),
                 )
             else:
                 result = getattr(self.orchestrator, action)(build_id)

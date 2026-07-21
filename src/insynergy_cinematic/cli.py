@@ -17,17 +17,25 @@ from .schemas import export_schemas
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="insynergy-cinematic",
-        description="Insynergy Cinematic Thought Leadership Platform v2",
+        description="Insynergy Cinematic Thought Leadership Platform v3",
     )
     parser.add_argument("--workspace", type=Path, default=Path.cwd())
     parser.add_argument("--config", type=Path)
     parser.add_argument("--profile", choices=("draft", "preview", "final"))
     parser.add_argument("--provider", choices=("local", "runway"))
+    parser.add_argument("--agent-review-mode", choices=("off", "review"))
     parser.add_argument("--compact", action="store_true", help="Emit compact JSON")
     sub = parser.add_subparsers(dest="command", required=True)
 
     plan = sub.add_parser("plan", help="Generate and gate all planning artifacts")
     plan.add_argument("article", type=Path)
+
+    review = sub.add_parser(
+        "agent-review",
+        aliases=("review",),
+        help="Run the read-only Agent Review job",
+    )
+    review.add_argument("build_id")
 
     build = sub.add_parser("build", help="Run the complete build pipeline")
     build.add_argument("article", type=Path)
@@ -40,6 +48,8 @@ def _parser() -> argparse.ArgumentParser:
     approve.add_argument("--actor", required=True)
     approve.add_argument("--decision", choices=("APPROVED", "REJECTED"), default="APPROVED")
     approve.add_argument("--comment", default="")
+    approve.add_argument("--allow-agent-exception", action="store_true")
+    approve.add_argument("--agent-exception-reason", default="")
 
     for name in ("execute", "publish", "status", "pause", "resume", "cancel"):
         command = sub.add_parser(name)
@@ -79,6 +89,7 @@ def main(argv: list[str] | None = None) -> int:
             config_path=args.config,
             profile=args.profile,
             provider=args.provider,
+            agent_review_mode=args.agent_review_mode,
         )
         if args.command == "serve":
             serve(orchestrator, args.host, args.port)
@@ -96,7 +107,11 @@ def main(argv: list[str] | None = None) -> int:
                 actor=args.actor,
                 decision=args.decision,
                 comment=args.comment,
+                allow_agent_exception=args.allow_agent_exception,
+                agent_exception_reason=args.agent_exception_reason,
             )
+        elif args.command in {"agent-review", "review"}:
+            result = orchestrator.review(args.build_id)
         elif args.command == "status":
             result = orchestrator.inspect(args.build_id)
         elif args.command == "list":
@@ -116,4 +131,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

@@ -280,6 +280,16 @@
       "file": "quality-gate-registry.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/build/quality-gate-registry.schema.json",
       "name": "quality-gate-registry"
+    },
+    {
+      "file": "agent-review-report.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.1/review/agent-review-report.schema.json",
+      "name": "agent-review-report"
+    },
+    {
+      "file": "review-approval-binding.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.1/review/review-approval-binding.schema.json",
+      "name": "review-approval-binding"
     }
   ]
 }

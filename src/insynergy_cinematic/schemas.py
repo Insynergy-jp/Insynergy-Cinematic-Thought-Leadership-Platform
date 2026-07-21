@@ -68,6 +68,8 @@ SCHEMA_NAMES = (
     "performance-config",
     "operational-state",
     "quality-gate-registry",
+    "agent-review-report",
+    "review-approval-binding",
 )
 
 
