@@ -239,6 +239,23 @@ class RunwayProviderTests(unittest.TestCase):
         self.assertEqual(raised.exception.failure_class, "transient")
         self.assertNotIn("sensitive", str(raised.exception.details))
 
+        invalid_request = urllib.error.HTTPError(
+            "https://api.dev.runwayml.com/v1/image_to_video",
+            400,
+            "Bad Request",
+            {},
+            io.BytesIO(b'{"error":"duration is not supported","requestId":"private"}'),
+        )
+        provider = self.provider(RecordingOpener(invalid_request))
+        with self.assertRaises(ProviderSubmissionError) as raised:
+            provider.submit(render_request())
+        self.assertEqual(
+            raised.exception.details["provider_error"],
+            "duration is not supported",
+        )
+        self.assertNotIn("requestId", str(raised.exception.details))
+        self.assertNotIn("private", str(raised.exception.details))
+
         opener = RecordingOpener(FakeResponse(b'{"tier":"tier_1"}'))
         health = self.provider(opener).health_check()
         self.assertEqual(health["status"], "HEALTHY")
