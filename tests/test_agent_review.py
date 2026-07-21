@@ -26,6 +26,11 @@ ARTICLE = ROOT / "examples" / "decision-boundary.md"
 
 
 class AgentReviewTests(unittest.TestCase):
+    def test_live_defaults_version_the_expanded_structured_output_budget(self) -> None:
+        review = DEFAULT_CONFIG["agent_review"]
+        self.assertEqual(review["max_output_tokens"], 16000)
+        self.assertEqual(review["agent_version"], "3.0.1")
+
     def test_provider_failures_are_classified_without_leaking_raw_output(self) -> None:
         ModelBehaviorError = type("ModelBehaviorError", (Exception,), {})
         sensitive = "sk-" + "x" * 32
