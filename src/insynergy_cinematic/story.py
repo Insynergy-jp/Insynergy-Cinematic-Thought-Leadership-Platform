@@ -119,23 +119,24 @@ class StoryEngine:
         theme, rejected_themes = _score_theme(article.title + " " + article.body)
         protagonist = _protagonist(article.title + " " + article.body)
         problem = _trim(selected["claim"])
-        numeric = re.findall(r"\b\d+(?:[.,]\d+)?%?\b", _plain(article.body))
+        numeric_claim = next(
+            (sentence for sentence in sentences if re.search(r"\b\d+(?:[.,]\d+)?%?\b", sentence)),
+            None,
+        )
         quantified_loss = (
-            f"A documented threshold of {numeric[0]} is crossed before intervention."
-            if numeric
+            _trim(numeric_claim, words=30)
+            if numeric_claim
             else "One institutionally binding decision becomes irreversible before intervention."
         )
         solution = self._solution(article)
         question = f"Will the {protagonist.lower()} redesign who may decide before the decision becomes irreversible?"
         incident = f"a routine institutional process exposes that {problem.rstrip('.').lower()}"
         goal = "make the owner of the consequential decision explicit"
+        logline_incident = problem.rstrip(".?!").lower()
         logline = (
-            f"When {incident}, a {protagonist} must {goal} before the decision becomes binding, "
-            "or the institution will accept a consequence that nobody was authorized to own."
+            f"Facing evidence that {logline_incident}, the {protagonist} must {goal} before the decision becomes "
+            "binding, or an unowned institutional consequence becomes real."
         )
-        logline = " ".join(logline.split()[:50])
-        if not logline.endswith("."):
-            logline += "."
         premise_text = (
             f"A {protagonist} discovers that {problem.rstrip('.').lower()} "
             f"Before the next decision becomes binding, they must {goal}, revealing that "
