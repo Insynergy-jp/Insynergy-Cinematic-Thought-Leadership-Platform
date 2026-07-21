@@ -184,12 +184,10 @@ class RunwayProvider:
         return payload
 
     @staticmethod
-    def submission_path(request: RenderRequest) -> str:
-        return (
-            "/v1/image_to_video"
-            if request.conditioning_image_ref is not None
-            else "/v1/text_to_video"
-        )
+    def submission_path(_request: RenderRequest) -> str:
+        # Gen-4.5 uses the image-to-video operation for both modes. Text-only
+        # generation omits promptImage rather than changing the endpoint.
+        return "/v1/image_to_video"
 
     @staticmethod
     def _http_failure(status: int, message: str) -> ProviderSubmissionError:

@@ -166,7 +166,7 @@ export RUNWAY_MODEL_GEN45='gen4.5'
 PYTHONPATH=src python3 -m insynergy_cinematic --provider runway execute BUILD_ID
 ```
 
-アダプターはRunway API version `2024-11-06` を固定し、テキスト入力は `POST /v1/text_to_video`、画像入力は `POST /v1/image_to_video`、状態確認とキャンセルは `/v1/tasks/{id}` を使用します。Gen-4.5の出力は署名付きURLから即時にローカル保存し、選択したプロファイルが必要とする解像度・フレームレート・音声ストリームへFFmpegで正規化します。
+アダプターはRunway API version `2024-11-06` を固定し、Gen-4.5のテキスト入力と画像入力をともに `POST /v1/image_to_video` へ送信します。テキストのみの生成では公式仕様に従って `promptImage` を省略し、状態確認とキャンセルには `/v1/tasks/{id}` を使用します。Gen-4.5の出力は署名付きURLから即時にローカル保存し、選択したプロファイルが必要とする解像度・フレームレート・音声ストリームへFFmpegで正規化します。
 
 APIキーはManifest、Queue、Event、Artifact、署名付きアセットURLへの要求に記録・送信されません。RunwayアダプターはPromptを変更せず、物語、台詞、ペーシング、カメラ判断を行いません。Runway APIにサーバー側idempotency contractがないため、受理済みTask IDを `.insynergy/providers/runway/jobs.json` に保存して再実行時の重複課金を防ぎます。送信結果が不明なネットワークタイムアウトでは、自動再送せずfail closedします。実アカウントへの送信は費用を伴うため、ローカルテストでは実行していません。
 
