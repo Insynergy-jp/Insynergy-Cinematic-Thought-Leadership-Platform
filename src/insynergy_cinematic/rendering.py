@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -21,6 +22,33 @@ from .prompt import PromptAssembler
 from .providers import VideoProvider
 from .storage import ContentAddressableStore
 from .util import atomic_write_json, content_hash, file_hash, read_json, stable_id
+
+
+RUNWAY_GEN45_CREDITS_PER_SECOND = 12
+RUNWAY_CREDIT_USD = 0.01
+
+
+def uses_runway(config: PlatformConfig, frame: dict[str, Any]) -> bool:
+    if config.provider != "runway":
+        return False
+    return (
+        config.runway_scope == "all_shots"
+        or frame["render_strategy"]["asset_class"] == "runway_video"
+    )
+
+
+def runway_credit_estimate(
+    config: PlatformConfig, frames: list[dict[str, Any]]
+) -> int:
+    profile = config.render_profile()
+    return sum(
+        math.ceil(
+            min(float(frame["duration_seconds"]), profile.max_duration_seconds)
+        )
+        * RUNWAY_GEN45_CREDITS_PER_SECOND
+        for frame in frames
+        if uses_runway(config, frame)
+    )
 
 
 class RenderCache:
@@ -104,10 +132,7 @@ class RenderingPlatform:
         self.quality_gate = quality_gate or RenderQualityGate(config.quality_threshold)
 
     def _provider_name(self, frame: dict[str, Any]) -> str:
-        strategy = frame["render_strategy"]["asset_class"]
-        if strategy == "runway_video":
-            return self.config.provider
-        return "local"
+        return "runway" if uses_runway(self.config, frame) else "local"
 
     def _request(self, frame: dict[str, Any], attempt: int = 1) -> RenderRequest:
         assembled = self.assembler.assemble(frame)
@@ -171,7 +196,8 @@ class RenderingPlatform:
                 render_task_id=request.render_task_id,
             )
         last_error: RenderingError | None = None
-        for attempt in range(1, self.config.max_attempts + 1):
+        attempt_limit = 1 if request.provider == "runway" else self.config.max_attempts
+        for attempt in range(1, attempt_limit + 1):
             attempt_request = self._request(frame, attempt=attempt)
             try:
                 job = provider.submit(attempt_request)
@@ -252,7 +278,7 @@ class RenderingPlatform:
             from_cache=False,
             quality_score=0.0,
             validation={"passed": False},
-            attempts=self.config.max_attempts,
+            attempts=attempt_limit,
             error=error.as_dict(),
         )
 
@@ -267,10 +293,16 @@ class RenderingPlatform:
         frames = sorted(storyboard.get("frames", []), key=lambda frame: frame["shot_id"])
         if not frames:
             raise RenderingError("Storyboard contains no frames")
-        expensive = sum(
-            frame["render_strategy"]["asset_class"] == "runway_video" for frame in frames
-        )
-        estimate = expensive * (4.0 if self.config.profile == "final" else 1.0)
+        estimated_runway_credits = runway_credit_estimate(self.config, frames)
+        estimate = round(estimated_runway_credits * RUNWAY_CREDIT_USD, 2)
+        if estimated_runway_credits > self.config.max_runway_credits:
+            raise BudgetExhaustedError(
+                "Estimated Runway credits exceed the configured credit limit",
+                details={
+                    "estimated_runway_credits": estimated_runway_credits,
+                    "max_runway_credits": self.config.max_runway_credits,
+                },
+            )
         if self.config.estimate_before_submission and estimate > self.config.budget_usd:
             raise BudgetExhaustedError(
                 "Estimated provider cost exceeds build budget",
@@ -329,6 +361,8 @@ class RenderingPlatform:
                 )
                 / len(results),
                 "estimated_provider_cost_usd": estimate,
+                "estimated_runway_credits": estimated_runway_credits,
+                "runway_credit_limit": self.config.max_runway_credits,
             },
         }
 

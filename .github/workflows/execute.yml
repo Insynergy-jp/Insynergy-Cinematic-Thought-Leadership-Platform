@@ -23,6 +23,12 @@ on:
         default: local
         type: choice
         options: [local, runway]
+      runway_scope:
+        description: Must match the planning Runway coverage
+        required: true
+        default: hybrid
+        type: choice
+        options: [hybrid, all_shots]
       narration_provider:
         description: Must match the planning narration provider
         required: true
@@ -91,6 +97,7 @@ jobs:
       - name: Validate provider configuration
         env:
           RENDER_PROVIDER: ${{ inputs.provider }}
+          RUNWAY_SCOPE: ${{ inputs.runway_scope }}
           RUNWAY_API_KEY: ${{ secrets.RUNWAY_API_KEY }}
           RUNWAY_BASE_URL: ${{ vars.RUNWAY_BASE_URL }}
           RUNWAY_MODEL_GEN45: ${{ vars.RUNWAY_MODEL_GEN45 }}
@@ -104,6 +111,9 @@ jobs:
             test "$RUNWAY_BASE_URL" = "https://api.dev.runwayml.com" || { echo "RUNWAY_BASE_URL must use the official Runway API origin" >&2; exit 2; }
             test "$RUNWAY_MODEL_GEN45" = "gen4.5" || { echo "RUNWAY_MODEL_GEN45 must be gen4.5" >&2; exit 2; }
           fi
+          if [ "$RUNWAY_SCOPE" = "all_shots" ]; then
+            test "$RENDER_PROVIDER" = "runway" || { echo "all_shots requires provider=runway" >&2; exit 2; }
+          fi
           if [ "$NARRATION_PROVIDER" = "openai" ]; then
             test -n "$OPENAI_TTS_API_KEY" || { echo "OPENAI_TTS_API_KEY environment secret is required" >&2; exit 3; }
           fi
@@ -112,6 +122,7 @@ jobs:
           BUILD_ID: ${{ inputs.build_id }}
           BUILD_PROFILE: ${{ inputs.profile }}
           RENDER_PROVIDER: ${{ inputs.provider }}
+          RUNWAY_SCOPE: ${{ inputs.runway_scope }}
           APPROVER: ${{ github.actor }}
           RUNWAY_API_KEY: ${{ secrets.RUNWAY_API_KEY }}
           RUNWAY_BASE_URL: ${{ vars.RUNWAY_BASE_URL }}
@@ -122,11 +133,11 @@ jobs:
           AGENT_EXCEPTION_REASON: ${{ inputs.agent_exception_reason }}
         run: |
           if [ "$ALLOW_AGENT_EXCEPTION" = "true" ]; then
-            PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --narration-provider "$NARRATION_PROVIDER" approve "$BUILD_ID" --gate execution --actor "$APPROVER" --allow-agent-exception --agent-exception-reason "$AGENT_EXCEPTION_REASON"
+            PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" approve "$BUILD_ID" --gate execution --actor "$APPROVER" --allow-agent-exception --agent-exception-reason "$AGENT_EXCEPTION_REASON"
           else
-            PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --narration-provider "$NARRATION_PROVIDER" approve "$BUILD_ID" --gate execution --actor "$APPROVER"
+            PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" approve "$BUILD_ID" --gate execution --actor "$APPROVER"
           fi
-          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --narration-provider "$NARRATION_PROVIDER" execute "$BUILD_ID" > execution-result.json
+          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" execute "$BUILD_ID" > execution-result.json
           python3 -c 'import json; value=json.load(open("execution-result.json")); assert value["state"] == "READY"'
       - name: Upload safe execution diagnostics
         if: failure()

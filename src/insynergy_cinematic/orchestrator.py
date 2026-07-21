@@ -43,7 +43,13 @@ from .package import create_publish_package
 from .prompt import PromptAssembler
 from .providers.local import LocalVideoProvider
 from .quality import composition_gate, creative_gate_passed, registry_document
-from .rendering import RenderCache, RenderingPlatform
+from .rendering import (
+    RUNWAY_CREDIT_USD,
+    RenderCache,
+    RenderingPlatform,
+    runway_credit_estimate,
+    uses_runway,
+)
 from .screenplay import ScreenplayEngine
 from .shot_planner import ShotPlanner
 from .storage import BuildRepository
@@ -103,6 +109,7 @@ class BuildOrchestrator:
         config_path: Path | None = None,
         profile: str | None = None,
         provider: str | None = None,
+        runway_scope: str | None = None,
         narration_provider: str | None = None,
         agent_review_mode: str | None = None,
         environ: dict[str, str] | None = None,
@@ -114,6 +121,7 @@ class BuildOrchestrator:
             config_path=config_path,
             profile=profile,
             provider=provider,
+            runway_scope=runway_scope,
             narration_provider=narration_provider,
             agent_review_mode=agent_review_mode,
             environ=environ,
@@ -130,6 +138,8 @@ class BuildOrchestrator:
             "deterministic": self.config.deterministic,
             "render": {
                 "provider": self.config.provider,
+                "runway_scope": self.config.runway_scope,
+                "max_runway_credits": self.config.max_runway_credits,
                 "max_parallel_shots": self.config.max_parallel_shots,
                 "max_attempts": self.config.max_attempts,
                 "quality_threshold": self.config.quality_threshold,
@@ -306,14 +316,19 @@ class BuildOrchestrator:
                 manifest["gates"][gate_id] = report
             planned_shots = shot_artifacts["shot_list"]["shots"]
             expensive_shots = sum(
-                shot["render_strategy"]["asset_class"] == "runway_video"
-                for shot in planned_shots
+                uses_runway(self.config, shot) for shot in planned_shots
+            )
+            estimated_runway_credits = runway_credit_estimate(
+                self.config, planned_shots
             )
             manifest["metrics"]["planning"] = {
                 "shot_count": len(planned_shots),
                 "provider_render_shot_count": expensive_shots,
-                "estimated_provider_cost_usd": expensive_shots
-                * (4.0 if self.config.profile == "final" else 1.0),
+                "estimated_runway_credits": estimated_runway_credits,
+                "runway_credit_limit": self.config.max_runway_credits,
+                "estimated_provider_cost_usd": round(
+                    estimated_runway_credits * RUNWAY_CREDIT_USD, 2
+                ),
                 "render_budget_usd": self.config.budget_usd,
             }
 
