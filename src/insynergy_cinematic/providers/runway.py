@@ -190,18 +190,38 @@ class RunwayProvider:
         return "/v1/image_to_video"
 
     @staticmethod
-    def _http_failure(status: int, message: str) -> ProviderSubmissionError:
+    def _http_failure(
+        status: int,
+        message: str,
+        *,
+        provider_error: str | None = None,
+    ) -> ProviderSubmissionError:
+        details: dict[str, Any] = {
+            "status": status,
+            "retryable": status in RETRYABLE_HTTP_STATUSES,
+        }
+        if provider_error:
+            details["provider_error"] = provider_error
         error = ProviderSubmissionError(
             message,
-            details={
-                "status": status,
-                "retryable": status in RETRYABLE_HTTP_STATUSES,
-            },
+            details=details,
         )
         error.failure_class = (
             "transient" if status in RETRYABLE_HTTP_STATUSES else "permanent"
         )
         return error
+
+    @staticmethod
+    def _safe_provider_error(body: bytes) -> str | None:
+        """Return only Runway's documented human-readable error member."""
+        try:
+            value = json.loads(body[:16_384])
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return None
+        provider_error = value.get("error") if isinstance(value, dict) else None
+        if isinstance(provider_error, str) and provider_error.strip():
+            return provider_error.strip()[:500]
+        return None
 
     def _api_request(
         self,
@@ -231,7 +251,12 @@ class RunwayProvider:
             ) as response:
                 return response.read(), dict(response.headers)
         except urllib.error.HTTPError as exc:
-            failure = self._http_failure(exc.code, f"Runway HTTP error {exc.code}")
+            provider_error = self._safe_provider_error(exc.read(16_384))
+            failure = self._http_failure(
+                exc.code,
+                f"Runway HTTP error {exc.code}",
+                provider_error=provider_error,
+            )
             exc.close()
             raise failure from exc
         except (TimeoutError, socket.timeout) as exc:
