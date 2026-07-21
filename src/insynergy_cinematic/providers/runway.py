@@ -184,10 +184,10 @@ class RunwayProvider:
         return payload
 
     @staticmethod
-    def submission_path(_request: RenderRequest) -> str:
-        # Gen-4.5 uses the image-to-video operation for both modes. Text-only
-        # generation omits promptImage rather than changing the endpoint.
-        return "/v1/image_to_video"
+    def submission_path(request: RenderRequest) -> str:
+        if request.conditioning_image_ref is not None:
+            return "/v1/image_to_video"
+        return "/v1/text_to_video"
 
     @staticmethod
     def _http_failure(
@@ -195,6 +195,7 @@ class RunwayProvider:
         message: str,
         *,
         provider_error: str | None = None,
+        provider_issues: list[dict[str, Any]] | None = None,
     ) -> ProviderSubmissionError:
         details: dict[str, Any] = {
             "status": status,
@@ -202,6 +203,8 @@ class RunwayProvider:
         }
         if provider_error:
             details["provider_error"] = provider_error
+        if provider_issues:
+            details["provider_issues"] = provider_issues
         error = ProviderSubmissionError(
             message,
             details=details,
@@ -212,16 +215,39 @@ class RunwayProvider:
         return error
 
     @staticmethod
-    def _safe_provider_error(body: bytes) -> str | None:
-        """Return only Runway's documented human-readable error member."""
+    def _safe_provider_details(body: bytes) -> dict[str, Any]:
+        """Allowlist Runway's documented validation error fields."""
         try:
             value = json.loads(body[:16_384])
         except (UnicodeDecodeError, json.JSONDecodeError):
-            return None
-        provider_error = value.get("error") if isinstance(value, dict) else None
+            return {}
+        if not isinstance(value, dict):
+            return {}
+        details: dict[str, Any] = {}
+        provider_error = value.get("error")
         if isinstance(provider_error, str) and provider_error.strip():
-            return provider_error.strip()[:500]
-        return None
+            details["provider_error"] = provider_error.strip()[:500]
+        safe_issues: list[dict[str, Any]] = []
+        issues = value.get("issues")
+        if isinstance(issues, list):
+            for issue in issues[:10]:
+                if not isinstance(issue, dict):
+                    continue
+                safe_issue: dict[str, Any] = {}
+                for key in ("code", "message"):
+                    item = issue.get(key)
+                    if isinstance(item, str) and item.strip():
+                        safe_issue[key] = item.strip()[:500]
+                path = issue.get("path")
+                if isinstance(path, list) and all(
+                    isinstance(item, (str, int)) for item in path[:10]
+                ):
+                    safe_issue["path"] = path[:10]
+                if safe_issue:
+                    safe_issues.append(safe_issue)
+        if safe_issues:
+            details["provider_issues"] = safe_issues
+        return details
 
     def _api_request(
         self,
@@ -251,11 +277,11 @@ class RunwayProvider:
             ) as response:
                 return response.read(), dict(response.headers)
         except urllib.error.HTTPError as exc:
-            provider_error = self._safe_provider_error(exc.read(16_384))
+            provider_details = self._safe_provider_details(exc.read(16_384))
             failure = self._http_failure(
                 exc.code,
                 f"Runway HTTP error {exc.code}",
-                provider_error=provider_error,
+                **provider_details,
             )
             exc.close()
             raise failure from exc

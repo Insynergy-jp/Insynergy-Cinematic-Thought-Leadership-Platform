@@ -105,7 +105,7 @@ class RunwayProviderTests(unittest.TestCase):
             self.assertEqual(submitted.get_method(), "POST")
             self.assertEqual(
                 submitted.full_url,
-                "https://api.dev.runwayml.com/v1/image_to_video",
+                "https://api.dev.runwayml.com/v1/text_to_video",
             )
             self.assertEqual(timeout, 30)
             headers = dict(submitted.header_items())
@@ -240,18 +240,32 @@ class RunwayProviderTests(unittest.TestCase):
         self.assertNotIn("sensitive", str(raised.exception.details))
 
         invalid_request = urllib.error.HTTPError(
-            "https://api.dev.runwayml.com/v1/image_to_video",
+            "https://api.dev.runwayml.com/v1/text_to_video",
             400,
             "Bad Request",
             {},
-            io.BytesIO(b'{"error":"duration is not supported","requestId":"private"}'),
+            io.BytesIO(
+                b'{"error":"Validation of body failed","issues":['
+                b'{"code":"custom","message":"duration is not supported",'
+                b'"path":["duration"]}],"requestId":"private"}'
+            ),
         )
         provider = self.provider(RecordingOpener(invalid_request))
         with self.assertRaises(ProviderSubmissionError) as raised:
             provider.submit(render_request())
         self.assertEqual(
             raised.exception.details["provider_error"],
-            "duration is not supported",
+            "Validation of body failed",
+        )
+        self.assertEqual(
+            raised.exception.details["provider_issues"],
+            [
+                {
+                    "code": "custom",
+                    "message": "duration is not supported",
+                    "path": ["duration"],
+                }
+            ],
         )
         self.assertNotIn("requestId", str(raised.exception.details))
         self.assertNotIn("private", str(raised.exception.details))
