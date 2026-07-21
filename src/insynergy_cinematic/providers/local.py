@@ -7,12 +7,13 @@ import os
 import shutil
 import subprocess
 import threading
+import textwrap
 from dataclasses import asdict
 from pathlib import Path
 
 from ..errors import ProviderSubmissionError
 from ..models import ProviderJobRef, RenderRequest, RenderState
-from ..util import atomic_write_json, file_hash, stable_id
+from ..util import atomic_write_json, atomic_write_text, file_hash, stable_id
 
 
 class LocalVideoProvider:
@@ -63,6 +64,37 @@ class LocalVideoProvider:
             state = RenderState.COMPLETED.value
         return {"state": state, "provider_task_id": job_ref.provider_task_id}
 
+    @staticmethod
+    def _font_file() -> str:
+        if shutil.which("fc-match"):
+            matched = subprocess.run(
+                ["fc-match", "-f", "%{file}", "DejaVu Sans"],
+                capture_output=True,
+                text=True,
+                check=False,
+            ).stdout.strip()
+            if matched and Path(matched).is_file():
+                return matched
+        for candidate in (
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/System/Library/Fonts/Supplemental/Arial.ttf",
+        ):
+            if Path(candidate).is_file():
+                return candidate
+        raise ProviderSubmissionError("A TrueType font is required by the local provider")
+
+    @staticmethod
+    def _filter_path(path: Path | str) -> str:
+        return str(path).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+
+    @staticmethod
+    def _display_lines(request: dict) -> list[str]:
+        value = str(request.get("visible_action") or "Decision authority becomes visible.").strip()
+        marker = "title card reads:"
+        if marker in value.casefold():
+            value = value[value.casefold().index(marker) + len(marker) :].strip()
+        return textwrap.wrap(value, width=44, break_long_words=False, break_on_hyphens=False)[:4]
+
     def download(self, job_ref: ProviderJobRef, destination: Path) -> dict:
         path = self._job_path(job_ref.provider_task_id)
         with path.open(encoding="utf-8") as handle:
@@ -71,6 +103,18 @@ class LocalVideoProvider:
         destination.parent.mkdir(parents=True, exist_ok=True)
         temporary = destination.with_suffix(".partial.mp4")
         temporary.unlink(missing_ok=True)
+        display_lines = self._display_lines(request)
+        text_paths = [
+            destination.with_suffix(f".display-{index:02d}.txt")
+            for index in range(1, len(display_lines) + 1)
+        ]
+        kicker_path = destination.with_suffix(".kicker.txt")
+        for text_path, line in zip(text_paths, display_lines):
+            atomic_write_text(text_path, line)
+        atomic_write_text(
+            kicker_path,
+            "INSYNERGY  /  " + str(request["strategy"]).replace("_", " ").upper() + "\n",
+        )
         colors = {
             "runway_video": "0x263547",
             "animated_still": "0x34495e",
@@ -80,6 +124,40 @@ class LocalVideoProvider:
         }
         color = colors.get(request["strategy"], "0x263547")
         duration = max(0.5, float(request["duration_seconds"]))
+        font_file = self._filter_path(self._font_file())
+        kicker_file = self._filter_path(kicker_path)
+        fade_out_start = max(0.1, duration - 0.45)
+        video_filters = [
+            "drawgrid=width=96:height=96:thickness=1:color=white@0.045",
+            "drawbox=x=72:y=70:w=12:h=ih-140:color=0x26d9c7@0.92:t=fill",
+            "drawbox=x=104:y=70:w=iw-176:h=2:color=white@0.22:t=fill",
+            "drawbox=x=104:y=ih-102:w=iw-176:h=2:color=white@0.12:t=fill",
+            (
+                f"drawtext=fontfile='{font_file}':textfile='{kicker_file}':reload=0:"
+                "fontcolor=0x70f2e3:fontsize=24:x=112:y=100"
+            ),
+        ]
+        line_height = 56
+        line_count = len(text_paths)
+        for index, text_path in enumerate(text_paths):
+            display_file = self._filter_path(text_path)
+            y_offset = index * line_height - ((line_count - 1) * line_height // 2)
+            video_filters.append(
+                f"drawtext=fontfile='{font_file}':textfile='{display_file}':reload=0:"
+                f"fontcolor=white:fontsize=38:x=112:y=(h-text_h)/2+{y_offset}:"
+                "shadowcolor=black@0.65:shadowx=2:shadowy=2"
+            )
+        video_filters.extend(
+            (
+                (
+                    f"drawtext=fontfile='{font_file}':text='DECISION DESIGN':"
+                    "fontcolor=white@0.52:fontsize=18:x=112:y=h-74"
+                ),
+                "fade=t=in:st=0:d=0.45",
+                f"fade=t=out:st={fade_out_start}:d=0.45",
+            )
+        )
+        video_filter = ",".join(video_filters)
         command = [
             self.ffmpeg_binary,
             "-hide_banner",
@@ -94,6 +172,8 @@ class LocalVideoProvider:
             "lavfi",
             "-i",
             f"anullsrc=r=48000:cl=stereo:d={duration}",
+            "-vf",
+            video_filter,
             "-map_metadata",
             "-1",
             "-metadata",
@@ -114,6 +194,9 @@ class LocalVideoProvider:
             str(temporary),
         ]
         completed = subprocess.run(command, capture_output=True, text=True, check=False)
+        for text_path in text_paths:
+            text_path.unlink(missing_ok=True)
+        kicker_path.unlink(missing_ok=True)
         if completed.returncode:
             temporary.unlink(missing_ok=True)
             raise ProviderSubmissionError(

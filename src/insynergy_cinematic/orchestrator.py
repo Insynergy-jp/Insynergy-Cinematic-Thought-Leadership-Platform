@@ -25,7 +25,7 @@ from .errors import (
     StateConflictError,
     ValidationError,
 )
-from .media import FFmpegComposer
+from .media import FFmpegComposer, OfflineNarrator
 from .models import (
     AgentReviewStatus,
     ApprovalDecision,
@@ -980,8 +980,44 @@ class BuildOrchestrator:
                 for result in render_manifest["results"]
                 if result["state"] in {"COMPLETED", "CACHED"}
             ]
+            profile = self.config.render_profile()
+            scene_order: list[str] = []
+            scene_durations: dict[str, float] = {}
+            for frame in storyboard["frames"]:
+                scene_id = str(frame["scene_id"])
+                if scene_id not in scene_durations:
+                    scene_order.append(scene_id)
+                    scene_durations[scene_id] = 0.0
+                scene_durations[scene_id] += min(
+                    float(frame["duration_seconds"]), profile.max_duration_seconds
+                )
+            storyboard_duration = sum(scene_durations.values())
             output = self.repository.build_dir(build_id) / "output" / "master.mp4"
             composition = FFmpegComposer().compose(ordered_assets, output)
+            narration_script = self.repository.load_artifact(manifest, "narration_script")["data"]
+            narration_by_scene = {
+                str(segment["scene_id"]): str(segment["text"])
+                for segment in narration_script.get("segments", [])
+            }
+            narration_timeline: list[dict[str, Any]] = []
+            scene_start = 0.0
+            for scene_id in scene_order:
+                text = narration_by_scene.get(scene_id, "").strip()
+                if text:
+                    narration_timeline.append(
+                        {
+                            "scene_id": scene_id,
+                            "start_seconds": scene_start + 0.65,
+                            "text": text,
+                        }
+                    )
+                scene_start += scene_durations[scene_id]
+            narration_mix = OfflineNarrator().mix(
+                output,
+                narration_timeline,
+                duration_seconds=storyboard_duration,
+            )
+            composition.update(narration_mix)
             self.repository.store_artifact(
                 manifest,
                 ArtifactEnvelope(
@@ -990,18 +1026,14 @@ class BuildOrchestrator:
                     data=composition,
                     input_hashes=tuple(
                         result["asset_hash"] for result in render_manifest["results"]
-                    ),
+                    )
+                    + self._artifact_inputs(manifest, "narration_script"),
                     generator="ffmpeg-composer",
                 ),
             )
             manifest = self.repository.save(manifest)
             manifest = self.repository.transition(
                 manifest, BuildState.VALIDATING, "composition_completed"
-            )
-            profile = self.config.render_profile()
-            storyboard_duration = sum(
-                min(float(frame["duration_seconds"]), profile.max_duration_seconds)
-                for frame in storyboard["frames"]
             )
             report = composition_gate(
                 output,
@@ -1013,10 +1045,15 @@ class BuildOrchestrator:
             manifest["gates"]["composition_quality_gate"] = report
             manifest["gates"]["narration_audio_quality_gate"] = {
                 "gate_id": "narration_audio_quality_gate",
-                "passed": report["validation"]["audio_stream_present"] is True,
-                "score": 1.0 if report["validation"]["audio_stream_present"] else 0.0,
+                "passed": report["validation"]["audio_non_silent"] is True,
+                "score": 1.0 if report["validation"]["audio_non_silent"] else 0.0,
                 "threshold": 1.0,
-                "checks": {"audio_stream_present": report["validation"]["audio_stream_present"]},
+                "checks": {
+                    "audio_stream_present": report["validation"]["audio_stream_present"],
+                    "audio_non_silent": report["validation"]["audio_non_silent"],
+                },
+                "audio_rms_dbfs": report["validation"]["audio_rms_dbfs"],
+                "audio_peak_dbfs": report["validation"]["audio_peak_dbfs"],
                 "blocking": True,
                 "fail_closed": True,
             }
@@ -1057,7 +1094,7 @@ class BuildOrchestrator:
                 "provider_versions": [
                     {
                         "provider": name,
-                        "provider_version": "local-ffmpeg-v1" if name == "local" else "gen4.5",
+                        "provider_version": "local-ffmpeg-v2" if name == "local" else "gen4.5",
                     }
                     for name in sorted({result["provider"] for result in render_manifest["results"]})
                 ],

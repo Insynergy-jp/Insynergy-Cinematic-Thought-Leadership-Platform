@@ -80,7 +80,7 @@ class RenderCache:
 
 
 class RenderingPlatform:
-    contract_version = "5.7.2-v1"
+    contract_version = "5.7.2-v2"
 
     def __init__(
         self,
@@ -114,7 +114,7 @@ class RenderingPlatform:
         self.assembler.verify(assembled, frame)
         profile = self.config.render_profile()
         provider = self._provider_name(frame)
-        provider_version = "local-ffmpeg-v1" if provider == "local" else "gen4.5"
+        provider_version = "local-ffmpeg-v2" if provider == "local" else "gen4.5"
         cache_key = self.cache.key(
             shot_hash=content_hash(frame),
             prompt_hash=assembled["prompt_hash"],
@@ -141,6 +141,7 @@ class RenderingPlatform:
             frame_rate=profile.frame_rate,
             provider=provider,
             strategy=frame["render_strategy"]["asset_class"],
+            visible_action=str(frame.get("visible_action", "")),
             camera_parameters=frame["camera"],
             style_tokens=tuple(frame["style"]),
             negative_style_tokens=tuple(frame["forbidden_style"]),

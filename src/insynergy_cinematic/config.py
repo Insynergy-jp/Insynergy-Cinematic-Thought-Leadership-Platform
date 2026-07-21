@@ -13,7 +13,7 @@ from .errors import ValidationError
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "schema_version": "2.0",
-    "platform_version": "3.0.0",
+    "platform_version": "3.0.1",
     "profile": "preview",
     "deterministic": True,
     "render": {
