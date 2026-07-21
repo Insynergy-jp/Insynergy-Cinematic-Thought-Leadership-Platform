@@ -38,5 +38,6 @@ Operation sequence:
 5. If disposition is not `PASS`, set `allow_agent_exception: true` and provide a non-empty `agent_exception_reason`. This records an attributable human exception. Missing reports, invalid schemas, unresolved evidence, and hash mismatches remain non-waivable.
 6. Review the validated Master and evidence artifact.
 7. Run `Publish Approved Build` with the execution run ID and Build ID. `publication-approval` remains a separate approval barrier.
+8. Download `publication-<run_id>`. The Artifact root contains `master.mp4`, `<build_id>.zip`, `manifest.json`, and `publication-result.json`; no hidden directory navigation or nested ZIP extraction is required to play the Master.
 
 Workflows use read-only repository permissions, pinned external Action SHAs, explicit timeouts, non-cancelling Build concurrency, and validated `workflow_dispatch` inputs. Required pull-request CI uses the fake review provider and never performs a live OpenAI call. Provider secrets remain confined to their own Environment and never cross the planning, rendering, or publication boundary.

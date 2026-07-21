@@ -59,14 +59,29 @@ jobs:
           PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" approve "$BUILD_ID" --gate publish --actor "$APPROVER"
           PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" publish "$BUILD_ID" > publication-result.json
           python3 -c 'import json; value=json.load(open("publication-result.json")); assert value["state"] == "PUBLISHED"'
+      - name: Prepare browser-visible publication files
+        env:
+          BUILD_ID: ${{ inputs.build_id }}
+        run: |
+          PACKAGE_PATH=".insynergy/builds/${BUILD_ID}/package/${BUILD_ID}.zip"
+          MASTER_PATH=".insynergy/builds/${BUILD_ID}/output/master.mp4"
+          MANIFEST_PATH=".insynergy/builds/${BUILD_ID}/manifest.json"
+          test -s "$PACKAGE_PATH"
+          test -s "$MASTER_PATH"
+          test -s "$MANIFEST_PATH"
+          mkdir -p publication-delivery
+          install -m 0644 "$PACKAGE_PATH" "publication-delivery/${BUILD_ID}.zip"
+          install -m 0644 "$MASTER_PATH" publication-delivery/master.mp4
+          install -m 0644 "$MANIFEST_PATH" publication-delivery/manifest.json
+          install -m 0644 publication-result.json publication-delivery/publication-result.json
       - name: Upload publication package and evidence
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: publication-${{ github.run_id }}
           path: |
-            .insynergy/builds/${{ inputs.build_id }}/package
-            .insynergy/builds/${{ inputs.build_id }}/manifest.json
-            publication-result.json
-          include-hidden-files: true
+            publication-delivery/${{ inputs.build_id }}.zip
+            publication-delivery/master.mp4
+            publication-delivery/manifest.json
+            publication-delivery/publication-result.json
           if-no-files-found: error
           retention-days: 90
