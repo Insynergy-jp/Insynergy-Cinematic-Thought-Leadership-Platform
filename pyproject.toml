@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "insynergy-cinematic"
-version = "3.2.0"
+version = "3.3.0"
 description = "Deterministic cinematic thought-leadership build platform"
 readme = "README.md"
 requires-python = ">=3.11"

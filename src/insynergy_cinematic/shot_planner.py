@@ -13,6 +13,8 @@ SHOT_LANGUAGE = (
     ("close_up", "85mm", "eye_level"),
     ("insert", "65mm", "high_angle"),
     ("medium_close_up", "75mm", "eye_level"),
+    ("over_shoulder", "50mm", "eye_level"),
+    ("medium_close_up", "75mm", "eye_level"),
     ("wide", "35mm", "eye_level"),
 )
 
@@ -39,89 +41,91 @@ class ShotPlanner:
         }
         shots: list[dict[str, Any]] = []
         storyboard_frames: list[dict[str, Any]] = []
-        order = 0
-        for scene in scenes:
-            for position in range(2):
-                order += 1
-                framing, lens, angle = SHOT_LANGUAGE[order - 1]
-                shot_id = f"{scene['scene_id']}-shot-{position + 1:02d}"
-                is_climax = scene["act"] == 3 and position == 0
-                if is_climax:
-                    strategy = "runway_video"
-                elif position == 0:
-                    strategy = "animated_still"
-                elif scene["act"] == 3:
-                    strategy = "title_card"
-                else:
-                    strategy = "motion_graphics"
-                movement = "slow_push" if strategy == "runway_video" else "static"
-                action = scene["actions"][min(position, len(scene["actions"]) - 1)]
-                dialogue = scene["dialogue"][min(position, len(scene["dialogue"]) - 1)]["line"]
-                duration = scene["duration_seconds"] / 2
-                shot = {
+        if len(scenes) > len(SHOT_LANGUAGE):
+            raise ValidationError("Shot language does not cover every screenplay scene")
+        for order, scene in enumerate(scenes, start=1):
+            framing, lens, angle = SHOT_LANGUAGE[order - 1]
+            shot_id = f"{scene['scene_id']}-shot-01"
+            is_climax = scene["act"] == 3 and scene["purpose"] == "Force decision"
+            is_title = scene["purpose"] == "Resolve conflict"
+            if is_title:
+                strategy = "title_card"
+            elif is_climax:
+                strategy = "runway_video"
+            elif order % 2:
+                strategy = "animated_still"
+            else:
+                strategy = "motion_graphics"
+            movement = "slow_push" if strategy == "runway_video" else "static"
+            action = scene["actions"][0]
+            dialogue_line = scene["dialogue"][0]
+            dialogue = "SILENCE" if dialogue_line["silence"] else dialogue_line["text"]
+            duration = float(scene["duration_seconds"])
+            shot = {
+                "shot_id": shot_id,
+                "scene_id": scene["scene_id"],
+                "order": order,
+                "act": scene["act"],
+                "shot_type": framing,
+                "cinematic_purpose": scene["dramatic_purpose"],
+                "duration_seconds": duration,
+                "camera": {
+                    "framing": framing,
+                    "lens": lens,
+                    "movement": movement,
+                    "speed": "slow" if movement != "static" else "none",
+                    "angle": angle,
+                },
+                "blocking": {
+                    "primary_action": action,
+                    "screen_direction": "left_to_right",
+                    "performance_note": "restrained, specific, no theatrical gesture",
+                },
+                "dialogue_or_silence": dialogue,
+                "emotion": scene["emotion_end"],
+                "location": scene["location"],
+                "time_of_day": scene["time_of_day"],
+                "character_continuity": continuity_keys,
+                "render_strategy": {
+                    "asset_class": strategy,
+                    "execution_capability": STRATEGY_CAPABILITIES[strategy],
+                    "narrative_value": 1.0 if is_climax else 0.65,
+                    "justification": (
+                        "climactic human decision warrants generative motion"
+                        if is_climax
+                        else "cheapest sufficient deterministic asset class"
+                    ),
+                },
+            }
+            shots.append(shot)
+            storyboard_frames.append(
+                {
+                    "frame_id": f"frame-{order:03d}",
                     "shot_id": shot_id,
                     "scene_id": scene["scene_id"],
-                    "order": order,
-                    "act": scene["act"],
-                    "shot_type": framing,
-                    "cinematic_purpose": scene["dramatic_purpose"],
-                    "duration_seconds": duration,
-                    "camera": {
-                        "framing": framing,
-                        "lens": lens,
-                        "movement": movement,
-                        "angle": angle,
-                    },
-                    "blocking": {
-                        "primary_action": action,
-                        "screen_direction": "left_to_right",
-                        "performance_note": "restrained, specific, no theatrical gesture",
-                    },
-                    "dialogue_or_silence": dialogue,
-                    "emotion": scene["emotion_end"],
-                    "location": scene["location"],
-                    "time_of_day": scene["time_of_day"],
+                    "composition": f"{framing}, {angle}, subject follows {shot['blocking']['screen_direction']}",
+                    "visible_action": action,
+                    "camera": shot["camera"],
+                    "characters": list(scene["characters"]),
                     "character_continuity": continuity_keys,
-                    "render_strategy": {
-                        "asset_class": strategy,
-                        "execution_capability": STRATEGY_CAPABILITIES[strategy],
-                        "narrative_value": 1.0 if is_climax else 0.65,
-                        "justification": (
-                            "climactic human decision warrants generative motion"
-                            if is_climax
-                            else "cheapest sufficient deterministic asset class"
-                        ),
-                    },
+                    "location": scene["location"],
+                    "lighting": "low-key institutional practical lighting",
+                    "emotion": scene["emotion_end"],
+                    "style": [
+                        "live-action institutional realism",
+                        "restrained cinematic contrast",
+                        "natural human performance",
+                    ],
+                    "forbidden_style": [
+                        "cartoon",
+                        "anime",
+                        "glossy corporate explainer",
+                        "speculative hologram interface",
+                    ],
+                    "duration_seconds": duration,
+                    "render_strategy": shot["render_strategy"],
                 }
-                shots.append(shot)
-                storyboard_frames.append(
-                    {
-                        "frame_id": f"frame-{order:03d}",
-                        "shot_id": shot_id,
-                        "scene_id": scene["scene_id"],
-                        "composition": f"{framing}, {angle}, subject follows {shot['blocking']['screen_direction']}",
-                        "visible_action": action,
-                        "camera": shot["camera"],
-                        "characters": list(scene["character_objectives"]),
-                        "character_continuity": continuity_keys,
-                        "location": scene["location"],
-                        "lighting": "low-key institutional practical lighting",
-                        "emotion": scene["emotion_end"],
-                        "style": [
-                            "live-action institutional realism",
-                            "restrained cinematic contrast",
-                            "natural human performance",
-                        ],
-                        "forbidden_style": [
-                            "cartoon",
-                            "anime",
-                            "glossy corporate explainer",
-                            "speculative hologram interface",
-                        ],
-                        "duration_seconds": duration,
-                        "render_strategy": shot["render_strategy"],
-                    }
-                )
+            )
         runway_count = sum(
             shot["render_strategy"]["asset_class"] == "runway_video" for shot in shots
         )
@@ -190,26 +194,65 @@ class ShotPlanner:
         shots: list[dict[str, Any]], frames: list[dict[str, Any]], runway_ratio: float
     ) -> dict[str, Any]:
         shot_checks = {
-            "one_purpose_per_shot": all(bool(shot["cinematic_purpose"]) for shot in shots),
-            "camera_complete": all(
-                all(shot["camera"].get(field) for field in ("framing", "lens", "movement", "angle"))
+            "purpose_exists": all(bool(shot["cinematic_purpose"]) for shot in shots),
+            "camera_defined": all(
+                all(
+                    shot["camera"].get(field)
+                    for field in ("framing", "lens", "movement", "speed", "angle")
+                )
                 for shot in shots
             ),
-            "blocking_observable": all(bool(shot["blocking"]["primary_action"]) for shot in shots),
-            "strict_order": [shot["order"] for shot in shots] == list(range(1, len(shots) + 1)),
-            "hybrid_rendering": 0 < runway_ratio <= 0.30,
-            "provider_neutral": all(
-                "provider" not in shot["render_strategy"] for shot in shots
+            "blocking_defined": all(
+                bool(shot["blocking"]["primary_action"]) for shot in shots
+            ),
+            "emotion_defined": all(bool(shot["emotion"]) for shot in shots),
+            "continuity_valid": all(
+                bool(shot["character_continuity"])
+                and bool(shot["location"])
+                and bool(shot["time_of_day"])
+                for shot in shots
+            ),
+            "render_strategy_defined": all(
+                shot["render_strategy"].get("asset_class")
+                in STRATEGY_CAPABILITIES
+                and "provider" not in shot["render_strategy"]
+                for shot in shots
+            ),
+            "single_action": all(
+                isinstance(shot["blocking"]["primary_action"], str)
+                and bool(shot["blocking"]["primary_action"].strip())
+                for shot in shots
+            ),
+            "single_camera_move": all(
+                isinstance(shot["camera"]["movement"], str)
+                and bool(shot["camera"]["movement"])
+                for shot in shots
             ),
         }
+        concept_ratio = sum(
+            shot["render_strategy"]["asset_class"] == "title_card"
+            for shot in shots
+        ) / len(shots)
         storyboard_checks = {
-            "one_frame_per_shot": len(frames) == len(shots),
             "all_frames_renderable": all(
                 ShotPlanner._frame_renderable(frame) for frame in frames
             ),
-            "identity_injected": all(bool(frame["character_continuity"]) for frame in frames),
-            "style_enforced": all(bool(frame["style"] and frame["forbidden_style"]) for frame in frames),
-            "continuity_valid": True,
+            "composition": len(frames) == len(shots)
+            and all(
+                bool(frame["composition"])
+                and bool(frame["lighting"])
+                and bool(frame["style"])
+                for frame in frames
+            ),
+            "continuity": all(
+                bool(frame["character_continuity"])
+                and bool(frame["location"])
+                for frame in frames
+            ),
+            "pacing": all(float(frame["duration_seconds"]) > 0 for frame in frames),
+            "render_balance": 0 < runway_ratio <= 0.30,
+            "concept_ratio": concept_ratio <= 0.20,
+            "emotional_rhythm": len({frame["emotion"] for frame in frames}) >= 3,
         }
         shot_score = sum(shot_checks.values()) / len(shot_checks)
         board_score = sum(storyboard_checks.values()) / len(storyboard_checks)
@@ -221,6 +264,7 @@ class ShotPlanner:
                 "score": shot_score,
                 "threshold": 0.9,
                 "checks": shot_checks,
+                "blocking": True,
                 "fail_closed": True,
             },
             "storyboard_gate": {
@@ -229,6 +273,7 @@ class ShotPlanner:
                 "score": board_score,
                 "threshold": 0.9,
                 "checks": storyboard_checks,
+                "blocking": True,
                 "fail_closed": True,
             },
             "score": min(shot_score, board_score),

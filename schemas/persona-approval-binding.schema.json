@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.insynergy.co/cttp/v3.3/persona/persona-approval-binding.schema.json",
+  "title": "PersonaApprovalBinding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "contract_version", "approval_id", "build_id", "approver", "decision", "approved_at", "article_hash", "creative_brief_hash", "persona_hash", "quality_report_hash", "deliberation_hash", "deliberation_contract_version", "policy_version", "content_hash"],
+  "properties": {
+    "schema_version": {"const": "3.3.0"},
+    "contract_version": {"const": "persona-approval/1"},
+    "approval_id": {"type": "string", "pattern": "^PAB-[A-Za-z0-9._:-]{8,128}$"},
+    "build_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "approver": {"type": "string", "minLength": 1, "maxLength": 256},
+    "decision": {"const": "APPROVED"},
+    "approved_at": {"type": "string", "format": "date-time"},
+    "article_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"},
+    "creative_brief_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"},
+    "persona_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"},
+    "quality_report_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"},
+    "deliberation_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"},
+    "deliberation_contract_version": {"const": "persona-council/1"},
+    "policy_version": {"type": "string", "minLength": 1, "maxLength": 64},
+    "rationale": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "content_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"}
+  }
+}

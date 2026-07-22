@@ -6,7 +6,11 @@ from urllib.parse import urlparse
 
 from insynergy_cinematic.errors import StateConflictError
 from insynergy_cinematic.models import BuildState
-from insynergy_cinematic.schemas import SCHEMA_NAMES, export_schemas
+from insynergy_cinematic.schemas import (
+    SCHEMA_BUNDLE_FILE_COUNT,
+    SCHEMA_NAMES,
+    export_schemas,
+)
 from insynergy_cinematic.storage import BuildRepository
 
 
@@ -23,12 +27,16 @@ class StateAndSchemaTests(unittest.TestCase):
     def test_all_part_9_schemas_export(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             count = export_schemas(Path(temporary))
-            self.assertEqual(count, len(SCHEMA_NAMES) + 2)
+            self.assertEqual(count, SCHEMA_BUNDLE_FILE_COUNT)
             self.assertTrue((Path(temporary) / "render-manifest.schema.json").is_file())
             self.assertTrue((Path(temporary) / "quality-gate-registry.schema.json").is_file())
             self.assertTrue((Path(temporary) / "agent-review-report.schema.json").is_file())
             self.assertTrue(
                 (Path(temporary) / "review-approval-binding.schema.json").is_file()
+            )
+            self.assertTrue((Path(temporary) / "persona.schema.json").is_file())
+            self.assertTrue(
+                (Path(temporary) / "persona-approval-binding.schema.json").is_file()
             )
 
     def test_every_schema_reference_resolves(self) -> None:

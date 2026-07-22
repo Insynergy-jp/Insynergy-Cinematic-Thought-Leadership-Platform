@@ -68,9 +68,134 @@ SCHEMA_NAMES = (
     "performance-config",
     "operational-state",
     "quality-gate-registry",
+    "quality-gate-report",
+    "build-quality-report",
     "agent-review-report",
     "review-approval-binding",
+    "persona-proposals",
+    "persona-red-team-report",
+    "persona-deliberation",
+    "persona",
+    "persona-quality-report",
+    "persona-approval-binding",
 )
+
+
+_SCHEMA_GROUPS: dict[str, tuple[str, dict[str, str]]] = {
+    "9.2": (
+        "2.0",
+        {
+            "product-contract": "1.1.1",
+            "layer-contract": "1.3.3",
+            "data-flow": "1.3.2",
+            "asset-selection": "1.3.6",
+            "approval-record": "1.4.1",
+        },
+    ),
+    "9.3": (
+        "2.0",
+        {
+            "argument-map": "2.1.2",
+            "theme": "2.1.2",
+            "dramatic-question": "2.1.2",
+            "dramatic-premise": "2.1.3",
+            "logline": "2.1.3",
+            "character-bible": "2.1.4",
+            "conflict": "2.1.5",
+            "stakes": "2.1.5",
+            "time-pressure": "2.1.5",
+            "story-arc": "2.1.6",
+            "three-act-structure": "2.1.6",
+            "emotional-arc": "2.1.6",
+            "concept-placement": "2.1.6",
+            "story-quality-report": "2.1.7",
+            "story-metrics": "2.1.7",
+            "story-cache-key": "2.1.8",
+        },
+    ),
+    "9.4": (
+        "2.0",
+        {
+            "screenplay": "3.1.7",
+            "scene": "3.1.3",
+            "scene-index": "3.1.7",
+            "dialogue": "3.1.5",
+            "continuity": "3.1.8",
+            "screenplay-metrics": "3.1.8",
+            "screenplay-config": "3.1.9",
+            "screenplay-state": "3.1.11",
+        },
+    ),
+    "9.5": (
+        "2.0",
+        {
+            "shot-list": "4.1.2",
+            "shot": "4.1.2",
+            "camera-plan": "4.1.4",
+            "blocking": "4.1.5",
+            "storyboard": "4.1.6",
+            "continuity-report": "4.1.8",
+            "render-strategy": "4.1.9",
+            "shot-metrics": "4.1.13",
+            "shot-gate-report": "4.1.12",
+            "storyboard-gate-report": "4.1.12",
+            "shot-cache-key": "4.1.13",
+        },
+    ),
+    "9.6": (
+        "2.0",
+        {
+            "render-manifest": "5.1.4, 5.4.4",
+            "render-queue": "5.1.4, 5.4.1",
+            "render-results": "5.1.4",
+            "metadata": "5.1.4",
+            "render-task": "5.4.3",
+            "provider-capability": "5.3.2",
+            "retry-policy": "5.4.5",
+            "prompt-assembly": "5.5.1",
+            "location-bible": "5.1.4",
+        },
+    ),
+    "9.7": (
+        "2.0",
+        {
+            "performance-budget": "6.1.1",
+            "execution-plan": "6.1.3",
+            "dependency-graph": "6.1.3",
+            "build-profile": "6.1.7",
+            "performance-config": "6.1.8",
+            "operational-state": "6.1.11",
+            "quality-gate-registry": "6.1.6, 7.1.3",
+            "quality-gate-report": "7.1.3",
+            "build-quality-report": "7.1.12",
+        },
+    ),
+    "9.0.1": (
+        "2.1",
+        {
+            "agent-review-report": "1.0.1, 7.0.1",
+            "review-approval-binding": "1.0.1, 8.0.1",
+        },
+    ),
+    "9.0.2": (
+        "3.3",
+        {
+            "persona-proposals": "1.0.2, 6.0.2",
+            "persona-red-team-report": "1.0.2, 6.0.2",
+            "persona-deliberation": "1.0.2, 6.0.2",
+            "persona": "1.0.2",
+            "persona-quality-report": "7.0.2",
+            "persona-approval-binding": "1.0.2, 8.0.2",
+        },
+    ),
+}
+
+SCHEMA_METADATA = {
+    name: {"version": version, "owner": owner, "chapter": chapter}
+    for chapter, (version, entries) in _SCHEMA_GROUPS.items()
+    for name, owner in entries.items()
+}
+SCHEMA_BUNDLE_FILE_COUNT = len(SCHEMA_NAMES) + 3
 
 
 def common_definitions() -> dict[str, Any]:
@@ -197,6 +322,13 @@ def schema_for(name: str) -> dict[str, Any]:
     if normalized not in SCHEMA_NAMES:
         raise ValidationError(f"Unknown schema: {name}")
     bundled = _bundled_schema_root() / f"{normalized}.schema.json"
+    repository_schema = (
+        Path(__file__).resolve().parents[2]
+        / "schemas"
+        / f"{normalized}.schema.json"
+    )
+    if not bundled.is_file() and repository_schema.is_file():
+        bundled = repository_schema
     if bundled.is_file():
         with bundled.open(encoding="utf-8") as handle:
             return json.load(handle)
@@ -239,17 +371,25 @@ def schema_for(name: str) -> dict[str, Any]:
 
 
 def registry() -> dict[str, Any]:
-    return {
-        "schema_version": "2.0",
-        "schemas": [
-            {
-                "name": name,
-                "file": f"{name}.schema.json",
-                "id": schema_for(name)["$id"],
-            }
-            for name in SCHEMA_NAMES
-        ],
+    from .util import content_hash
+
+    entries = [
+        {
+            "name": name,
+            "file": f"{name}.schema.json",
+            "id": schema_for(name)["$id"],
+            **SCHEMA_METADATA[name],
+        }
+        for name in SCHEMA_NAMES
+    ]
+    value = {
+        "schema_version": "3.3.0",
+        "contract_version": "schema-registry/1",
+        "dialect": "https://json-schema.org/draft/2020-12/schema",
+        "schemas": entries,
     }
+    value["content_hash"] = content_hash(entries)
+    return value
 
 
 def export_schemas(destination: Path) -> int:

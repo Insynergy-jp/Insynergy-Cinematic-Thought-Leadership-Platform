@@ -10,16 +10,17 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from .errors import AuthenticationError, PlatformError, ValidationError
 from .orchestrator import BuildOrchestrator
-from .util import now_iso, stable_id
+from .outcomes import OutcomeDashboard, ViewerOutcomeRepository
+from .util import PLATFORM_VERSION, now_iso, stable_id
 
 
 class APIHandler(BaseHTTPRequestHandler):
     orchestrator: BuildOrchestrator
-    server_version = "InsynergyCinematic/3.0"
+    server_version = "InsynergyCinematic/3.3"
 
     def log_message(self, format: str, *args: object) -> None:
         # The API intentionally leaves structured access logging to its host.
@@ -49,7 +50,7 @@ class APIHandler(BaseHTTPRequestHandler):
             "error": error,
             "metadata": {
                 "api_version": "v2",
-                "server_version": "3.2.0",
+                "server_version": PLATFORM_VERSION,
                 "occurred_at": now_iso(),
             },
         }
@@ -76,8 +77,41 @@ class APIHandler(BaseHTTPRequestHandler):
         if not supplied or not hmac.compare_digest(supplied, configured):
             raise AuthenticationError("Authentication failed")
 
+    def _run_operation(
+        self,
+        *,
+        key: str,
+        operation_type: str,
+        request: dict[str, Any],
+        callback: Any,
+    ) -> dict[str, Any]:
+        operation, owned = self.orchestrator.repository.begin_operation(
+            idempotency_key=key,
+            operation_type=operation_type,
+            request=request,
+        )
+        if not owned:
+            return operation
+        try:
+            result = callback()
+        except PlatformError as exc:
+            self.orchestrator.repository.finish_operation(
+                operation, error=exc.as_dict()
+            )
+            raise
+        except Exception as exc:
+            self.orchestrator.repository.finish_operation(
+                operation,
+                error={"code": "INTERNAL_ERROR", "message": str(exc)},
+            )
+            raise
+        return self.orchestrator.repository.finish_operation(
+            operation, result=result
+        )
+
     def _route(self, method: str) -> None:
-        path = urlparse(self.path).path.rstrip("/") or "/"
+        parsed_url = urlparse(self.path)
+        path = parsed_url.path.rstrip("/") or "/"
         if method == "GET" and path == "/api/v2/health":
             self._send(HTTPStatus.OK, self.orchestrator.health())
             return
@@ -85,9 +119,57 @@ class APIHandler(BaseHTTPRequestHandler):
         if method == "GET" and path == "/api/v2/builds":
             self._send(HTTPStatus.OK, self.orchestrator.list_builds())
             return
+        if method == "GET" and path == "/api/v2/outcomes/dashboard":
+            query = parse_qs(parsed_url.query, keep_blank_values=False)
+            build_id = query.get("build_id", [None])[0]
+            raw_window = query.get("window_days", [None])[0]
+            try:
+                window_days = int(raw_window) if raw_window is not None else None
+            except ValueError as exc:
+                raise ValidationError("window_days must be an integer") from exc
+            self._send(
+                HTTPStatus.OK,
+                OutcomeDashboard(self.orchestrator.workspace).report(
+                    build_id=build_id,
+                    window_days=window_days,
+                ),
+            )
+            return
+        if method == "POST" and path == "/api/v2/outcomes":
+            key = self._mutation_guard()
+            body = self._body()
+            viewer_id = body.get("viewer_id")
+            if not isinstance(viewer_id, str) or not viewer_id.strip():
+                raise ValidationError("viewer_id is required")
+            result = ViewerOutcomeRepository(self.orchestrator.workspace).record(
+                build_id=str(body.get("build_id", "")),
+                viewer_id=viewer_id,
+                idea_restatement_accuracy=body.get("idea_restatement_accuracy"),
+                unaided_recall=body.get("unaided_recall"),
+                reaction_subject=str(body.get("reaction_subject", "")),
+                accuracy_gate_result=str(body.get("accuracy_gate_result", "")),
+                retention_interval_hours=body.get("retention_interval_hours"),
+                cohort=str(body.get("cohort", "all")),
+                observed_at=body.get("observed_at"),
+                idempotency_key=key,
+            )
+            self._send(HTTPStatus.CREATED if result["created"] else HTTPStatus.OK, result)
+            return
         match = re.fullmatch(r"/api/v2/builds/([^/]+)", path)
         if method == "GET" and match:
             self._send(HTTPStatus.OK, self.orchestrator.inspect(match.group(1)))
+            return
+        runtime_match = re.fullmatch(
+            r"/api/v2/builds/([^/]+)/(recovery|verification)", path
+        )
+        if method == "GET" and runtime_match:
+            build_id, surface = runtime_match.groups()
+            result = (
+                self.orchestrator.recover(build_id)
+                if surface == "recovery"
+                else self.orchestrator.verify(build_id)
+            )
+            self._send(HTTPStatus.OK, result)
             return
         if method == "POST" and path == "/api/v2/builds":
             key = self._mutation_guard()
@@ -95,14 +177,26 @@ class APIHandler(BaseHTTPRequestHandler):
             article_path = body.get("article_path")
             if not article_path:
                 raise ValidationError("article_path is required")
-            view = self.orchestrator.plan(Path(article_path))
-            operation = {
-                "operation_id": stable_id("operation", {"key": key, "build": view["build_id"]}),
-                "operation_type": "BUILD_PLAN",
-                "state": "SUCCEEDED",
-                "build_id": view["build_id"],
-                "result": view,
+            creative_brief_path = body.get("creative_brief_path")
+            request = {
+                "article_path": str(Path(article_path).resolve()),
+                "creative_brief_path": (
+                    str(Path(creative_brief_path).resolve())
+                    if creative_brief_path
+                    else None
+                ),
             }
+            operation = self._run_operation(
+                key=key,
+                operation_type="BUILD_PLAN",
+                request=request,
+                callback=lambda: self.orchestrator.plan(
+                    Path(article_path),
+                    creative_brief_path=(
+                        Path(creative_brief_path) if creative_brief_path else None
+                    ),
+                ),
+            )
             self._send(HTTPStatus.ACCEPTED, operation)
             return
         action_match = re.fullmatch(
@@ -110,22 +204,34 @@ class APIHandler(BaseHTTPRequestHandler):
             path,
         )
         if method == "POST" and action_match:
-            self._mutation_guard()
+            key = self._mutation_guard()
             build_id, action = action_match.groups()
             body = self._body()
-            if action == "approve":
-                result = self.orchestrator.approve(
-                    build_id,
-                    gate=body.get("gate", "execution"),
-                    actor=body.get("actor", "api-operator"),
-                    decision=body.get("decision", "APPROVED"),
-                    comment=body.get("comment", ""),
-                    allow_agent_exception=body.get("allow_agent_exception", False) is True,
-                    agent_exception_reason=body.get("agent_exception_reason", ""),
-                )
-            else:
-                result = getattr(self.orchestrator, action)(build_id)
-            self._send(HTTPStatus.ACCEPTED, result)
+            request = {"build_id": build_id, "action": action, "body": body}
+
+            def mutate() -> dict[str, Any]:
+                if action == "approve":
+                    return self.orchestrator.approve(
+                        build_id,
+                        gate=body.get("gate", "execution"),
+                        actor=body.get("actor", "api-operator"),
+                        decision=body.get("decision", "APPROVED"),
+                        comment=body.get("comment", ""),
+                        allow_agent_exception=body.get("allow_agent_exception", False)
+                        is True,
+                        agent_exception_reason=body.get(
+                            "agent_exception_reason", ""
+                        ),
+                    )
+                return getattr(self.orchestrator, action)(build_id)
+
+            operation = self._run_operation(
+                key=key,
+                operation_type=f"BUILD_{action.upper()}",
+                request=request,
+                callback=mutate,
+            )
+            self._send(HTTPStatus.ACCEPTED, operation)
             return
         self._send(HTTPStatus.NOT_FOUND, error={"code": "ROUTE_NOT_FOUND", "message": path})
 

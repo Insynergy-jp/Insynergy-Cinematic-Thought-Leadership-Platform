@@ -65,12 +65,14 @@ jobs:
           persist-credentials: false
       - name: Install FFmpeg
         run: |
+          set -euo pipefail
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends espeak-ng ffmpeg fonts-dejavu-core
       - name: Verify media toolchain
         run: |
-          ffmpeg -version | head -1
-          espeak-ng --version | head -1
+          set -euo pipefail
+          ffmpeg -version
+          espeak-ng --version
       - name: Validate workflow inputs
         env:
           SOURCE_RUN_ID: ${{ inputs.planning_run_id }}
@@ -78,6 +80,7 @@ jobs:
           ALLOW_AGENT_EXCEPTION: ${{ inputs.allow_agent_exception }}
           AGENT_EXCEPTION_REASON: ${{ inputs.agent_exception_reason }}
         run: |
+          set -euo pipefail
           case "$SOURCE_RUN_ID" in *[!0-9]*|'') echo "planning_run_id must be numeric" >&2; exit 2 ;; esac
           case "$BUILD_ID" in [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9]) ;; *) echo "invalid build_id" >&2; exit 2 ;; esac
           if [ "$ALLOW_AGENT_EXCEPTION" = "true" ]; then
@@ -93,7 +96,20 @@ jobs:
       - name: Verify build identity
         env:
           EXPECTED_BUILD_ID: ${{ inputs.build_id }}
-        run: test "$(tr -d '\n' < build-id.txt)" = "$EXPECTED_BUILD_ID"
+        run: |
+          set -euo pipefail
+          test "$(tr -d '\n' < build-id.txt)" = "$EXPECTED_BUILD_ID"
+      - name: Verify immutable planning handoff
+        uses: ./.github/actions/workflow-evidence
+        with:
+          operation: verify
+          stage: planning
+          build-id: ${{ inputs.build_id }}
+          profile: ${{ inputs.profile }}
+          source-workflow: Plan Article
+          source-repository: ${{ github.repository }}
+          source-run-id: ${{ inputs.planning_run_id }}
+          source-sha: ${{ github.sha }}
       - name: Validate provider configuration
         env:
           RENDER_PROVIDER: ${{ inputs.provider }}
@@ -104,6 +120,7 @@ jobs:
           NARRATION_PROVIDER: ${{ inputs.narration_provider }}
           OPENAI_TTS_API_KEY: ${{ secrets.OPENAI_TTS_API_KEY }}
         run: |
+          set -euo pipefail
           if [ "$RENDER_PROVIDER" = "runway" ]; then
             test -n "$RUNWAY_API_KEY" || { echo "RUNWAY_API_KEY environment secret is required" >&2; exit 3; }
             test -n "$RUNWAY_BASE_URL" || { echo "RUNWAY_BASE_URL environment variable is required" >&2; exit 2; }
@@ -132,6 +149,7 @@ jobs:
           ALLOW_AGENT_EXCEPTION: ${{ inputs.allow_agent_exception }}
           AGENT_EXCEPTION_REASON: ${{ inputs.agent_exception_reason }}
         run: |
+          set -euo pipefail
           if [ "$ALLOW_AGENT_EXCEPTION" = "true" ]; then
             PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" approve "$BUILD_ID" --gate execution --actor "$APPROVER" --allow-agent-exception --agent-exception-reason "$AGENT_EXCEPTION_REASON"
           else
@@ -139,6 +157,35 @@ jobs:
           fi
           PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" execute "$BUILD_ID" > execution-result.json
           python3 -c 'import json; value=json.load(open("execution-result.json")); assert value["state"] == "READY"'
+      - name: Verify runtime and quality evidence
+        env:
+          BUILD_ID: ${{ inputs.build_id }}
+          BUILD_PROFILE: ${{ inputs.profile }}
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" verify "$BUILD_ID" > verification-result.json
+          python3 -c 'import json; value=json.load(open("verification-result.json")); assert value["passed"] is True; assert value["quality_integrity"] is True'
+      - name: Seal validated execution handoff
+        uses: ./.github/actions/workflow-evidence
+        with:
+          operation: create
+          stage: execution
+          build-id: ${{ inputs.build_id }}
+          profile: ${{ inputs.profile }}
+          source-workflow: ${{ github.workflow }}
+          source-repository: ${{ github.repository }}
+          source-run-id: ${{ github.run_id }}
+          source-run-attempt: ${{ github.run_attempt }}
+          source-sha: ${{ github.sha }}
+          paths: |
+            .insynergy
+            execution-result.json
+            verification-result.json
+            build-id.txt
+      - name: Write safe execution summary
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python3 tools/workflow_evidence.py summary --evidence workflow-evidence.json --result execution-result.json
       - name: Upload safe execution diagnostics
         if: failure()
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
@@ -146,6 +193,8 @@ jobs:
           name: execution-diagnostics-${{ github.run_id }}
           path: |
             execution-result.json
+            verification-result.json
+            workflow-evidence-result.json
             .insynergy/builds/${{ inputs.build_id }}/manifest.json
             .insynergy/builds/${{ inputs.build_id }}/artifacts/render_manifest.json
             .insynergy/builds/${{ inputs.build_id }}/artifacts/render_results.json
@@ -160,6 +209,9 @@ jobs:
           path: |
             .insynergy
             execution-result.json
+            verification-result.json
+            build-id.txt
+            workflow-evidence.json
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30

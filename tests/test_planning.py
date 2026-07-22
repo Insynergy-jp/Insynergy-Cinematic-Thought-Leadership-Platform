@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class PlanningTests(unittest.TestCase):
-    def test_all_shots_runway_scope_is_capped_at_360_credits(self) -> None:
+    def test_all_shots_runway_scope_fits_the_480_credit_cap(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             orchestrator = BuildOrchestrator(
                 Path(temporary),
@@ -25,11 +25,11 @@ class PlanningTests(unittest.TestCase):
             )
             view = orchestrator.plan(ROOT / "examples" / "decision-boundary.md")
             planning = view["metrics"]["planning"]
-            self.assertEqual(planning["shot_count"], 6)
-            self.assertEqual(planning["provider_render_shot_count"], 6)
-            self.assertEqual(planning["estimated_runway_credits"], 360)
-            self.assertEqual(planning["runway_credit_limit"], 360)
-            self.assertEqual(planning["estimated_provider_cost_usd"], 3.6)
+            self.assertEqual(planning["shot_count"], 8)
+            self.assertEqual(planning["provider_render_shot_count"], 8)
+            self.assertEqual(planning["estimated_runway_credits"], 384)
+            self.assertEqual(planning["runway_credit_limit"], 480)
+            self.assertEqual(planning["estimated_provider_cost_usd"], 3.84)
             manifest = orchestrator.repository.load(view["build_id"])
             self.assertEqual(
                 manifest["configuration"]["render"]["runway_scope"], "all_shots"
@@ -77,7 +77,8 @@ class PlanningTests(unittest.TestCase):
                 all(shot["render_strategy"]["execution_capability"] for shot in shots)
             )
             screenplay = orchestrator.repository.load_artifact(manifest, "screenplay")["data"]
-            resolution = screenplay["scenes"][2]
+            self.assertEqual(screenplay["scene_count"], 8)
+            resolution = screenplay["scenes"][6]
             self.assertIn("Authorization Owner", resolution["actions"][0])
             self.assertIn("signs the decision record", resolution["actions"][0])
             storyboard = orchestrator.repository.load_artifact(manifest, "storyboard")["data"]

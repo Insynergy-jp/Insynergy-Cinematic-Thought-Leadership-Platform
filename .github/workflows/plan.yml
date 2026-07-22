@@ -20,7 +20,7 @@ on:
         type: choice
         options: [local, runway]
       runway_scope:
-        description: Paid Runway coverage; all_shots is capped at 360 credits
+        description: Paid Runway coverage; all_shots is capped at 480 credits
         required: true
         default: hybrid
         type: choice
@@ -37,16 +37,28 @@ on:
         default: "off"
         type: choice
         options: ["off", review]
+      persona_mode:
+        description: Persona Council mode before Story generation
+        required: true
+        default: "off"
+        type: choice
+        options: ["off", council]
+      creative_brief_path:
+        description: Repository-relative Creative Brief path; required for council mode
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: plan-${{ github.repository }}-${{ inputs.article_path }}-${{ inputs.profile }}-${{ inputs.provider }}-${{ inputs.runway_scope }}-${{ inputs.narration_provider }}-${{ inputs.agent_review_mode }}
+  group: plan-${{ github.repository }}-${{ inputs.profile }}-${{ inputs.provider }}-${{ inputs.runway_scope }}-${{ inputs.narration_provider }}-${{ inputs.agent_review_mode }}-${{ inputs.persona_mode }}
   cancel-in-progress: false
 
 jobs:
   plan:
+    if: ${{ inputs.persona_mode == 'off' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -58,6 +70,7 @@ jobs:
         env:
           ARTICLE_PATH: ${{ inputs.article_path }}
         run: |
+          set -euo pipefail
           case "$ARTICLE_PATH" in
             /*|*..*) echo "article_path must be repository-relative and contain no .." >&2; exit 2 ;;
           esac
@@ -71,8 +84,35 @@ jobs:
           NARRATION_PROVIDER: ${{ inputs.narration_provider }}
           AGENT_REVIEW_MODE: ${{ inputs.agent_review_mode }}
         run: |
-          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" plan "$ARTICLE_PATH" > planning-result.json
+          set -euo pipefail
+          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --persona-mode off plan "$ARTICLE_PATH" > planning-result.json
           python3 -c 'import json, os; value=json.load(open("planning-result.json")); expected="PLANNED" if os.environ["AGENT_REVIEW_MODE"] == "review" else "AWAITING_EXECUTION_APPROVAL"; assert value["state"] == expected; print(value["build_id"])' | tee build-id.txt
+      - name: Read planning build identity
+        id: plan_meta
+        run: |
+          set -euo pipefail
+          build_id="$(tr -d '\n' < build-id.txt)"
+          echo "build_id=$build_id" >> "$GITHUB_OUTPUT"
+      - name: Seal planning handoff
+        uses: ./.github/actions/workflow-evidence
+        with:
+          operation: create
+          stage: planning
+          build-id: ${{ steps.plan_meta.outputs.build_id }}
+          profile: ${{ inputs.profile }}
+          source-workflow: ${{ github.workflow }}
+          source-repository: ${{ github.repository }}
+          source-run-id: ${{ github.run_id }}
+          source-run-attempt: ${{ github.run_attempt }}
+          source-sha: ${{ github.sha }}
+          paths: |
+            .insynergy
+            planning-result.json
+            build-id.txt
+      - name: Write safe planning summary
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python3 tools/workflow_evidence.py summary --evidence workflow-evidence.json --result planning-result.json
       - name: Upload base planning bundle
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
@@ -81,21 +121,277 @@ jobs:
             .insynergy
             planning-result.json
             build-id.txt
+            workflow-evidence.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  persona-deliberation:
+    if: ${{ inputs.persona_mode == 'council' }}
+    environment: planning-ai
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Validate Persona inputs
+        env:
+          ARTICLE_PATH: ${{ inputs.article_path }}
+          CREATIVE_BRIEF_PATH: ${{ inputs.creative_brief_path }}
+        run: |
+          set -euo pipefail
+          for input_path in "$ARTICLE_PATH" "$CREATIVE_BRIEF_PATH"; do
+            case "$input_path" in
+              ""|/*|*..*) echo "Persona input paths must be repository-relative, non-empty, and contain no .." >&2; exit 2 ;;
+            esac
+            test -f "$input_path"
+          done
+      - name: Install Persona Council adapter
+        run: |
+          set -euo pipefail
+          python3 -m pip install -e '.[agent-review]'
+      - name: Run bounded Persona Council
+        env:
+          ARTICLE_PATH: ${{ inputs.article_path }}
+          CREATIVE_BRIEF_PATH: ${{ inputs.creative_brief_path }}
+          BUILD_PROFILE: ${{ inputs.profile }}
+          RENDER_PROVIDER: ${{ inputs.provider }}
+          RUNWAY_SCOPE: ${{ inputs.runway_scope }}
+          NARRATION_PROVIDER: ${{ inputs.narration_provider }}
+          AGENT_REVIEW_MODE: ${{ inputs.agent_review_mode }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --persona-mode council plan "$ARTICLE_PATH" --creative-brief "$CREATIVE_BRIEF_PATH" > planning-result.json
+          python3 -c 'import json; value=json.load(open("planning-result.json")); assert value["state"] == "AWAITING_PERSONA_APPROVAL"; assert value["gates"]["persona_quality_gate"]["passed"] is True; print(value["build_id"])' | tee build-id.txt
+      - name: Read Persona build identity
+        id: persona_meta
+        run: |
+          set -euo pipefail
+          build_id="$(tr -d '\n' < build-id.txt)"
+          echo "build_id=$build_id" >> "$GITHUB_OUTPUT"
+      - name: Seal Persona handoff
+        uses: ./.github/actions/workflow-evidence
+        with:
+          operation: create
+          stage: planning
+          build-id: ${{ steps.persona_meta.outputs.build_id }}
+          profile: ${{ inputs.profile }}
+          source-workflow: ${{ github.workflow }}
+          source-repository: ${{ github.repository }}
+          source-run-id: ${{ github.run_id }}
+          source-run-attempt: ${{ github.run_attempt }}
+          source-sha: ${{ github.sha }}
+          paths: |
+            .insynergy
+            planning-result.json
+            build-id.txt
+      - name: Upload Persona pre-approval bundle
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: persona-awaiting-${{ github.run_id }}
+          path: |
+            .insynergy
+            planning-result.json
+            build-id.txt
+            workflow-evidence.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+
+  persona-quality:
+    if: ${{ inputs.persona_mode == 'council' }}
+    needs: persona-deliberation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Download Persona pre-approval bundle
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: persona-awaiting-${{ github.run_id }}
+          path: .
+      - name: Read Persona build identity
+        id: persona_meta
+        run: |
+          set -euo pipefail
+          build_id="$(tr -d '\n' < build-id.txt)"
+          echo "build_id=$build_id" >> "$GITHUB_OUTPUT"
+      - name: Verify sealed Persona handoff
+        uses: ./.github/actions/workflow-evidence
+        with:
+          operation: verify
+          stage: planning
+          build-id: ${{ steps.persona_meta.outputs.build_id }}
+          profile: ${{ inputs.profile }}
+          source-workflow: ${{ github.workflow }}
+          source-repository: ${{ github.repository }}
+          source-run-id: ${{ github.run_id }}
+          source-sha: ${{ github.sha }}
+      - name: Validate Persona contracts without a provider
+        run: |
+          set -euo pipefail
+          BUILD_ID="$(tr -d '\n' < build-id.txt)"
+          PYTHONPATH=src python3 -m insynergy_cinematic validate-persona-preapproval ".insynergy/builds/$BUILD_ID/artifacts" > persona-validation.json
+          python3 -c 'import json; value=json.load(open("persona-validation.json")); assert value["passed"] is True and value["status"] == "PASS"'
+      - name: Write safe Persona approval surface
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+
+          result = json.load(open("planning-result.json", encoding="utf-8"))
+          council = result["persona_council"]
+          metrics = result["metrics"]["persona_council"]
+          lines = [
+              "## Persona Approval",
+              "",
+              f"- Build: `{result['build_id']}`",
+              f"- Deliberation key: `{council['deliberation_key']}`",
+              f"- Persona hash: `{council['persona_content_hash']}`",
+              f"- Quality report hash: `{council['quality_report_content_hash']}`",
+              f"- Quality status: `{council['status']}`",
+              f"- Model: `{council['model_resolved']}`",
+              f"- Estimated cost: `${metrics['estimated_cost_usd']:.2f}`",
+              "",
+              "The unpublished Article, Creative Brief, prompts, and Persona body are omitted.",
+              "",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as output:
+              output.write("\n".join(lines))
+          PY
+      - name: Upload qualified Persona bundle
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: persona-qualified-${{ github.run_id }}
+          path: |
+            .insynergy
+            planning-result.json
+            persona-validation.json
+            build-id.txt
+            workflow-evidence.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+
+  persona-approval:
+    if: ${{ inputs.persona_mode == 'council' }}
+    needs: persona-quality
+    environment: persona-approval
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Download qualified Persona bundle
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: persona-qualified-${{ github.run_id }}
+          path: .
+      - name: Read Persona build identity
+        id: persona_meta
+        run: |
+          set -euo pipefail
+          build_id="$(tr -d '\n' < build-id.txt)"
+          echo "build_id=$build_id" >> "$GITHUB_OUTPUT"
+      - name: Verify qualified Persona handoff
+        uses: ./.github/actions/workflow-evidence
+        with:
+          operation: verify
+          stage: planning
+          build-id: ${{ steps.persona_meta.outputs.build_id }}
+          profile: ${{ inputs.profile }}
+          source-workflow: ${{ github.workflow }}
+          source-repository: ${{ github.repository }}
+          source-run-id: ${{ github.run_id }}
+          source-sha: ${{ github.sha }}
+      - name: Bind Persona approval and generate deterministic planning
+        env:
+          ARTICLE_PATH: ${{ inputs.article_path }}
+          CREATIVE_BRIEF_PATH: ${{ inputs.creative_brief_path }}
+          BUILD_PROFILE: ${{ inputs.profile }}
+          RENDER_PROVIDER: ${{ inputs.provider }}
+          RUNWAY_SCOPE: ${{ inputs.runway_scope }}
+          NARRATION_PROVIDER: ${{ inputs.narration_provider }}
+          AGENT_REVIEW_MODE: ${{ inputs.agent_review_mode }}
+          APPROVER: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          BUILD_ID="$(tr -d '\n' < build-id.txt)"
+          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --persona-mode council approve "$BUILD_ID" --gate persona --actor "$APPROVER" --comment "GitHub Environment persona-approval" > persona-approval-result.json
+          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --persona-mode council plan "$ARTICLE_PATH" --creative-brief "$CREATIVE_BRIEF_PATH" > planning-result.json
+          python3 -c 'import json, os; value=json.load(open("planning-result.json")); expected="PLANNED" if os.environ["AGENT_REVIEW_MODE"] == "review" else "AWAITING_EXECUTION_APPROVAL"; assert value["state"] == expected; assert "persona-approval-binding" in value["artifacts"]'
+      - name: Seal approved planning handoff
+        uses: ./.github/actions/workflow-evidence
+        with:
+          operation: create
+          stage: planning
+          build-id: ${{ steps.persona_meta.outputs.build_id }}
+          profile: ${{ inputs.profile }}
+          source-workflow: ${{ github.workflow }}
+          source-repository: ${{ github.repository }}
+          source-run-id: ${{ github.run_id }}
+          source-run-attempt: ${{ github.run_attempt }}
+          source-sha: ${{ github.sha }}
+          paths: |
+            .insynergy
+            planning-result.json
+            persona-approval-result.json
+            build-id.txt
+      - name: Upload approved planning base
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: planning-base-${{ github.run_id }}
+          path: |
+            .insynergy
+            planning-result.json
+            persona-approval-result.json
+            build-id.txt
+            workflow-evidence.json
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
 
   finalize-off:
-    if: ${{ inputs.agent_review_mode == 'off' }}
-    needs: plan
+    if: ${{ always() && inputs.agent_review_mode == 'off' && (needs.plan.result == 'success' || needs.persona-approval.result == 'success') }}
+    needs: [plan, persona-approval]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - name: Download base planning bundle
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: planning-base-${{ github.run_id }}
           path: .
+      - name: Read planning build identity
+        id: plan_meta
+        run: |
+          set -euo pipefail
+          build_id="$(tr -d '\n' < build-id.txt)"
+          echo "build_id=$build_id" >> "$GITHUB_OUTPUT"
+      - name: Verify sealed planning identity
+        uses: ./.github/actions/workflow-evidence
+        with:
+          operation: verify
+          stage: planning
+          build-id: ${{ steps.plan_meta.outputs.build_id }}
+          profile: ${{ inputs.profile }}
+          source-workflow: ${{ github.workflow }}
+          source-repository: ${{ github.repository }}
+          source-run-id: ${{ github.run_id }}
+          source-sha: ${{ github.sha }}
       - name: Upload immutable planning bundle
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
@@ -104,13 +400,14 @@ jobs:
             .insynergy
             planning-result.json
             build-id.txt
+            workflow-evidence.json
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
 
   agent-review:
-    if: ${{ inputs.agent_review_mode == 'review' }}
-    needs: plan
+    if: ${{ always() && inputs.agent_review_mode == 'review' && (needs.plan.result == 'success' || needs.persona-approval.result == 'success') }}
+    needs: [plan, persona-approval]
     environment: planning-ai
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -124,8 +421,27 @@ jobs:
         with:
           name: planning-base-${{ github.run_id }}
           path: .
+      - name: Read planning build identity
+        id: plan_meta
+        run: |
+          set -euo pipefail
+          build_id="$(tr -d '\n' < build-id.txt)"
+          echo "build_id=$build_id" >> "$GITHUB_OUTPUT"
+      - name: Verify sealed planning handoff
+        uses: ./.github/actions/workflow-evidence
+        with:
+          operation: verify
+          stage: planning
+          build-id: ${{ steps.plan_meta.outputs.build_id }}
+          profile: ${{ inputs.profile }}
+          source-workflow: ${{ github.workflow }}
+          source-repository: ${{ github.repository }}
+          source-run-id: ${{ github.run_id }}
+          source-sha: ${{ github.sha }}
       - name: Install Agent Review adapter
-        run: python3 -m pip install -e '.[agent-review]'
+        run: |
+          set -euo pipefail
+          python3 -m pip install -e '.[agent-review]'
       - name: Review sealed planning evidence
         env:
           BUILD_PROFILE: ${{ inputs.profile }}
@@ -137,12 +453,14 @@ jobs:
           OPENAI_REASONING_EFFORT: ${{ vars.OPENAI_REASONING_EFFORT }}
           OPENAI_TRACE_MODE: ${{ vars.OPENAI_TRACE_MODE }}
         run: |
+          set -euo pipefail
           BUILD_ID="$(tr -d '\n' < build-id.txt)"
           python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode review agent-review "$BUILD_ID" > planning-result.json
           python3 -c 'import json; value=json.load(open("planning-result.json")); assert value["state"] == "AWAITING_EXECUTION_APPROVAL"; assert value["agent_review"]["status"] in {"PASS", "MANUAL_REVIEW_REQUIRED", "UNAVAILABLE", "ERROR"}'
       - name: Write safe review metadata and summary
         id: review_meta
         run: |
+          set -euo pipefail
           python3 - <<'PY'
           import json
           import os
@@ -211,6 +529,22 @@ jobs:
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
               handle.write("\n".join(summary) + "\n")
           PY
+      - name: Seal reviewed planning handoff
+        uses: ./.github/actions/workflow-evidence
+        with:
+          operation: create
+          stage: planning
+          build-id: ${{ steps.review_meta.outputs.build_id }}
+          profile: ${{ inputs.profile }}
+          source-workflow: ${{ github.workflow }}
+          source-repository: ${{ github.repository }}
+          source-run-id: ${{ github.run_id }}
+          source-run-attempt: ${{ github.run_attempt }}
+          source-sha: ${{ github.sha }}
+          paths: |
+            .insynergy
+            planning-result.json
+            build-id.txt
       - name: Upload immutable Agent Review evidence
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
@@ -227,6 +561,7 @@ jobs:
             .insynergy
             planning-result.json
             build-id.txt
+            workflow-evidence.json
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
