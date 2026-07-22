@@ -276,6 +276,7 @@ class GitHubActionsArchitectureTests(unittest.TestCase):
         self.assertIn("Validate failed-run recovery binding", preview)
         self.assertIn("github_preview_recovery.py", preview)
         self.assertIn("recomposition_verification", preview)
+        self.assertIn("if: always() && needs.compose.result == 'success'", preview)
         self.assertNotIn("RUNWAY_API_KEY", preview)
         self.assertNotIn("api.dev.runwayml.com", preview)
         self.assertIn("Resolve actual Storyboard Preview reviewer", preview)

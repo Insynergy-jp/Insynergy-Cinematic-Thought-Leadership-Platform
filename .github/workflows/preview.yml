@@ -318,6 +318,7 @@ jobs:
 
   approval:
     needs: compose
+    if: always() && needs.compose.result == 'success'
     environment: storyboard-preview-approval
     permissions:
       actions: read
