@@ -1329,6 +1329,10 @@ class BuildOrchestrator:
         actor: str,
         decision: ApprovalDecision,
         comment: str,
+        workflow_initiator: str | None,
+        environment_reviewer: str | None,
+        prevent_self_review: bool,
+        environment_review_hash: str | None,
     ) -> dict[str, Any]:
         if BuildState(manifest["state"]) != BuildState.AWAITING_PERSONA_APPROVAL:
             raise StateConflictError(
@@ -1351,10 +1355,47 @@ class BuildOrchestrator:
         persona = preapproval["persona"]
         quality = preapproval["persona-quality-report"]
         deliberation = preapproval["persona-deliberation"]
+        initiator = (workflow_initiator or actor).strip()
+        reviewer = (environment_reviewer or actor).strip()
+        github_review_context = any(
+            value is not None
+            for value in (
+                workflow_initiator,
+                environment_reviewer,
+                environment_review_hash,
+            )
+        )
+        if not initiator or not reviewer:
+            raise ValidationError("Persona approval identities are required")
+        if actor.casefold() != reviewer.casefold():
+            raise ValidationError(
+                "Persona approval actor must match the Environment reviewer"
+            )
+        if github_review_context:
+            if not workflow_initiator or not environment_reviewer:
+                raise ValidationError(
+                    "GitHub Persona approval requires initiator and reviewer"
+                )
+            if (
+                not environment_review_hash
+                or not environment_review_hash.startswith("sha256:")
+                or len(environment_review_hash) != 71
+                or any(
+                    character not in "0123456789abcdef"
+                    for character in environment_review_hash.removeprefix("sha256:")
+                )
+            ):
+                raise ValidationError(
+                    "GitHub Persona approval requires a valid review history hash"
+                )
+        if prevent_self_review and initiator.casefold() == reviewer.casefold():
+            raise ValidationError("Persona Environment self-review is prohibited")
         approved_at = now_iso()
         approval_identity = {
             "build_id": manifest["build_id"],
-            "actor": actor,
+            "workflow_initiator": initiator,
+            "environment_reviewer": reviewer,
+            "environment_review_hash": environment_review_hash,
             "decision": decision.value,
             "article_hash": persona["article_hash"],
             "creative_brief_hash": persona["creative_brief_hash"],
@@ -1377,10 +1418,13 @@ class BuildOrchestrator:
         if decision == ApprovalDecision.APPROVED:
             binding = {
                 "schema_version": "3.3.0",
-                "contract_version": "persona-approval/1",
+                "contract_version": "persona-approval/2",
                 "approval_id": approval_id,
                 "build_id": manifest["build_id"],
-                "approver": actor,
+                "approver": reviewer,
+                "workflow_initiator": initiator,
+                "environment_reviewer": reviewer,
+                "prevent_self_review": prevent_self_review,
                 "decision": "APPROVED",
                 "approved_at": approved_at,
                 "article_hash": persona["article_hash"],
@@ -1393,6 +1437,8 @@ class BuildOrchestrator:
                 ],
                 "policy_version": quality["policy_version"],
             }
+            if environment_review_hash:
+                binding["environment_review_hash"] = environment_review_hash
             if comment.strip():
                 binding["rationale"] = comment.strip()
             binding["content_hash"] = content_hash(binding)
@@ -1417,6 +1463,9 @@ class BuildOrchestrator:
             "decision": decision.value,
             "approval_ref": approval_id,
             "artifact_hash": persona["content_hash"],
+            "workflow_initiator": initiator,
+            "environment_reviewer": reviewer,
+            "prevent_self_review": prevent_self_review,
             "blocking": True,
             "fail_closed": True,
         }
@@ -1434,7 +1483,9 @@ class BuildOrchestrator:
             "persona_approval_recorded",
             {
                 "decision": decision.value,
-                "actor": actor,
+                "workflow_initiator": initiator,
+                "environment_reviewer": reviewer,
+                "prevent_self_review": prevent_self_review,
                 "persona_content_hash": persona["content_hash"],
             },
         )
@@ -1451,6 +1502,10 @@ class BuildOrchestrator:
         comment: str = "",
         allow_agent_exception: bool = False,
         agent_exception_reason: str = "",
+        workflow_initiator: str | None = None,
+        environment_reviewer: str | None = None,
+        prevent_self_review: bool = False,
+        environment_review_hash: str | None = None,
     ) -> dict[str, Any]:
         if gate not in {"persona", "execution", "publish"}:
             raise ValidationError("Approval gate must be persona, execution, or publish")
@@ -1467,6 +1522,10 @@ class BuildOrchestrator:
                 actor=actor,
                 decision=approval_decision,
                 comment=comment,
+                workflow_initiator=workflow_initiator,
+                environment_reviewer=environment_reviewer,
+                prevent_self_review=prevent_self_review,
+                environment_review_hash=environment_review_hash,
             )
         state = BuildState(manifest["state"])
         review_mode = "off"

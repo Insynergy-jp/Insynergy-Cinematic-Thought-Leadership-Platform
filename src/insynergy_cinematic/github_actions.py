@@ -18,6 +18,9 @@ BUILD_ID = re.compile(r"^[0-9]{8}-[0-9]{3}$")
 RUN_ID = re.compile(r"^[1-9][0-9]*$")
 SOURCE_SHA = re.compile(r"^[a-f0-9]{40}$")
 REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+GITHUB_LOGIN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$")
+GITHUB_ENVIRONMENT = re.compile(r"^[A-Za-z0-9_.-]{1,255}$")
+GITHUB_ENVIRONMENT_REVIEW_CONTRACT_VERSION = "github-environment-review/1"
 TEXT_SUFFIXES = frozenset(
     {".csv", ".json", ".md", ".srt", ".txt", ".yaml", ".yml"}
 )
@@ -68,6 +71,101 @@ def _validate_metadata(
     _safe_scalar("run_id", run_id, RUN_ID)
     _safe_scalar("run_attempt", run_attempt, RUN_ID)
     _safe_scalar("source_sha", source_sha, SOURCE_SHA)
+
+
+def resolve_github_environment_review(
+    approvals: object,
+    *,
+    repository: str,
+    run_id: str,
+    run_attempt: str,
+    environment: str,
+    workflow_initiator: str,
+    require_distinct_reviewer: bool,
+) -> dict[str, Any]:
+    """Resolve one approved Environment reviewer from GitHub review history.
+
+    The GitHub response is treated as untrusted input. Missing, rejected, or
+    ambiguous records fail closed rather than falling back to the workflow
+    initiator.
+    """
+
+    _safe_scalar("repository", repository, REPOSITORY)
+    _safe_scalar("run_id", run_id, RUN_ID)
+    _safe_scalar("run_attempt", run_attempt, RUN_ID)
+    _safe_scalar("environment", environment, GITHUB_ENVIRONMENT)
+    initiator = _safe_scalar(
+        "workflow_initiator", workflow_initiator, GITHUB_LOGIN
+    )
+    if not isinstance(approvals, list):
+        raise ValidationError("GitHub Environment review history is invalid")
+
+    matched: list[tuple[str, int, int]] = []
+    for approval in approvals:
+        if not isinstance(approval, dict):
+            continue
+        environments = approval.get("environments")
+        if not isinstance(environments, list):
+            continue
+        environment_ids = {
+            candidate.get("id")
+            for candidate in environments
+            if isinstance(candidate, dict)
+            and candidate.get("name") == environment
+            and isinstance(candidate.get("id"), int)
+            and candidate["id"] > 0
+        }
+        if not environment_ids:
+            continue
+        if approval.get("state") != "approved":
+            raise ValidationError(
+                "GitHub Environment review is not approved",
+                details={"environment": environment},
+            )
+        user = approval.get("user")
+        login = user.get("login") if isinstance(user, dict) else None
+        user_id = user.get("id") if isinstance(user, dict) else None
+        if not isinstance(login, str) or not GITHUB_LOGIN.fullmatch(login):
+            raise ValidationError("GitHub Environment reviewer identity is invalid")
+        if not isinstance(user_id, int) or user_id <= 0:
+            raise ValidationError("GitHub Environment reviewer ID is invalid")
+        matched.extend((login, user_id, value) for value in environment_ids)
+
+    if not matched:
+        raise ValidationError(
+            "GitHub Environment reviewer was not found",
+            details={"environment": environment, "run_id": run_id},
+        )
+    identities = {(login.casefold(), user_id) for login, user_id, _ in matched}
+    environment_ids = {environment_id for _, _, environment_id in matched}
+    if len(identities) != 1 or len(environment_ids) != 1:
+        raise ValidationError(
+            "GitHub Environment reviewer history is ambiguous",
+            details={"environment": environment, "run_id": run_id},
+        )
+    reviewer, reviewer_id, environment_id = matched[0]
+    if require_distinct_reviewer and reviewer.casefold() == initiator.casefold():
+        raise ValidationError(
+            "GitHub Environment self-review is prohibited",
+            details={"environment": environment, "run_id": run_id},
+        )
+
+    record: dict[str, Any] = {
+        "schema_version": "1.0.0",
+        "contract_version": GITHUB_ENVIRONMENT_REVIEW_CONTRACT_VERSION,
+        "repository": repository,
+        "run_id": run_id,
+        "run_attempt": run_attempt,
+        "environment": environment,
+        "environment_id": environment_id,
+        "decision": "APPROVED",
+        "workflow_initiator": initiator,
+        "environment_reviewer": reviewer,
+        "environment_reviewer_id": reviewer_id,
+        "prevent_self_review": require_distinct_reviewer,
+    }
+    record["content_hash"] = content_hash(record)
+    return record
 
 
 def _inside(root: Path, path: Path) -> Path:

@@ -9,6 +9,7 @@ from insynergy_cinematic.errors import ValidationError
 from insynergy_cinematic.github_actions import (
     create_workflow_evidence,
     part8_coverage_report,
+    resolve_github_environment_review,
     verify_workflow_evidence,
     workflow_summary,
 )
@@ -21,6 +22,16 @@ SOURCE_SHA = "a" * 40
 
 
 class GitHubActionsArchitectureTests(unittest.TestCase):
+    def _environment_approval(
+        self, *, reviewer: str = "persona-reviewer", state: str = "approved"
+    ) -> dict:
+        return {
+            "state": state,
+            "comment": "Reviewed sealed Persona evidence.",
+            "environments": [{"id": 18541388227, "name": "persona-approval"}],
+            "user": {"login": reviewer, "id": 987654},
+        }
+
     def _create(self, root: Path) -> dict:
         (root / "bundle").mkdir()
         (root / "bundle" / "manifest.json").write_text(
@@ -195,6 +206,47 @@ class GitHubActionsArchitectureTests(unittest.TestCase):
 
     def test_repository_workflows_pass_the_structural_policy(self) -> None:
         self.assertEqual(validate(), [])
+
+    def test_environment_review_resolves_actual_reviewer_separately(self) -> None:
+        record = resolve_github_environment_review(
+            [self._environment_approval()],
+            repository="Insynergy-jp/platform",
+            run_id="12345",
+            run_attempt="1",
+            environment="persona-approval",
+            workflow_initiator="workflow-owner",
+            require_distinct_reviewer=True,
+        )
+        self.assertEqual(record["workflow_initiator"], "workflow-owner")
+        self.assertEqual(record["environment_reviewer"], "persona-reviewer")
+        self.assertEqual(record["environment_reviewer_id"], 987654)
+        self.assertTrue(record["prevent_self_review"])
+        self.assertTrue(record["content_hash"].startswith("sha256:"))
+
+    def test_environment_review_missing_ambiguous_rejected_and_self_fail_closed(self) -> None:
+        base = {
+            "repository": "Insynergy-jp/platform",
+            "run_id": "12345",
+            "run_attempt": "1",
+            "environment": "persona-approval",
+            "workflow_initiator": "workflow-owner",
+            "require_distinct_reviewer": True,
+        }
+        invalid_histories = (
+            [],
+            [self._environment_approval(state="rejected")],
+            [self._environment_approval(reviewer="workflow-owner")],
+            [
+                self._environment_approval(reviewer="persona-reviewer"),
+                {
+                    **self._environment_approval(reviewer="second-reviewer"),
+                    "user": {"login": "second-reviewer", "id": 123456},
+                },
+            ],
+        )
+        for history in invalid_histories:
+            with self.subTest(history=history), self.assertRaises(ValidationError):
+                resolve_github_environment_review(history, **base)
 
     def test_structural_policy_rejects_broad_permissions_and_shell_injection(self) -> None:
         path = ROOT / ".github" / "workflows" / "ci.yml"

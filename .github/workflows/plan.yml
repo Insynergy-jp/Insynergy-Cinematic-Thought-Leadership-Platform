@@ -284,6 +284,9 @@ jobs:
     if: ${{ inputs.persona_mode == 'council' }}
     needs: persona-quality
     environment: persona-approval
+    permissions:
+      actions: read
+      contents: read
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -313,6 +316,18 @@ jobs:
           source-repository: ${{ github.repository }}
           source-run-id: ${{ github.run_id }}
           source-sha: ${{ github.sha }}
+      - name: Resolve actual Persona Environment reviewer
+        id: persona_review
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          WORKFLOW_INITIATOR: ${{ github.actor }}
+          BUILD_ID: ${{ steps.persona_meta.outputs.build_id }}
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python3 tools/github_environment_review.py --repository "$REPOSITORY" --run-id "$RUN_ID" --run-attempt "$RUN_ATTEMPT" --environment persona-approval --workflow-initiator "$WORKFLOW_INITIATOR" --require-distinct-reviewer --output ".insynergy/builds/${BUILD_ID}/approvals/persona-github-environment-review.json" --github-output "$GITHUB_OUTPUT"
       - name: Bind Persona approval and generate deterministic planning
         env:
           ARTICLE_PATH: ${{ inputs.article_path }}
@@ -322,11 +337,13 @@ jobs:
           RUNWAY_SCOPE: ${{ inputs.runway_scope }}
           NARRATION_PROVIDER: ${{ inputs.narration_provider }}
           AGENT_REVIEW_MODE: ${{ inputs.agent_review_mode }}
-          APPROVER: ${{ github.actor }}
+          WORKFLOW_INITIATOR: ${{ github.actor }}
+          ENVIRONMENT_REVIEWER: ${{ steps.persona_review.outputs.environment_reviewer }}
+          ENVIRONMENT_REVIEW_HASH: ${{ steps.persona_review.outputs.environment_review_hash }}
         run: |
           set -euo pipefail
           BUILD_ID="$(tr -d '\n' < build-id.txt)"
-          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --persona-mode council approve "$BUILD_ID" --gate persona --actor "$APPROVER" --comment "GitHub Environment persona-approval" > persona-approval-result.json
+          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --persona-mode council approve "$BUILD_ID" --gate persona --actor "$ENVIRONMENT_REVIEWER" --workflow-initiator "$WORKFLOW_INITIATOR" --environment-reviewer "$ENVIRONMENT_REVIEWER" --prevent-self-review --environment-review-hash "$ENVIRONMENT_REVIEW_HASH" --comment "GitHub Environment persona-approval" > persona-approval-result.json
           PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --persona-mode council plan "$ARTICLE_PATH" --creative-brief "$CREATIVE_BRIEF_PATH" > planning-result.json
           python3 -c 'import json, os; value=json.load(open("planning-result.json")); expected="PLANNED" if os.environ["AGENT_REVIEW_MODE"] == "review" else "AWAITING_EXECUTION_APPROVAL"; assert value["state"] == expected; assert "persona-approval-binding" in value["artifacts"]'
       - name: Seal approved planning handoff

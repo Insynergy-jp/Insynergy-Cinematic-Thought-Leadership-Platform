@@ -31,6 +31,15 @@ but do not add any secret. Its only authority is to release the exact sealed
 Persona hash set into deterministic Story generation; it does not satisfy
 `render-approval` or `publication-approval`.
 
+The `persona-approval` job grants its `GITHUB_TOKEN` only `actions: read` and
+`contents: read`. After GitHub releases the protected job, the job reads
+`GET /repos/{owner}/{repo}/actions/runs/{run_id}/approvals`, resolves the exact
+approved `persona-approval` record, and stores `workflow_initiator` and
+`environment_reviewer` separately. Missing, rejected, malformed, or ambiguous
+review history fails closed. Production runs require a reviewer distinct from
+the workflow initiator even if repository-side self-review protection drifts.
+The resolved review record is hash-bound into `persona-approval-binding.json`.
+
 Configure the following values on the protected `render-approval` Environment:
 
 | Type | Name | Value |
@@ -47,7 +56,7 @@ The adapter pins Runway API version `2024-11-06`. It submits to `/v1/text_to_vid
 Operation sequence:
 
 1. Run `Plan Article`; select `persona_mode: off` for the compatibility path or `council` with a repository-relative Creative Brief. Select `agent_review_mode: off` or `review`, plus the Render, Runway, and Narration settings. The `off` planning path receives no provider secret.
-2. In `council`, `persona-deliberation` alone enters `planning-ai`. The following `persona-quality` job has no secret and validates the five sealed artifacts. The `persona-approval` Environment contains no secret and must be approved before the same Build can generate Story. The approved binding is hash-bound to Article, Brief, Persona, deliberation, policy, and quality evidence.
+2. In `council`, `persona-deliberation` alone enters `planning-ai`. The following `persona-quality` job has no secret and validates the five sealed artifacts. The `persona-approval` Environment contains no configured secret and must be approved before the same Build can generate Story. Its read-only workflow token resolves the actual Environment reviewer from GitHub review history; the approved binding separately records the workflow initiator and reviewer and is hash-bound to the review record, Article, Brief, Persona, deliberation, policy, and quality evidence.
 3. In `review`, the isolated `agent-review` job enters `planning-ai`, validates the sealed planning bundle, executes one typed model turn, validates all evidence pointers, and publishes the immutable `planning-<run_id>` artifact. `off` creates the same artifact without importing the SDK or resolving an OpenAI secret.
 4. Review the planning bundle, deterministic gate summary, Agent disposition, report hash, blocking finding codes, and evidence locations.
 5. Run `Execute Approved Plan` with the planning run ID, Build ID, identical Profile, Provider, Runway Scope, and Narration Provider. `render-approval` approval becomes the actor recorded by the platform and is bound to both the Execution Plan hash and Agent Review Report hash.

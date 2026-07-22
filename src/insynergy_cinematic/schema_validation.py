@@ -527,6 +527,17 @@ def validate_persona_bundle(
     }
     if quality["status"] != "PASS" or any(approval[field] != value for field, value in expected_approval.items()):
         _cross_error("E-APPROVAL-001", "Persona approval binding is stale or ineligible")
+    if approval["approver"].casefold() != approval["environment_reviewer"].casefold():
+        _cross_error(
+            "E-APPROVAL-001",
+            "Persona approver does not match the Environment reviewer",
+        )
+    if (
+        approval["prevent_self_review"]
+        and approval["workflow_initiator"].casefold()
+        == approval["environment_reviewer"].casefold()
+    ):
+        _cross_error("E-APPROVAL-001", "Persona self-review is prohibited")
     return {
         "passed": True,
         "artifact_count": 6,

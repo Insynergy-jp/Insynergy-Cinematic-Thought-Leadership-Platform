@@ -236,10 +236,13 @@ def golden_persona_bundle() -> dict[str, dict[str, Any]]:
     approval = _seal(
         {
             "schema_version": "3.3.0",
-            "contract_version": "persona-approval/1",
+            "contract_version": "persona-approval/2",
             "approval_id": "PAB-approval.0001",
             "build_id": build_id,
             "approver": "editor@example.com",
+            "workflow_initiator": "producer@example.com",
+            "environment_reviewer": "editor@example.com",
+            "prevent_self_review": True,
             "decision": "APPROVED",
             "approved_at": generated_at,
             "article_hash": article_hash,

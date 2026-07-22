@@ -23,6 +23,7 @@ EXPECTED_ENVIRONMENTS = {
 ALLOWED_SECRETS = {
     ("plan.yml", "agent-review"): {"OPENAI_API_KEY"},
     ("plan.yml", "persona-deliberation"): {"OPENAI_API_KEY"},
+    ("plan.yml", "persona-approval"): {"GITHUB_TOKEN"},
     ("execute.yml", "execute"): {
         "GITHUB_TOKEN",
         "OPENAI_TTS_API_KEY",

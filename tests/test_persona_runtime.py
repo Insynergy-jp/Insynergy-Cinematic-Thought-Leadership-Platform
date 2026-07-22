@@ -268,6 +268,50 @@ class PersonaRuntimeTests(unittest.TestCase):
                 draft["artifacts"]["persona"]["content_hash"],
             )
 
+    def test_github_persona_approval_records_distinct_reviewer_and_fails_self_review(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            orchestrator = BuildOrchestrator(
+                root,
+                persona_mode="council",
+                persona_provider=FakePersonaProvider(),
+                environ={},
+            )
+            awaiting = orchestrator.plan(
+                ROOT / "examples" / "decision-boundary.md",
+                creative_brief_path=self._brief(root),
+            )
+            review_hash = "sha256:" + "d" * 64
+            with self.assertRaises(ValidationError):
+                orchestrator.approve(
+                    awaiting["build_id"],
+                    gate="persona",
+                    actor="workflow-owner",
+                    workflow_initiator="workflow-owner",
+                    environment_reviewer="workflow-owner",
+                    prevent_self_review=True,
+                    environment_review_hash=review_hash,
+                )
+
+            approved = orchestrator.approve(
+                awaiting["build_id"],
+                gate="persona",
+                actor="persona-reviewer",
+                workflow_initiator="workflow-owner",
+                environment_reviewer="persona-reviewer",
+                prevent_self_review=True,
+                environment_review_hash=review_hash,
+            )
+            manifest = orchestrator.repository.load(approved["build_id"])
+            binding = orchestrator.repository.load_artifact(
+                manifest, "persona-approval-binding"
+            )
+            self.assertEqual(binding["workflow_initiator"], "workflow-owner")
+            self.assertEqual(binding["environment_reviewer"], "persona-reviewer")
+            self.assertEqual(binding["approver"], "persona-reviewer")
+            self.assertTrue(binding["prevent_self_review"])
+            self.assertEqual(binding["environment_review_hash"], review_hash)
+
     def test_wrong_topology_secret_and_high_risk_assumption_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

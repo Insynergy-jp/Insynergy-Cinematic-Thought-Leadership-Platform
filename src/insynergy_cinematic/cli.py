@@ -76,6 +76,10 @@ def _parser() -> argparse.ArgumentParser:
     approve.add_argument("--comment", default="")
     approve.add_argument("--allow-agent-exception", action="store_true")
     approve.add_argument("--agent-exception-reason", default="")
+    approve.add_argument("--workflow-initiator")
+    approve.add_argument("--environment-reviewer")
+    approve.add_argument("--prevent-self-review", action="store_true")
+    approve.add_argument("--environment-review-hash")
 
     for name in (
         "execute",
@@ -319,6 +323,10 @@ def main(argv: list[str] | None = None) -> int:
                 comment=args.comment,
                 allow_agent_exception=args.allow_agent_exception,
                 agent_exception_reason=args.agent_exception_reason,
+                workflow_initiator=args.workflow_initiator,
+                environment_reviewer=args.environment_reviewer,
+                prevent_self_review=args.prevent_self_review,
+                environment_review_hash=args.environment_review_hash,
             )
         elif args.command in {"agent-review", "review"}:
             result = orchestrator.review(args.build_id)
