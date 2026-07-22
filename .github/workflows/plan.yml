@@ -327,7 +327,7 @@ jobs:
           BUILD_ID: ${{ steps.persona_meta.outputs.build_id }}
         run: |
           set -euo pipefail
-          PYTHONPATH=src python3 tools/github_environment_review.py --repository "$REPOSITORY" --run-id "$RUN_ID" --run-attempt "$RUN_ATTEMPT" --environment persona-approval --workflow-initiator "$WORKFLOW_INITIATOR" --require-distinct-reviewer --output ".insynergy/builds/${BUILD_ID}/approvals/persona-github-environment-review.json" --github-output "$GITHUB_OUTPUT"
+          PYTHONPATH=src python3 tools/github_environment_review.py --repository "$REPOSITORY" --run-id "$RUN_ID" --run-attempt "$RUN_ATTEMPT" --environment persona-approval --workflow-initiator "$WORKFLOW_INITIATOR" --output ".insynergy/builds/${BUILD_ID}/approvals/persona-github-environment-review.json" --github-output "$GITHUB_OUTPUT"
       - name: Bind Persona approval and generate deterministic planning
         env:
           ARTICLE_PATH: ${{ inputs.article_path }}
@@ -340,10 +340,17 @@ jobs:
           WORKFLOW_INITIATOR: ${{ github.actor }}
           ENVIRONMENT_REVIEWER: ${{ steps.persona_review.outputs.environment_reviewer }}
           ENVIRONMENT_REVIEW_HASH: ${{ steps.persona_review.outputs.environment_review_hash }}
+          PREVENT_SELF_REVIEW: ${{ steps.persona_review.outputs.prevent_self_review }}
         run: |
           set -euo pipefail
           BUILD_ID="$(tr -d '\n' < build-id.txt)"
-          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --persona-mode council approve "$BUILD_ID" --gate persona --actor "$ENVIRONMENT_REVIEWER" --workflow-initiator "$WORKFLOW_INITIATOR" --environment-reviewer "$ENVIRONMENT_REVIEWER" --prevent-self-review --environment-review-hash "$ENVIRONMENT_REVIEW_HASH" --comment "GitHub Environment persona-approval" > persona-approval-result.json
+          SELF_REVIEW_ARGUMENTS=()
+          case "$PREVENT_SELF_REVIEW" in
+            true) SELF_REVIEW_ARGUMENTS=(--prevent-self-review) ;;
+            false) ;;
+            *) echo "invalid prevent_self_review policy" >&2; exit 7 ;;
+          esac
+          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --persona-mode council approve "$BUILD_ID" --gate persona --actor "$ENVIRONMENT_REVIEWER" --workflow-initiator "$WORKFLOW_INITIATOR" --environment-reviewer "$ENVIRONMENT_REVIEWER" "${SELF_REVIEW_ARGUMENTS[@]}" --environment-review-hash "$ENVIRONMENT_REVIEW_HASH" --comment "GitHub Environment persona-approval" > persona-approval-result.json
           PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --persona-mode council plan "$ARTICLE_PATH" --creative-brief "$CREATIVE_BRIEF_PATH" > planning-result.json
           python3 -c 'import json, os; value=json.load(open("planning-result.json")); expected="PLANNED" if os.environ["AGENT_REVIEW_MODE"] == "review" else "AWAITING_EXECUTION_APPROVAL"; assert value["state"] == expected; assert "persona-approval-binding" in value["artifacts"]'
       - name: Seal approved planning handoff

@@ -61,7 +61,7 @@ persona-quality-report.json
 persona-approval-binding.json
 ```
 
-`persona-deliberation.json`には構造化された判断・異論・解決だけを保存し、chain-of-thoughtや無制限の会話ログは保存しません。GitHub Actionsでは`planning-ai` EnvironmentでAgentを実行し、新設するsecretlessな`persona-approval` EnvironmentでStory生成前の人間承認を行う仕様です。承認jobはGitHub review historyから実Reviewerを解決し、Workflow initiatorとEnvironment reviewerを別フィールドで記録します。reviewer不明、承認履歴の曖昧性、または自己承認はfail-closedです。
+`persona-deliberation.json`には構造化された判断・異論・解決だけを保存し、chain-of-thoughtや無制限の会話ログは保存しません。GitHub Actionsでは`planning-ai` EnvironmentでAgentを実行し、新設するsecretlessな`persona-approval` EnvironmentでStory生成前の人間承認を行う仕様です。承認jobはGitHub review historyから実Reviewerを解決し、Workflow initiatorとEnvironment reviewerを別フィールドで記録します。reviewer不明、承認履歴の曖昧性、Required reviewer以外の承認はfail-closedです。自己承認の可否はGitHub Environmentの`prevent_self_review`実設定へ追従し、設定自体もhash-boundします。
 
 公式設計根拠：OpenAI Agents SDKの[Orchestration and handoffs](https://developers.openai.com/api/docs/guides/agents/orchestration)、[Agent definitions](https://developers.openai.com/api/docs/guides/agents/define-agents)、[Guardrails and human review](https://developers.openai.com/api/docs/guides/agents/guardrails-approvals)、[Integrations and observability](https://developers.openai.com/api/docs/guides/agents/integrations-observability)。
 

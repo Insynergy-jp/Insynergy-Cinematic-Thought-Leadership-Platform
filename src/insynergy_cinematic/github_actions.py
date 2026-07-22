@@ -21,6 +21,7 @@ REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 GITHUB_LOGIN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$")
 GITHUB_ENVIRONMENT = re.compile(r"^[A-Za-z0-9_.-]{1,255}$")
 GITHUB_ENVIRONMENT_REVIEW_CONTRACT_VERSION = "github-environment-review/1"
+GITHUB_ENVIRONMENT_POLICY_CONTRACT_VERSION = "github-environment-policy/1"
 TEXT_SUFFIXES = frozenset(
     {".csv", ".json", ".md", ".srt", ".txt", ".yaml", ".yml"}
 )
@@ -82,6 +83,8 @@ def resolve_github_environment_review(
     environment: str,
     workflow_initiator: str,
     require_distinct_reviewer: bool,
+    required_reviewer_ids: frozenset[int] | None = None,
+    environment_policy_hash: str | None = None,
 ) -> dict[str, Any]:
     """Resolve one approved Environment reviewer from GitHub review history.
 
@@ -144,6 +147,11 @@ def resolve_github_environment_review(
             details={"environment": environment, "run_id": run_id},
         )
     reviewer, reviewer_id, environment_id = matched[0]
+    if required_reviewer_ids is not None and reviewer_id not in required_reviewer_ids:
+        raise ValidationError(
+            "GitHub Environment approver is not a configured required reviewer",
+            details={"environment": environment, "run_id": run_id},
+        )
     if require_distinct_reviewer and reviewer.casefold() == initiator.casefold():
         raise ValidationError(
             "GitHub Environment self-review is prohibited",
@@ -164,8 +172,66 @@ def resolve_github_environment_review(
         "environment_reviewer_id": reviewer_id,
         "prevent_self_review": require_distinct_reviewer,
     }
+    if environment_policy_hash:
+        record["environment_policy_hash"] = environment_policy_hash
     record["content_hash"] = content_hash(record)
     return record
+
+
+def resolve_github_environment_policy(
+    configuration: object, *, environment: str
+) -> dict[str, Any]:
+    """Validate the live Required reviewers and self-review policy."""
+
+    _safe_scalar("environment", environment, GITHUB_ENVIRONMENT)
+    if not isinstance(configuration, dict) or configuration.get("name") != environment:
+        raise ValidationError("GitHub Environment configuration is invalid")
+    environment_id = configuration.get("id")
+    rules = configuration.get("protection_rules")
+    if not isinstance(environment_id, int) or environment_id <= 0:
+        raise ValidationError("GitHub Environment ID is invalid")
+    if not isinstance(rules, list):
+        raise ValidationError("GitHub Environment protection rules are invalid")
+    reviewer_rules = [
+        rule
+        for rule in rules
+        if isinstance(rule, dict) and rule.get("type") == "required_reviewers"
+    ]
+    if len(reviewer_rules) != 1:
+        raise ValidationError(
+            "GitHub Environment must have exactly one Required reviewers rule"
+        )
+    rule = reviewer_rules[0]
+    prevent_self_review = rule.get("prevent_self_review")
+    reviewers = rule.get("reviewers")
+    if not isinstance(prevent_self_review, bool) or not isinstance(reviewers, list):
+        raise ValidationError("GitHub Environment Required reviewers rule is invalid")
+    resolved_reviewers: list[dict[str, Any]] = []
+    for entry in reviewers:
+        if not isinstance(entry, dict) or entry.get("type") != "User":
+            raise ValidationError(
+                "Persona approval requires direct GitHub user reviewers"
+            )
+        reviewer = entry.get("reviewer")
+        login = reviewer.get("login") if isinstance(reviewer, dict) else None
+        reviewer_id = reviewer.get("id") if isinstance(reviewer, dict) else None
+        if not isinstance(login, str) or not GITHUB_LOGIN.fullmatch(login):
+            raise ValidationError("GitHub required reviewer login is invalid")
+        if not isinstance(reviewer_id, int) or reviewer_id <= 0:
+            raise ValidationError("GitHub required reviewer ID is invalid")
+        resolved_reviewers.append({"login": login, "id": reviewer_id})
+    if not resolved_reviewers or len(resolved_reviewers) > 6:
+        raise ValidationError("GitHub Required reviewers list is invalid")
+    policy: dict[str, Any] = {
+        "schema_version": "1.0.0",
+        "contract_version": GITHUB_ENVIRONMENT_POLICY_CONTRACT_VERSION,
+        "environment": environment,
+        "environment_id": environment_id,
+        "prevent_self_review": prevent_self_review,
+        "required_reviewers": resolved_reviewers,
+    }
+    policy["content_hash"] = content_hash(policy)
+    return policy
 
 
 def _inside(root: Path, path: Path) -> Path:

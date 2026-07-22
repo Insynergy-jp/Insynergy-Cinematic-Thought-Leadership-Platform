@@ -9,6 +9,7 @@ from insynergy_cinematic.errors import ValidationError
 from insynergy_cinematic.github_actions import (
     create_workflow_evidence,
     part8_coverage_report,
+    resolve_github_environment_policy,
     resolve_github_environment_review,
     verify_workflow_evidence,
     workflow_summary,
@@ -23,13 +24,36 @@ SOURCE_SHA = "a" * 40
 
 class GitHubActionsArchitectureTests(unittest.TestCase):
     def _environment_approval(
-        self, *, reviewer: str = "persona-reviewer", state: str = "approved"
+        self,
+        *,
+        reviewer: str = "persona-reviewer",
+        reviewer_id: int = 987654,
+        state: str = "approved",
     ) -> dict:
         return {
             "state": state,
             "comment": "Reviewed sealed Persona evidence.",
             "environments": [{"id": 18541388227, "name": "persona-approval"}],
-            "user": {"login": reviewer, "id": 987654},
+            "user": {"login": reviewer, "id": reviewer_id},
+        }
+
+    def _environment_configuration(self, *, prevent_self_review: bool) -> dict:
+        return {
+            "id": 18541388227,
+            "name": "persona-approval",
+            "protection_rules": [
+                {
+                    "id": 12345,
+                    "type": "required_reviewers",
+                    "prevent_self_review": prevent_self_review,
+                    "reviewers": [
+                        {
+                            "type": "User",
+                            "reviewer": {"login": "Insynergy-jp", "id": 238604656},
+                        }
+                    ],
+                }
+            ],
         }
 
     def _create(self, root: Path) -> dict:
@@ -247,6 +271,67 @@ class GitHubActionsArchitectureTests(unittest.TestCase):
         for history in invalid_histories:
             with self.subTest(history=history), self.assertRaises(ValidationError):
                 resolve_github_environment_review(history, **base)
+
+    def test_environment_policy_allows_configured_self_review_only_when_disabled(self) -> None:
+        policy = resolve_github_environment_policy(
+            self._environment_configuration(prevent_self_review=False),
+            environment="persona-approval",
+        )
+        record = resolve_github_environment_review(
+            [
+                self._environment_approval(
+                    reviewer="Insynergy-jp", reviewer_id=238604656
+                )
+            ],
+            repository="Insynergy-jp/platform",
+            run_id="12345",
+            run_attempt="1",
+            environment="persona-approval",
+            workflow_initiator="Insynergy-jp",
+            require_distinct_reviewer=policy["prevent_self_review"],
+            required_reviewer_ids=frozenset(
+                reviewer["id"] for reviewer in policy["required_reviewers"]
+            ),
+            environment_policy_hash=policy["content_hash"],
+        )
+        self.assertFalse(record["prevent_self_review"])
+        self.assertEqual(record["workflow_initiator"], "Insynergy-jp")
+        self.assertEqual(record["environment_reviewer"], "Insynergy-jp")
+        self.assertEqual(record["environment_policy_hash"], policy["content_hash"])
+
+        enabled = resolve_github_environment_policy(
+            self._environment_configuration(prevent_self_review=True),
+            environment="persona-approval",
+        )
+        with self.assertRaises(ValidationError):
+            resolve_github_environment_review(
+                [
+                    self._environment_approval(
+                        reviewer="Insynergy-jp", reviewer_id=238604656
+                    )
+                ],
+                repository="Insynergy-jp/platform",
+                run_id="12345",
+                run_attempt="1",
+                environment="persona-approval",
+                workflow_initiator="Insynergy-jp",
+                require_distinct_reviewer=enabled["prevent_self_review"],
+                required_reviewer_ids=frozenset(
+                    reviewer["id"] for reviewer in enabled["required_reviewers"]
+                ),
+                environment_policy_hash=enabled["content_hash"],
+            )
+
+    def test_environment_policy_without_required_reviewers_fails_closed(self) -> None:
+        with self.assertRaises(ValidationError):
+            resolve_github_environment_policy(
+                {
+                    "id": 18541388227,
+                    "name": "persona-approval",
+                    "protection_rules": [],
+                },
+                environment="persona-approval",
+            )
 
     def test_structural_policy_rejects_broad_permissions_and_shell_injection(self) -> None:
         path = ROOT / ".github" / "workflows" / "ci.yml"

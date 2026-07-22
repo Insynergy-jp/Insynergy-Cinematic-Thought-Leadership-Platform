@@ -35,10 +35,12 @@ The `persona-approval` job grants its `GITHUB_TOKEN` only `actions: read` and
 `contents: read`. After GitHub releases the protected job, the job reads
 `GET /repos/{owner}/{repo}/actions/runs/{run_id}/approvals`, resolves the exact
 approved `persona-approval` record, and stores `workflow_initiator` and
-`environment_reviewer` separately. Missing, rejected, malformed, or ambiguous
-review history fails closed. Production runs require a reviewer distinct from
-the workflow initiator even if repository-side self-review protection drifts.
-The resolved review record is hash-bound into `persona-approval-binding.json`.
+`environment_reviewer` separately. It also reads and hash-binds the live
+Required reviewers rule. Missing, rejected, malformed, ambiguous, or
+non-required review history fails closed. When the live rule enables
+`prevent_self_review`, the reviewer must differ from the workflow initiator;
+when disabled, one attributable operator may initiate and approve. The resolved
+review record is hash-bound into `persona-approval-binding.json`.
 
 Configure the following values on the protected `render-approval` Environment:
 
