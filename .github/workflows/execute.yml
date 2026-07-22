@@ -35,6 +35,12 @@ on:
         default: offline
         type: choice
         options: [offline, openai]
+      pre_render_preview_mode:
+        description: Must match the planning preview mode
+        required: true
+        default: "off"
+        type: choice
+        options: ["off", storyboard_animatic]
       allow_agent_exception:
         description: Permit a human exception for a non-PASS Agent Review
         required: true
@@ -106,7 +112,7 @@ jobs:
           stage: planning
           build-id: ${{ inputs.build_id }}
           profile: ${{ inputs.profile }}
-          source-workflow: Plan Article
+          source-workflow: ${{ inputs.pre_render_preview_mode == 'storyboard_animatic' && 'Storyboard Preview' || 'Plan Article' }}
           source-repository: ${{ github.repository }}
           source-run-id: ${{ inputs.planning_run_id }}
           source-sha: ${{ github.sha }}
@@ -148,14 +154,15 @@ jobs:
           OPENAI_TTS_API_KEY: ${{ secrets.OPENAI_TTS_API_KEY }}
           ALLOW_AGENT_EXCEPTION: ${{ inputs.allow_agent_exception }}
           AGENT_EXCEPTION_REASON: ${{ inputs.agent_exception_reason }}
+          PRE_RENDER_PREVIEW_MODE: ${{ inputs.pre_render_preview_mode }}
         run: |
           set -euo pipefail
           if [ "$ALLOW_AGENT_EXCEPTION" = "true" ]; then
-            PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" approve "$BUILD_ID" --gate execution --actor "$APPROVER" --allow-agent-exception --agent-exception-reason "$AGENT_EXCEPTION_REASON"
+            PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" approve "$BUILD_ID" --gate execution --actor "$APPROVER" --allow-agent-exception --agent-exception-reason "$AGENT_EXCEPTION_REASON"
           else
-            PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" approve "$BUILD_ID" --gate execution --actor "$APPROVER"
+            PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" approve "$BUILD_ID" --gate execution --actor "$APPROVER"
           fi
-          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" execute "$BUILD_ID" > execution-result.json
+          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" execute "$BUILD_ID" > execution-result.json
           python3 -c 'import json; value=json.load(open("execution-result.json")); assert value["state"] == "READY"'
       - name: Verify runtime and quality evidence
         env:

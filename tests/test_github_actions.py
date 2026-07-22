@@ -54,6 +54,17 @@ class GitHubActionsArchitectureTests(unittest.TestCase):
                     ],
                 }
             ],
+            "deployment_branch_policy": {
+                "protected_branches": False,
+                "custom_branch_policies": True,
+            },
+        }
+
+    @staticmethod
+    def _main_branch_policy() -> dict:
+        return {
+            "total_count": 1,
+            "branch_policies": [{"id": 4815162342, "name": "main", "type": "branch"}],
         }
 
     def _create(self, root: Path) -> dict:
@@ -231,6 +242,26 @@ class GitHubActionsArchitectureTests(unittest.TestCase):
     def test_repository_workflows_pass_the_structural_policy(self) -> None:
         self.assertEqual(validate(), [])
 
+    def test_storyboard_preview_workflow_is_zero_runway_and_separates_approvals(self) -> None:
+        preview = (ROOT / ".github" / "workflows" / "preview.yml").read_text(
+            encoding="utf-8"
+        )
+        execute = (ROOT / ".github" / "workflows" / "execute.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("environment: planning-ai", preview)
+        self.assertIn("environment: storyboard-preview-approval", preview)
+        self.assertIn("needs: preflight", preview)
+        self.assertIn("preview-preflight", preview)
+        self.assertNotIn("RUNWAY_API_KEY", preview)
+        self.assertNotIn("api.dev.runwayml.com", preview)
+        self.assertIn("Resolve actual Storyboard Preview reviewer", preview)
+        self.assertIn("--gate storyboard-preview", preview)
+        self.assertIn("--environment-reviewer-id", preview)
+        self.assertIn("--environment-policy-hash", preview)
+        self.assertIn("environment: render-approval", execute)
+        self.assertIn("--pre-render-preview-mode", execute)
+
     def test_environment_review_resolves_actual_reviewer_separately(self) -> None:
         record = resolve_github_environment_review(
             [self._environment_approval()],
@@ -276,6 +307,7 @@ class GitHubActionsArchitectureTests(unittest.TestCase):
         policy = resolve_github_environment_policy(
             self._environment_configuration(prevent_self_review=False),
             environment="persona-approval",
+            branch_policies=self._main_branch_policy(),
         )
         record = resolve_github_environment_review(
             [
@@ -302,6 +334,7 @@ class GitHubActionsArchitectureTests(unittest.TestCase):
         enabled = resolve_github_environment_policy(
             self._environment_configuration(prevent_self_review=True),
             environment="persona-approval",
+            branch_policies=self._main_branch_policy(),
         )
         with self.assertRaises(ValidationError):
             resolve_github_environment_review(
@@ -329,9 +362,38 @@ class GitHubActionsArchitectureTests(unittest.TestCase):
                     "id": 18541388227,
                     "name": "persona-approval",
                     "protection_rules": [],
+                    "deployment_branch_policy": {
+                        "protected_branches": False,
+                        "custom_branch_policies": True,
+                    },
                 },
                 environment="persona-approval",
+                branch_policies=self._main_branch_policy(),
             )
+
+    def test_environment_policy_rejects_non_main_or_multiple_branches(self) -> None:
+        configuration = self._environment_configuration(prevent_self_review=False)
+        for branch_policies in (
+            {
+                "total_count": 1,
+                "branch_policies": [{"id": 1, "name": "release/*", "type": "branch"}],
+            },
+            {
+                "total_count": 2,
+                "branch_policies": [
+                    {"id": 1, "name": "main", "type": "branch"},
+                    {"id": 2, "name": "release/*", "type": "branch"},
+                ],
+            },
+        ):
+            with self.subTest(branch_policies=branch_policies), self.assertRaises(
+                ValidationError
+            ):
+                resolve_github_environment_policy(
+                    configuration,
+                    environment="persona-approval",
+                    branch_policies=branch_policies,
+                )
 
     def test_structural_policy_rejects_broad_permissions_and_shell_injection(self) -> None:
         path = ROOT / ".github" / "workflows" / "ci.yml"

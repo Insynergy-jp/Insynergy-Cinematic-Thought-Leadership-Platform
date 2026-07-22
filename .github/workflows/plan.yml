@@ -37,6 +37,12 @@ on:
         default: "off"
         type: choice
         options: ["off", review]
+      pre_render_preview_mode:
+        description: Zero-Runway Storyboard Preview mode
+        required: true
+        default: "off"
+        type: choice
+        options: ["off", storyboard_animatic]
       persona_mode:
         description: Persona Council mode before Story generation
         required: true
@@ -53,7 +59,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: plan-${{ github.repository }}-${{ inputs.profile }}-${{ inputs.provider }}-${{ inputs.runway_scope }}-${{ inputs.narration_provider }}-${{ inputs.agent_review_mode }}-${{ inputs.persona_mode }}
+  group: plan-${{ github.repository }}-${{ inputs.profile }}-${{ inputs.provider }}-${{ inputs.runway_scope }}-${{ inputs.narration_provider }}-${{ inputs.agent_review_mode }}-${{ inputs.pre_render_preview_mode }}-${{ inputs.persona_mode }}
   cancel-in-progress: false
 
 jobs:
@@ -83,10 +89,11 @@ jobs:
           RUNWAY_SCOPE: ${{ inputs.runway_scope }}
           NARRATION_PROVIDER: ${{ inputs.narration_provider }}
           AGENT_REVIEW_MODE: ${{ inputs.agent_review_mode }}
+          PRE_RENDER_PREVIEW_MODE: ${{ inputs.pre_render_preview_mode }}
         run: |
           set -euo pipefail
-          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --persona-mode off plan "$ARTICLE_PATH" > planning-result.json
-          python3 -c 'import json, os; value=json.load(open("planning-result.json")); expected="PLANNED" if os.environ["AGENT_REVIEW_MODE"] == "review" else "AWAITING_EXECUTION_APPROVAL"; assert value["state"] == expected; print(value["build_id"])' | tee build-id.txt
+          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" --persona-mode off plan "$ARTICLE_PATH" > planning-result.json
+          python3 -c 'import json, os; value=json.load(open("planning-result.json")); expected="PLANNED" if os.environ["AGENT_REVIEW_MODE"] == "review" or os.environ["PRE_RENDER_PREVIEW_MODE"] == "storyboard_animatic" else "AWAITING_EXECUTION_APPROVAL"; assert value["state"] == expected; print(value["build_id"])' | tee build-id.txt
       - name: Read planning build identity
         id: plan_meta
         run: |
@@ -161,10 +168,11 @@ jobs:
           RUNWAY_SCOPE: ${{ inputs.runway_scope }}
           NARRATION_PROVIDER: ${{ inputs.narration_provider }}
           AGENT_REVIEW_MODE: ${{ inputs.agent_review_mode }}
+          PRE_RENDER_PREVIEW_MODE: ${{ inputs.pre_render_preview_mode }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           set -euo pipefail
-          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --persona-mode council plan "$ARTICLE_PATH" --creative-brief "$CREATIVE_BRIEF_PATH" > planning-result.json
+          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" --persona-mode council plan "$ARTICLE_PATH" --creative-brief "$CREATIVE_BRIEF_PATH" > planning-result.json
           python3 -c 'import json; value=json.load(open("planning-result.json")); assert value["state"] == "AWAITING_PERSONA_APPROVAL"; assert value["gates"]["persona_quality_gate"]["passed"] is True; print(value["build_id"])' | tee build-id.txt
       - name: Read Persona build identity
         id: persona_meta
@@ -337,6 +345,7 @@ jobs:
           RUNWAY_SCOPE: ${{ inputs.runway_scope }}
           NARRATION_PROVIDER: ${{ inputs.narration_provider }}
           AGENT_REVIEW_MODE: ${{ inputs.agent_review_mode }}
+          PRE_RENDER_PREVIEW_MODE: ${{ inputs.pre_render_preview_mode }}
           WORKFLOW_INITIATOR: ${{ github.actor }}
           ENVIRONMENT_REVIEWER: ${{ steps.persona_review.outputs.environment_reviewer }}
           ENVIRONMENT_REVIEW_HASH: ${{ steps.persona_review.outputs.environment_review_hash }}
@@ -350,9 +359,9 @@ jobs:
             false) ;;
             *) echo "invalid prevent_self_review policy" >&2; exit 7 ;;
           esac
-          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --persona-mode council approve "$BUILD_ID" --gate persona --actor "$ENVIRONMENT_REVIEWER" --workflow-initiator "$WORKFLOW_INITIATOR" --environment-reviewer "$ENVIRONMENT_REVIEWER" "${SELF_REVIEW_ARGUMENTS[@]}" --environment-review-hash "$ENVIRONMENT_REVIEW_HASH" --comment "GitHub Environment persona-approval" > persona-approval-result.json
-          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --persona-mode council plan "$ARTICLE_PATH" --creative-brief "$CREATIVE_BRIEF_PATH" > planning-result.json
-          python3 -c 'import json, os; value=json.load(open("planning-result.json")); expected="PLANNED" if os.environ["AGENT_REVIEW_MODE"] == "review" else "AWAITING_EXECUTION_APPROVAL"; assert value["state"] == expected; assert "persona-approval-binding" in value["artifacts"]'
+          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" --persona-mode council approve "$BUILD_ID" --gate persona --actor "$ENVIRONMENT_REVIEWER" --workflow-initiator "$WORKFLOW_INITIATOR" --environment-reviewer "$ENVIRONMENT_REVIEWER" "${SELF_REVIEW_ARGUMENTS[@]}" --environment-review-hash "$ENVIRONMENT_REVIEW_HASH" --comment "GitHub Environment persona-approval" > persona-approval-result.json
+          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" --persona-mode council plan "$ARTICLE_PATH" --creative-brief "$CREATIVE_BRIEF_PATH" > planning-result.json
+          python3 -c 'import json, os; value=json.load(open("planning-result.json")); expected="PLANNED" if os.environ["AGENT_REVIEW_MODE"] == "review" or os.environ["PRE_RENDER_PREVIEW_MODE"] == "storyboard_animatic" else "AWAITING_EXECUTION_APPROVAL"; assert value["state"] == expected; assert "persona-approval-binding" in value["artifacts"]'
       - name: Seal approved planning handoff
         uses: ./.github/actions/workflow-evidence
         with:
@@ -476,11 +485,12 @@ jobs:
           OPENAI_MODEL_REVIEW: ${{ vars.OPENAI_MODEL_REVIEW }}
           OPENAI_REASONING_EFFORT: ${{ vars.OPENAI_REASONING_EFFORT }}
           OPENAI_TRACE_MODE: ${{ vars.OPENAI_TRACE_MODE }}
+          PRE_RENDER_PREVIEW_MODE: ${{ inputs.pre_render_preview_mode }}
         run: |
           set -euo pipefail
           BUILD_ID="$(tr -d '\n' < build-id.txt)"
-          python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode review agent-review "$BUILD_ID" > planning-result.json
-          python3 -c 'import json; value=json.load(open("planning-result.json")); assert value["state"] == "AWAITING_EXECUTION_APPROVAL"; assert value["agent_review"]["status"] in {"PASS", "MANUAL_REVIEW_REQUIRED", "UNAVAILABLE", "ERROR"}'
+          python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode review --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" agent-review "$BUILD_ID" > planning-result.json
+          python3 -c 'import json, os; value=json.load(open("planning-result.json")); expected="PLANNED" if os.environ["PRE_RENDER_PREVIEW_MODE"] == "storyboard_animatic" else "AWAITING_EXECUTION_APPROVAL"; assert value["state"] == expected; assert value["agent_review"]["status"] in {"PASS", "MANUAL_REVIEW_REQUIRED", "UNAVAILABLE", "ERROR"}'
       - name: Write safe review metadata and summary
         id: review_meta
         run: |

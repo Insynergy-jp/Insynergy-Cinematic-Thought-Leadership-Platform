@@ -73,8 +73,15 @@ def main(argv: list[str] | None = None) -> int:
         configuration = _github_json(
             f"repos/{args.repository}/environments/{environment_path}", token
         )
+        branch_policies = _github_json(
+            f"repos/{args.repository}/environments/{environment_path}/"
+            "deployment-branch-policies?per_page=100",
+            token,
+        )
         policy = resolve_github_environment_policy(
-            configuration, environment=args.environment
+            configuration,
+            environment=args.environment,
+            branch_policies=branch_policies,
         )
         approvals = _github_json(
             f"repos/{args.repository}/actions/runs/{args.run_id}/approvals", token
@@ -99,7 +106,13 @@ def main(argv: list[str] | None = None) -> int:
                 output.write(
                     f"environment_reviewer={record['environment_reviewer']}\n"
                 )
+                output.write(
+                    f"environment_reviewer_id={record['environment_reviewer_id']}\n"
+                )
                 output.write(f"environment_review_hash={record['content_hash']}\n")
+                output.write(
+                    f"environment_policy_hash={record['environment_policy_hash']}\n"
+                )
                 output.write(
                     "prevent_self_review="
                     f"{'true' if record['prevent_self_review'] else 'false'}\n"

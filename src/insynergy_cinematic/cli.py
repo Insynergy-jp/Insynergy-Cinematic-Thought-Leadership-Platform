@@ -45,6 +45,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--runway-scope", choices=("hybrid", "all_shots"))
     parser.add_argument("--narration-provider", choices=("offline", "openai"))
     parser.add_argument("--agent-review-mode", choices=("off", "review"))
+    parser.add_argument(
+        "--pre-render-preview-mode", choices=("off", "storyboard_animatic")
+    )
     parser.add_argument("--persona-mode", choices=("off", "council"))
     parser.add_argument("--compact", action="store_true", help="Emit compact JSON")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -60,6 +63,22 @@ def _parser() -> argparse.ArgumentParser:
     )
     review.add_argument("build_id")
 
+    previsualize = sub.add_parser(
+        "previsualize",
+        help="Generate GPT storyboard frames and an FFmpeg review animatic without Runway",
+    )
+    previsualize.add_argument("build_id")
+    preview_preflight = sub.add_parser(
+        "preview-preflight",
+        help="Validate preview budget and identity without provider credentials",
+    )
+    preview_preflight.add_argument("build_id")
+    recompose = sub.add_parser(
+        "recompose-preview",
+        help="Recompose and verify the sealed preview in a provider-secret-free process",
+    )
+    recompose.add_argument("build_id")
+
     build = sub.add_parser("build", help="Run the complete build pipeline")
     build.add_argument("article", type=Path)
     build.add_argument("--creative-brief", type=Path)
@@ -69,7 +88,9 @@ def _parser() -> argparse.ArgumentParser:
     approve = sub.add_parser("approve", help="Record a scoped human approval")
     approve.add_argument("build_id")
     approve.add_argument(
-        "--gate", choices=("persona", "execution", "publish"), required=True
+        "--gate",
+        choices=("persona", "storyboard-preview", "execution", "publish"),
+        required=True,
     )
     approve.add_argument("--actor", required=True)
     approve.add_argument("--decision", choices=("APPROVED", "REJECTED"), default="APPROVED")
@@ -78,8 +99,10 @@ def _parser() -> argparse.ArgumentParser:
     approve.add_argument("--agent-exception-reason", default="")
     approve.add_argument("--workflow-initiator")
     approve.add_argument("--environment-reviewer")
+    approve.add_argument("--environment-reviewer-id", type=int)
     approve.add_argument("--prevent-self-review", action="store_true")
     approve.add_argument("--environment-review-hash")
+    approve.add_argument("--environment-policy-hash")
 
     for name in (
         "execute",
@@ -284,6 +307,7 @@ def main(argv: list[str] | None = None) -> int:
             runway_scope=args.runway_scope,
             narration_provider=args.narration_provider,
             agent_review_mode=args.agent_review_mode,
+            pre_render_preview_mode=args.pre_render_preview_mode,
             persona_mode=args.persona_mode,
         )
         if args.command == "serve":
@@ -325,11 +349,19 @@ def main(argv: list[str] | None = None) -> int:
                 agent_exception_reason=args.agent_exception_reason,
                 workflow_initiator=args.workflow_initiator,
                 environment_reviewer=args.environment_reviewer,
+                environment_reviewer_id=args.environment_reviewer_id,
                 prevent_self_review=args.prevent_self_review,
                 environment_review_hash=args.environment_review_hash,
+                environment_policy_hash=args.environment_policy_hash,
             )
         elif args.command in {"agent-review", "review"}:
             result = orchestrator.review(args.build_id)
+        elif args.command == "previsualize":
+            result = orchestrator.previsualize(args.build_id)
+        elif args.command == "preview-preflight":
+            result = orchestrator.preview_preflight(args.build_id)
+        elif args.command == "recompose-preview":
+            result = orchestrator.recompose_preview(args.build_id)
         elif args.command == "status":
             result = orchestrator.inspect(args.build_id)
         elif args.command == "list":

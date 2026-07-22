@@ -51,6 +51,13 @@ from .persona import (
     load_creative_brief,
     validate_persona_preapproval_bundle,
 )
+from .previsualization import (
+    PREVIEW_ARTIFACT_TYPES,
+    PreviewAnimaticComposer,
+    PreviewProvider,
+    PrevisualizationService,
+    validate_preview_approval_binding,
+)
 from .prompt import PromptAssembler
 from .providers.local import LocalVideoProvider
 from .quality import (
@@ -70,7 +77,11 @@ from .rendering import (
 )
 from .runtime import DurableTaskQueue, part6_coverage_report
 from .screenplay import ScreenplayCache, ScreenplayConfig, ScreenplayEngine
-from .schema_validation import PERSONA_NAMES, validate_persona_bundle
+from .schema_validation import (
+    PERSONA_NAMES,
+    validate_persona_bundle,
+    validate_schema_document,
+)
 from .shot_planner import ShotPlanner
 from .storage import BuildRepository
 from .story import StoryCache, StoryConfig, StoryEngine
@@ -154,10 +165,12 @@ class BuildOrchestrator:
         runway_scope: str | None = None,
         narration_provider: str | None = None,
         agent_review_mode: str | None = None,
+        pre_render_preview_mode: str | None = None,
         persona_mode: str | None = None,
         environ: dict[str, str] | None = None,
         review_provider: AgentReviewProvider | None = None,
         persona_provider: PersonaCouncilProvider | None = None,
+        preview_provider: PreviewProvider | None = None,
     ) -> None:
         self.workspace = Path(workspace).resolve()
         self.config = load_config(
@@ -168,12 +181,14 @@ class BuildOrchestrator:
             runway_scope=runway_scope,
             narration_provider=narration_provider,
             agent_review_mode=agent_review_mode,
+            pre_render_preview_mode=pre_render_preview_mode,
             persona_mode=persona_mode,
             environ=environ,
         )
         self.repository = BuildRepository(self.workspace)
         self._review_provider_override = review_provider
         self._persona_provider_override = persona_provider
+        self._preview_provider_override = preview_provider
 
     def _config_snapshot(self) -> dict[str, Any]:
         profile = self.config.render_profile()
@@ -262,6 +277,20 @@ class BuildOrchestrator:
                 "agent_version": self.config.agent_review_agent_version,
                 "prompt_version": self.config.agent_review_prompt_version,
                 "policy_version": self.config.agent_review_policy_version,
+            },
+            "pre_render_preview": {
+                "mode": self.config.pre_render_preview_mode,
+                "model": self.config.preview_model,
+                "reasoning_effort": self.config.preview_reasoning_effort,
+                "image_size": self.config.preview_image_size,
+                "image_quality": self.config.preview_image_quality,
+                "image_output_format": self.config.preview_image_output_format,
+                "timeout_seconds": self.config.preview_timeout_seconds,
+                "max_output_tokens": self.config.preview_max_output_tokens,
+                "max_images": self.config.preview_max_images,
+                "preflight_estimated_cost_usd": self.config.preview_preflight_estimated_cost_usd,
+                "max_cost_usd": self.config.preview_max_cost_usd,
+                "prompt_version": self.config.preview_prompt_version,
             },
             "persona_council": {
                 "mode": story.persona_mode,
@@ -869,8 +898,9 @@ class BuildOrchestrator:
                 "source_hash": source_hash,
                 "profile": self.config.profile,
                 "configuration_hash": content_hash(config_snapshot),
-                "planning_contract": "3.3.0",
+                "planning_contract": "3.4.0",
                 "agent_review_mode": self.config.agent_review_mode,
+                "pre_render_preview_mode": self.config.pre_render_preview_mode,
                 "persona_mode": persona_mode,
                 "creative_brief_hash": creative_brief_hash,
                 "architecture_contract_hash": content_hash(
@@ -1156,6 +1186,21 @@ class BuildOrchestrator:
                 "model_resolved": None,
                 "cache_hit": False,
             }
+            manifest["previsualization"] = {
+                "mode": self.config.pre_render_preview_mode,
+                "status": (
+                    "DISABLED"
+                    if self.config.pre_render_preview_mode == "off"
+                    else "PENDING"
+                ),
+                "plan_key": None,
+                "preview_manifest_content_hash": None,
+                "quality_report_content_hash": None,
+                "approval_binding_content_hash": None,
+                "model_requested": self.config.preview_model,
+                "model_resolved": None,
+                "runway_api_calls": 0,
+            }
             manifest = self.repository.save(manifest)
             manifest = self.repository.transition(
                 manifest, BuildState.PLANNED, "all_planning_gates_passed"
@@ -1169,14 +1214,19 @@ class BuildOrchestrator:
                     "fail_closed": True,
                 }
                 manifest = self.repository.save(manifest)
-                manifest = self.repository.transition(
-                    manifest,
-                    BuildState.AWAITING_EXECUTION_APPROVAL,
-                    "agent_review_not_applicable",
-                )
-                manifest = self._checkpoint(
-                    manifest, "planning-complete", clean=True
-                )
+                if self.config.pre_render_preview_mode == "off":
+                    manifest = self.repository.transition(
+                        manifest,
+                        BuildState.AWAITING_EXECUTION_APPROVAL,
+                        "agent_review_not_applicable",
+                    )
+                    manifest = self._checkpoint(
+                        manifest, "planning-complete", clean=True
+                    )
+                else:
+                    manifest = self._checkpoint(
+                        manifest, "planning-ready-for-previsualization", clean=True
+                    )
             return self._view(manifest)
         except Exception:
             current = BuildState(manifest["state"])
@@ -1300,12 +1350,241 @@ class BuildOrchestrator:
                 },
             )
         manifest = self.repository.save(manifest)
+        if self.config.pre_render_preview_mode == "off":
+            manifest = self.repository.transition(
+                manifest,
+                BuildState.AWAITING_EXECUTION_APPROVAL,
+                "agent_review_evidence_sealed",
+            )
+            manifest = self._checkpoint(manifest, "planning-complete", clean=True)
+        else:
+            manifest = self._checkpoint(
+                manifest, "planning-review-ready-for-previsualization", clean=True
+            )
+        return self._view(manifest)
+
+    def _preview_provider(self) -> PreviewProvider:
+        if self._preview_provider_override is not None:
+            return self._preview_provider_override
+        from .providers.openai_preview import OpenAIPreviewProvider
+
+        return OpenAIPreviewProvider(self.config)
+
+    def _preview_preflight_report(self, manifest: dict[str, Any]) -> dict[str, Any]:
+        projection = manifest.get("previsualization", {})
+        if projection.get("mode") != "storyboard_animatic":
+            raise StateConflictError(
+                "Build was not planned for storyboard_animatic previsualization"
+            )
+        if self.config.pre_render_preview_mode != "storyboard_animatic":
+            raise StateConflictError(
+                "Preview preflight requires storyboard_animatic mode"
+            )
+        if BuildState(manifest["state"]) != BuildState.PLANNED:
+            raise StateConflictError(
+                f"Build cannot run preview preflight from {manifest['state']}"
+            )
+        if (
+            manifest.get("agent_review", {}).get("mode") == "review"
+            and "agent_review_report" not in manifest.get("artifacts", {})
+        ):
+            raise ApprovalRequiredError(
+                "Agent Review evidence must be sealed before previsualization"
+            )
+        self.repository.verify_artifacts(manifest)
+        shot_list = self.repository.load_artifact(manifest, "shot_list")["data"]
+        shot_count = int(shot_list.get("shot_count", 0))
+        if shot_count < 1 or shot_count > self.config.preview_max_images:
+            raise ValidationError(
+                "Storyboard preview image budget rejected before provider initialization",
+                details={
+                    "shot_count": shot_count,
+                    "max_images": self.config.preview_max_images,
+                },
+            )
+        if (
+            self.config.preview_preflight_estimated_cost_usd
+            > self.config.preview_max_cost_usd
+        ):
+            raise ValidationError(
+                "Storyboard preview cost preflight rejected before provider initialization"
+            )
+        report = {
+            "schema_version": "3.4.0",
+            "contract_version": "storyboard-preview-preflight/1",
+            "build_id": manifest["build_id"],
+            "mode": "storyboard_animatic",
+            "passed": True,
+            "planning_hash": self._planning_hash(manifest),
+            "shot_count": shot_count,
+            "max_images": self.config.preview_max_images,
+            "preflight_estimated_cost_usd": (
+                self.config.preview_preflight_estimated_cost_usd
+            ),
+            "max_cost_usd": self.config.preview_max_cost_usd,
+            "openai_provider_initialized": False,
+            "runway_provider_initialized": False,
+            "runway_api_calls": 0,
+        }
+        report["content_hash"] = content_hash(report)
+        return report
+
+    def preview_preflight(self, build_id: str) -> dict[str, Any]:
+        """Validate preview admission without constructing any provider client."""
+        return self._preview_preflight_report(self.repository.load(build_id))
+
+    def previsualize(self, build_id: str) -> dict[str, Any]:
+        """Create the GPT storyboard/image/FFmpeg review bundle without Runway."""
+        manifest = self.repository.load(build_id)
+        projection = manifest.get("previsualization", {})
+        if projection.get("mode") != "storyboard_animatic":
+            raise StateConflictError(
+                "Build was not planned for storyboard_animatic previsualization"
+            )
+        if self.config.pre_render_preview_mode != "storyboard_animatic":
+            raise StateConflictError(
+                "Previsualization command requires storyboard_animatic mode"
+            )
+        state = BuildState(manifest["state"])
+        if state == BuildState.AWAITING_STORYBOARD_PREVIEW_APPROVAL:
+            self._verify_preview_evidence(manifest, require_approval=False)
+            return self._view(manifest)
+        if state != BuildState.PLANNED:
+            raise StateConflictError(
+                f"Build cannot previsualize from {state.value}"
+            )
+        preflight = self._preview_preflight_report(manifest)
+        screenplay_data = self.repository.load_artifact(manifest, "screenplay")["data"]
+        shot_list_data = self.repository.load_artifact(manifest, "shot_list")["data"]
+        storyboard_data = self.repository.load_artifact(manifest, "storyboard")["data"]
+        shot_count = int(preflight["shot_count"])
+        service = PrevisualizationService(
+            config=self.config,
+            build_root=self.repository.build_dir(build_id),
+            cache_root=self.repository.root / "previsualization-cache",
+            provider=self._preview_provider(),
+        )
+        self.repository.record_event(
+            manifest,
+            "previsualization_requested",
+            {"mode": "storyboard_animatic", "runway_api_calls": 0},
+        )
+        artifacts = service.run(
+            build_id=build_id,
+            planning_hash=self._planning_hash(manifest),
+            screenplay=screenplay_data,
+            shot_list=shot_list_data,
+            storyboard=storyboard_data,
+        )
+        for artifact_type, document in artifacts.items():
+            validate_schema_document(artifact_type.replace("_", "-"), document)
+        self._store_many(
+            manifest,
+            artifacts,
+            inputs=self._artifact_inputs(
+                manifest, "screenplay", "shot_list", "storyboard"
+            ),
+            generator="gpt-5.6-storyboard-previsualization",
+        )
+        quality = artifacts["storyboard_preview_quality_report"]
+        manifest, gate_report = self._record_quality_gate(
+            manifest,
+            gate_id="storyboard_preview_quality_gate",
+            projection={
+                "gate_id": "storyboard_preview_quality_gate",
+                "passed": quality["passed"],
+                "decision": quality["decision"],
+                "blocking": True,
+                "fail_closed": True,
+            },
+            checks=quality["checks"],
+            evidence_types=PREVIEW_ARTIFACT_TYPES[:-1],
+        )
+        plan = artifacts["previsualization_plan"]
+        preview_manifest = artifacts["storyboard_preview_manifest"]
+        manifest["previsualization"] = {
+            "mode": "storyboard_animatic",
+            "status": "PREVIEW_READY",
+            "plan_key": plan["plan_key"],
+            "preview_manifest_content_hash": manifest["artifacts"][
+                "storyboard_preview_manifest"
+            ]["content_hash"],
+            "quality_report_content_hash": manifest["artifacts"][
+                "storyboard_preview_quality_report"
+            ]["content_hash"],
+            "quality_gate_report_content_hash": gate_report["content_hash"],
+            "approval_binding_content_hash": None,
+            "model_requested": plan["model_requested"],
+            "model_resolved": plan["model_resolved"],
+            "runway_api_calls": preview_manifest["provider_calls"]["runway"],
+            "animatic_path": preview_manifest["animatic"]["path"],
+            "review_html_path": preview_manifest["review_html"]["path"],
+        }
+        manifest["metrics"]["previsualization"] = {
+            "shot_count": shot_count,
+            "max_images": self.config.preview_max_images,
+            "preflight_estimated_cost_usd": self.config.preview_preflight_estimated_cost_usd,
+            "max_cost_usd": self.config.preview_max_cost_usd,
+            "gpt_plan_calls": preview_manifest["provider_calls"]["gpt_plan"],
+            "gpt_image_calls": preview_manifest["provider_calls"]["gpt_image"],
+            "runway_api_calls": 0,
+        }
+        self.repository.record_event(
+            manifest,
+            "previsualization_completed",
+            {
+                "plan_key": plan["plan_key"],
+                "preview_manifest_content_hash": manifest["previsualization"][
+                    "preview_manifest_content_hash"
+                ],
+                "runway_api_calls": 0,
+            },
+        )
+        manifest = self.repository.save(manifest)
         manifest = self.repository.transition(
             manifest,
-            BuildState.AWAITING_EXECUTION_APPROVAL,
-            "agent_review_evidence_sealed",
+            BuildState.AWAITING_STORYBOARD_PREVIEW_APPROVAL,
+            "storyboard_preview_quality_gate_passed",
         )
-        manifest = self._checkpoint(manifest, "planning-complete", clean=True)
+        manifest = self._checkpoint(manifest, "previsualization-complete", clean=True)
+        return self._view(manifest)
+
+    def recompose_preview(self, build_id: str) -> dict[str, Any]:
+        """Reproduce and verify the canonical animatic in a provider-secret-free job."""
+        manifest = self.repository.load(build_id)
+        if (
+            BuildState(manifest["state"])
+            != BuildState.AWAITING_STORYBOARD_PREVIEW_APPROVAL
+        ):
+            raise StateConflictError(
+                f"Build cannot recompose Storyboard Preview from {manifest['state']}"
+            )
+        preview = self.repository.load_artifact(
+            manifest, "storyboard_preview_manifest"
+        )["data"]
+        animatic = preview["animatic"]
+        recomposed = PreviewAnimaticComposer().compose(
+            directory=self.repository.build_dir(build_id) / "previsualization",
+            frames=preview["frames"],
+            width=int(animatic["width"]),
+            height=int(animatic["height"]),
+            frame_rate=int(animatic["frame_rate"]),
+        )
+        if recomposed != animatic:
+            raise ValidationError(
+                "Secretless FFmpeg recomposition changed the sealed animatic",
+                details={
+                    "expected_hash": animatic["content_hash"],
+                    "actual_hash": recomposed["content_hash"],
+                },
+            )
+        self._verify_preview_evidence(manifest, require_approval=False)
+        self.repository.record_event(
+            manifest,
+            "previsualization_secretless_recomposition_verified",
+            {"animatic_content_hash": recomposed["content_hash"]},
+        )
+        manifest = self.repository.save(manifest)
         return self._view(manifest)
 
     @staticmethod
@@ -1321,6 +1600,280 @@ class BuildOrchestrator:
         if not artifacts:
             raise ValidationError("Build has no planning artifacts")
         return content_hash(artifacts)
+
+    def _verify_preview_evidence(
+        self, manifest: dict[str, Any], *, require_approval: bool
+    ) -> None:
+        projection = manifest.get("previsualization", {})
+        if projection.get("mode") != "storyboard_animatic":
+            if require_approval:
+                raise ApprovalRequiredError("Storyboard preview mode is not active")
+            raise ValidationError("Storyboard preview mode is not active")
+        missing = set(PREVIEW_ARTIFACT_TYPES).difference(
+            manifest.get("artifacts", {})
+        )
+        if missing:
+            raise ApprovalRequiredError(
+                "Storyboard preview evidence is incomplete",
+                details={"missing": sorted(missing)},
+            )
+        documents = {
+            name: self.repository.load_artifact(manifest, name)["data"]
+            for name in PREVIEW_ARTIFACT_TYPES
+        }
+        preview_manifest = documents["storyboard_preview_manifest"]
+        quality = documents["storyboard_preview_quality_report"]
+        if (
+            projection.get("status") not in {"PREVIEW_READY", "APPROVED"}
+            or projection.get("runway_api_calls") != 0
+            or preview_manifest.get("runway_contacted") is not False
+            or preview_manifest.get("provider_calls", {}).get("runway") != 0
+            or quality.get("passed") is not True
+            or quality.get("decision") != "PASS"
+            or projection.get("preview_manifest_content_hash")
+            != manifest["artifacts"]["storyboard_preview_manifest"]["content_hash"]
+            or projection.get("quality_report_content_hash")
+            != manifest["artifacts"]["storyboard_preview_quality_report"]["content_hash"]
+        ):
+            raise ApprovalRequiredError("Storyboard preview evidence identity is invalid")
+        for frame in preview_manifest.get("frames", []):
+            path = Path(str(frame.get("asset_path", "")))
+            if not path.is_file() or file_hash(path) != frame.get("asset_hash"):
+                raise ApprovalRequiredError("Storyboard preview frame changed after sealing")
+        for asset_name in ("animatic", "captions", "review_html"):
+            asset = preview_manifest.get(asset_name, {})
+            path = Path(str(asset.get("path", "")))
+            if not path.is_file() or file_hash(path) != asset.get("content_hash"):
+                raise ApprovalRequiredError(
+                    f"Storyboard preview {asset_name} changed after sealing"
+                )
+        if not require_approval:
+            return
+        approval = manifest.get("approvals", {}).get("storyboard-preview")
+        reference = manifest.get("artifacts", {}).get(
+            "storyboard_preview_approval_binding"
+        )
+        if (
+            not approval
+            or approval.get("decision") != ApprovalDecision.APPROVED.value
+            or not reference
+        ):
+            raise ApprovalRequiredError("Storyboard preview approval is required")
+        binding = self.repository.load_artifact(
+            manifest, "storyboard_preview_approval_binding"
+        )
+        validate_preview_approval_binding(binding)
+        expected_hashes = {
+            name: manifest["artifacts"][name]["content_hash"]
+            for name in PREVIEW_ARTIFACT_TYPES
+        }
+        if (
+            binding["build_id"] != manifest["build_id"]
+            or binding["planning_hash"] != self._planning_hash(manifest)
+            or binding["approval_id"] != approval.get("approval_id")
+            or binding["artifact_hashes"] != expected_hashes
+            or binding["content_hash"] != reference.get("content_hash")
+            or binding["approver"].casefold()
+            != str(approval.get("actor", "")).casefold()
+            or projection.get("approval_binding_content_hash")
+            != binding["content_hash"]
+        ):
+            raise ApprovalRequiredError(
+                "Storyboard preview approval is stale or mismatched"
+            )
+
+    def _approve_storyboard_preview(
+        self,
+        manifest: dict[str, Any],
+        *,
+        actor: str,
+        decision: ApprovalDecision,
+        comment: str,
+        workflow_initiator: str | None,
+        environment_reviewer: str | None,
+        environment_reviewer_id: int | None,
+        prevent_self_review: bool,
+        environment_review_hash: str | None,
+        environment_policy_hash: str | None,
+    ) -> dict[str, Any]:
+        if (
+            BuildState(manifest["state"])
+            != BuildState.AWAITING_STORYBOARD_PREVIEW_APPROVAL
+        ):
+            raise StateConflictError(
+                f"storyboard-preview approval is invalid while build is {manifest['state']}"
+            )
+        existing = manifest.get("approvals", {}).get("storyboard-preview")
+        if existing and existing.get("decision") == ApprovalDecision.APPROVED.value:
+            self._verify_preview_evidence(manifest, require_approval=True)
+            return self._view(manifest)
+        self._verify_preview_evidence(manifest, require_approval=False)
+        initiator = (workflow_initiator or actor).strip()
+        reviewer = (environment_reviewer or actor).strip()
+        github_review_context = any(
+            value is not None
+            for value in (
+                workflow_initiator,
+                environment_reviewer,
+                environment_reviewer_id,
+                environment_review_hash,
+                environment_policy_hash,
+            )
+        )
+        if not initiator or not reviewer:
+            raise ValidationError("Storyboard preview approval identities are required")
+        if actor.casefold() != reviewer.casefold():
+            raise ValidationError(
+                "Storyboard preview approval actor must match the Environment reviewer"
+            )
+        if github_review_context:
+            if (
+                not workflow_initiator
+                or not environment_reviewer
+                or not isinstance(environment_reviewer_id, int)
+                or isinstance(environment_reviewer_id, bool)
+                or environment_reviewer_id < 1
+            ):
+                raise ValidationError(
+                    "GitHub preview approval requires initiator and reviewer login/ID"
+                )
+            if (
+                not environment_review_hash
+                or not environment_review_hash.startswith("sha256:")
+                or len(environment_review_hash) != 71
+                or any(
+                    character not in "0123456789abcdef"
+                    for character in environment_review_hash.removeprefix("sha256:")
+                )
+            ):
+                raise ValidationError(
+                    "GitHub preview approval requires a valid review history hash"
+                )
+            if (
+                not environment_policy_hash
+                or not environment_policy_hash.startswith("sha256:")
+                or len(environment_policy_hash) != 71
+                or any(
+                    character not in "0123456789abcdef"
+                    for character in environment_policy_hash.removeprefix("sha256:")
+                )
+            ):
+                raise ValidationError(
+                    "GitHub preview approval requires a valid Environment policy hash"
+                )
+        if prevent_self_review and initiator.casefold() == reviewer.casefold():
+            raise ValidationError("Storyboard preview self-review is prohibited")
+        artifact_hashes = {
+            name: manifest["artifacts"][name]["content_hash"]
+            for name in PREVIEW_ARTIFACT_TYPES
+        }
+        planning_hash = self._planning_hash(manifest)
+        approval_scope_hash = content_hash(artifact_hashes)
+        approved_at = now_iso()
+        approval_id = stable_id(
+            "preview-approval",
+            {
+                "build_id": manifest["build_id"],
+                "decision": decision.value,
+                "reviewer": reviewer,
+                "workflow_initiator": initiator,
+                "artifact_hashes": artifact_hashes,
+                "planning_hash": planning_hash,
+                "environment_review_hash": environment_review_hash,
+                "environment_policy_hash": environment_policy_hash,
+                "environment_reviewer_id": environment_reviewer_id,
+            },
+        )
+        record = ApprovalRecord(
+            approval_id=approval_id,
+            build_id=manifest["build_id"],
+            gate="storyboard-preview",
+            decision=decision,
+            actor=actor,
+            artifact_hash=approval_scope_hash,
+            approved_at=approved_at,
+            comment=comment,
+        )
+        manifest["approvals"]["storyboard-preview"] = record.as_dict()
+        if decision == ApprovalDecision.APPROVED:
+            binding = {
+                "schema_version": "3.4.0",
+                "contract_version": "storyboard-preview-approval/1",
+                "approval_id": approval_id,
+                "build_id": manifest["build_id"],
+                "decision": "APPROVED",
+                "approver": reviewer,
+                "workflow_initiator": initiator,
+                "environment_reviewer": reviewer,
+                "prevent_self_review": prevent_self_review,
+                "approved_at": approved_at,
+                "planning_hash": planning_hash,
+                "artifact_hashes": artifact_hashes,
+            }
+            if environment_review_hash:
+                binding["environment_review_hash"] = environment_review_hash
+            if environment_policy_hash:
+                binding["environment_policy_hash"] = environment_policy_hash
+            if environment_reviewer_id is not None:
+                binding["environment_reviewer_id"] = environment_reviewer_id
+            if comment.strip():
+                binding["rationale"] = comment.strip()
+            binding["content_hash"] = content_hash(binding)
+            validate_preview_approval_binding(binding)
+            self.repository.store_sealed_document(
+                manifest,
+                artifact_type="storyboard_preview_approval_binding",
+                document=binding,
+                artifact_id=approval_id,
+            )
+            manifest["previsualization"]["status"] = "APPROVED"
+            manifest["previsualization"][
+                "approval_binding_content_hash"
+            ] = binding["content_hash"]
+        manifest["gates"]["storyboard_preview_approval"] = {
+            "gate_id": "storyboard_preview_approval",
+            "passed": decision == ApprovalDecision.APPROVED,
+            "decision": decision.value,
+            "approval_ref": approval_id,
+            "artifact_hash": approval_scope_hash,
+            "workflow_initiator": initiator,
+            "environment_reviewer": reviewer,
+            "environment_reviewer_id": environment_reviewer_id,
+            "prevent_self_review": prevent_self_review,
+            "blocking": True,
+            "fail_closed": True,
+        }
+        self.repository.record_approval_audit(
+            manifest,
+            gate="storyboard-preview",
+            state=decision.value,
+            actor=actor,
+            approval_ref=approval_id,
+            artifact_hash=approval_scope_hash,
+            rationale=comment or "recorded Storyboard Preview human decision",
+        )
+        self.repository.record_event(
+            manifest,
+            "storyboard_preview_approval_recorded",
+            {
+                "decision": decision.value,
+                "workflow_initiator": initiator,
+                "environment_reviewer": reviewer,
+                "prevent_self_review": prevent_self_review,
+                "runway_api_calls": 0,
+            },
+        )
+        manifest = self.repository.save(manifest)
+        if decision == ApprovalDecision.APPROVED:
+            manifest = self.repository.transition(
+                manifest,
+                BuildState.AWAITING_EXECUTION_APPROVAL,
+                "storyboard_preview_approval_verified",
+            )
+            manifest = self._checkpoint(
+                manifest, "storyboard-preview-approved", clean=True
+            )
+        return self._view(manifest)
 
     def _approve_persona(
         self,
@@ -1504,11 +2057,15 @@ class BuildOrchestrator:
         agent_exception_reason: str = "",
         workflow_initiator: str | None = None,
         environment_reviewer: str | None = None,
+        environment_reviewer_id: int | None = None,
         prevent_self_review: bool = False,
         environment_review_hash: str | None = None,
+        environment_policy_hash: str | None = None,
     ) -> dict[str, Any]:
-        if gate not in {"persona", "execution", "publish"}:
-            raise ValidationError("Approval gate must be persona, execution, or publish")
+        if gate not in {"persona", "storyboard-preview", "execution", "publish"}:
+            raise ValidationError(
+                "Approval gate must be persona, storyboard-preview, execution, or publish"
+            )
         if not actor.strip():
             raise ValidationError("Approval actor is required")
         try:
@@ -1526,6 +2083,19 @@ class BuildOrchestrator:
                 environment_reviewer=environment_reviewer,
                 prevent_self_review=prevent_self_review,
                 environment_review_hash=environment_review_hash,
+            )
+        if gate == "storyboard-preview":
+            return self._approve_storyboard_preview(
+                manifest,
+                actor=actor,
+                decision=approval_decision,
+                comment=comment,
+                workflow_initiator=workflow_initiator,
+                environment_reviewer=environment_reviewer,
+                environment_reviewer_id=environment_reviewer_id,
+                prevent_self_review=prevent_self_review,
+                environment_review_hash=environment_review_hash,
+                environment_policy_hash=environment_policy_hash,
             )
         state = BuildState(manifest["state"])
         review_mode = "off"
@@ -1977,6 +2547,8 @@ class BuildOrchestrator:
                 raise StateConflictError(
                     "Build is not eligible for resume", details=recovery
                 )
+        if self.config.pre_render_preview_mode == "storyboard_animatic":
+            self._verify_preview_evidence(manifest, require_approval=True)
         if self.config.narration_provider == "openai" and not self.config.openai_tts_api_key:
             raise ValidationError(
                 "OPENAI_TTS_API_KEY is required before any paid rendering begins"
@@ -2755,8 +3327,24 @@ class BuildOrchestrator:
             view = self.plan(
                 article_path, creative_brief_path=creative_brief_path
             )
-        if view["state"] == BuildState.PLANNED.value:
+        if (
+            view["state"] == BuildState.PLANNED.value
+            and self.config.agent_review_mode == "review"
+        ):
             view = self.review(build_id)
+        if (
+            view["state"] == BuildState.PLANNED.value
+            and self.config.pre_render_preview_mode == "storyboard_animatic"
+        ):
+            view = self.previsualize(build_id)
+        if (
+            auto_approve
+            and view["state"]
+            == BuildState.AWAITING_STORYBOARD_PREVIEW_APPROVAL.value
+        ):
+            view = self.approve(
+                build_id, gate="storyboard-preview", actor=actor
+            )
         if not auto_approve:
             return view
         if auto_approve and view["state"] == BuildState.AWAITING_EXECUTION_APPROVAL.value:
@@ -2824,6 +3412,7 @@ class BuildOrchestrator:
         local = LocalVideoProvider(self.repository.root / "providers" / "local")
         local_health = local.health_check()
         sdk_available = find_spec("agents") is not None
+        openai_sdk_available = find_spec("openai") is not None
         if self.config.agent_review_mode == "off":
             review_health = {"status": "DISABLED", "mode": "off"}
         else:
@@ -2864,6 +3453,27 @@ class BuildOrchestrator:
                 "provider": "offline",
                 "binary_available": bool(which("espeak-ng")),
             }
+        if self.config.pre_render_preview_mode == "off":
+            preview_health = {"status": "DISABLED", "mode": "off"}
+        else:
+            preview_health = {
+                "status": (
+                    "HEALTHY"
+                    if openai_sdk_available
+                    and self.config.openai_api_key
+                    and which("ffmpeg")
+                    and which("ffprobe")
+                    else "DEGRADED"
+                ),
+                "mode": "storyboard_animatic",
+                "sdk_available": openai_sdk_available,
+                "credential_available": bool(self.config.openai_api_key),
+                "ffmpeg_available": bool(which("ffmpeg") and which("ffprobe")),
+                "model": self.config.preview_model,
+                "max_images": self.config.preview_max_images,
+                "max_cost_usd": self.config.preview_max_cost_usd,
+                "runway_access": False,
+            }
         return {
             "status": (
                 "HEALTHY"
@@ -2880,6 +3490,7 @@ class BuildOrchestrator:
                 "agent_review": review_health,
                 "persona_council": persona_health,
                 "narration": narration_health,
+                "previsualization": preview_health,
             },
             "part6_coverage": part6_coverage_report(),
             "part7_coverage": part7_coverage_report(),
@@ -2899,6 +3510,7 @@ class BuildOrchestrator:
             "approvals": manifest.get("approvals", {}),
             "agent_review": manifest.get("agent_review", {}),
             "persona_council": manifest.get("persona_council", {}),
+            "previsualization": manifest.get("previsualization", {}),
             "metrics": manifest.get("metrics", {}),
             "runtime": manifest.get("runtime", {}),
             "quality": manifest.get("quality", {}),

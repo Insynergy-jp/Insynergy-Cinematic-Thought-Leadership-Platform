@@ -1,18 +1,32 @@
 # Specification Traceability
 
-この文書はMaster Specification v2.1の9 PartとPlatform v3.3.0参照実装の対応表です。仕様書本文が規範であり、この表は実装上の入口を示します。
+この文書はMaster Specification v2.1の9 PartとPlatform v3.4.0参照実装の対応表です。仕様書本文が規範であり、この表は実装上の入口を示します。
+
+## Platform v3.4.0 implementation status
+
+Parts 1–9のv3.4.0 Amendmentに対し、GPT-5.6のclosed structured output、Responses API `image_generation`、hash検証付き完全一致Plan/Frame Cache、provider-free budget preflight、watermark付きFFmpeg Animatic、独立したPreview Quality／Human Approval、実GitHub Environment Reviewer login/IDとmain限定policy binding、Runway Provider初期化前の再検証、6つのv3.4 schemaを実装しています。通常CIはfake providerで134 testsを実行し、実OpenAI／Runway費用は発生させません。bounded live OpenAI評価は外部運用acceptanceとして残します。
+
+```text
+v3.4 implemented path:
+Screenplay -> GPT-5.6 Storyboard/Shot/Prompt plan
+           -> GPT Image still frames
+           -> FFmpeg storyboard animatic
+           -> storyboard-preview-approval
+           -> render-approval
+           -> Runway
+```
 
 | Part | 実装 | 主な強制条件 |
 | --- | --- | --- |
-| 1 Vision / Architecture | `architecture.py`, `orchestrator.py`, `persona.py`, `outcomes.py`, `models.py`, `storage.py` | 実行可能Architecture、Provider隔離、有限Persona Council、唯一のrender fork、段階承認、不変Artifact、長期視聴者理解・想起Dashboard |
+| 1 Vision / Architecture | `architecture.py`, `orchestrator.py`, `previsualization.py`, `persona.py`, `outcomes.py`, `models.py`, `storage.py` | 実行可能Architecture、Provider隔離、有限Persona Council、zero-Runway Preview境界、Preview／execution／publicationの段階承認、不変Artifact、長期視聴者理解・想起Dashboard |
 | 2 Story Engine | `story.py` | 単一Premise/Theme/Protagonist/Question、三層Conflict、定量・不可逆Stakes、Time Pressure、6段Arc、時間配分付き三幕、因果的感情進行、Concept ratio、決定論Cache、Persona lineage |
 | 3 Screenplay Engine | `screenplay.py` | Story-only入力、1 scene/1 purpose/1 conflict、observable action、Act 3 concept、Fountain/JSON、continuity |
-| 4 Shot Planner / Storyboard | `shot_planner.py` | 厳密なShot順序、Camera/Blocking、Character/Location/Time continuity、Hybrid routing、Shot/Storyboard gates |
-| 5 Rendering / Runway | `rendering.py`, `prompt.py`, `providers/`, `media.py` | facade、provider contract、Runway API `2024-11-06` containment、Task API、client-side replay protection、1 task/shot、signed-output保存、exact cache、prompt provenance、technical/quality validation |
-| 6 Performance / Orchestration | `orchestrator.py`, `runtime.py`, `storage.py`, `rendering.py`, `providers/openai_agents.py` | Performance Plan artifacts、CAS、Manifest CAS/history、durable Queue、generation-fenced leases、content-addressed Checkpoints、Recovery Plan、hash-chained Events、Backpressure、durable API operations、resume/idempotency、budget preflight |
-| 7 Quality Gates | `quality.py`, `storage.py`, `agent_review.py`および各Engineのreport | 共通Gate/Check契約、必須Floor、非迂回Chain、固定Lifecycle、Evidence binding、CAS Report、Stage/Cross-stage Gate、Build Quality Report、理由付き人間例外、approval audit、human authority |
-| 8 GitHub Actions | `.github/workflows/`, `.github/actions/`, `github_actions.py`, `tools/validate_workflows.py` | `planning-ai` Persona/Review隔離、secretless Persona quality、`persona-approval`、独立render/publication承認、least privilege、改ざん検知handoff、Secret scan |
-| 9 JSON Schema | `schemas.py`, `schema_validation.py`, `schemas/` | Draft 2020-12、v2.0/v2.1 byte-compatibility baseline、v3.3 Persona Council 6 schema、strict envelope、provenance、owned/versioned registry、参照・fixity監査、stable error codes |
+| 4 Shot Planner / Storyboard | `shot_planner.py`, `previsualization.py` | 厳密なShot順序、Camera/Blocking、Character/Location/Time continuity、Image/Video Prompt分離、per-shot review dimensions、Shot/Storyboard/Preview gates |
+| 5 Rendering / Runway | `rendering.py`, `prompt.py`, `previsualization.py`, `providers/`, `media.py` | zero-Runway admission、OpenAI planning/imageとVideoProviderの分離、Runway API containment、Task API、replay protection、exact cache、prompt provenance、technical/quality validation |
+| 6 Performance / Orchestration | `orchestrator.py`, `previsualization.py`, `runtime.py`, `storage.py`, `rendering.py` | Plan/Frame cache、画像・費用preflight、CAS、Manifest history、durable Queue、Checkpoints、Recovery Plan、hash-chained Events、provider-secret-free recomposition、resume/idempotency |
+| 7 Quality Gates | `quality.py`, `previsualization.py`, `storage.py`, `agent_review.py`および各Engineのreport | Preview deterministic/advisory分離、zero Runway counters、watermark／非公開性、必須Floor、Evidence binding、CAS Report、approval audit、human authority |
+| 8 GitHub Actions | `.github/workflows/preview.yml`, `.github/workflows/`, `.github/actions/`, `github_actions.py`, `tools/validate_workflows.py` | `planning-ai`隔離、provider-secret-free FFmpeg再合成、secretless `storyboard-preview-approval`、実Reviewer解決、独立render/publication承認、改ざん検知handoff、Secret scan |
+| 9 JSON Schema | `schemas.py`, `schema_validation.py`, `schemas/` | Draft 2020-12、既存baseline byte互換、v3.3 Persona 6 schema、v3.4 Preview 6 schema、closed contracts、owned/versioned registry、参照・fixity監査、stable error codes |
 
 ## Layer adjacency
 
@@ -23,6 +37,8 @@ Article Loader
   -> Shot Planner / Storyboard
   -> Planning Quality Gates
   -> Agent Review (optional, read-only evidence)
+  -> Storyboard Previsualization (optional, zero Runway)
+  -> Storyboard Preview Human Approval (required when enabled)
   -> Human Execution Approval
   -> Render Strategy
        -> Local deterministic assets
@@ -41,7 +57,9 @@ Article Loader
 
 ```text
 CREATED -> [optional PERSONA_PLANNING -> AWAITING_PERSONA_APPROVAL]
-        -> PLANNING -> PLANNED -> [optional Agent Review] -> AWAITING_EXECUTION_APPROVAL
+        -> PLANNING -> PLANNED -> [optional Agent Review]
+        -> [optional Previsualization -> AWAITING_STORYBOARD_PREVIEW_APPROVAL]
+        -> AWAITING_EXECUTION_APPROVAL
         -> EXECUTING -> COMPOSING -> VALIDATING -> READY
         -> AWAITING_PUBLISH_APPROVAL -> PUBLISHED
 ```
@@ -50,7 +68,7 @@ CREATED -> [optional PERSONA_PLANNING -> AWAITING_PERSONA_APPROVAL]
 
 ## Acceptance evidence
 
-`tests/` がローカル受け入れ証拠です。CIはcompile、unit/integration、schema再生成差分を確認します。実Runway sandbox、長時間soak、実運用負荷、GitHub Environment保護設定は外部環境を必要とするため、コード外の運用受け入れ項目です。
+`tests/` がローカル受け入れ証拠です。CIはcompile、134 unit/integration tests、schema再生成差分、Architecture／Schema／Workflow監査を確認します。実OpenAI preview、実Runway sandbox、長時間soak、実運用負荷、GitHub Environment保護設定は外部環境を必要とするため、コード外の運用受け入れ項目です。
 
 ## Part 1 coverage
 

@@ -17,6 +17,8 @@ EXPECTED_ENVIRONMENTS = {
     ("plan.yml", "agent-review"): "planning-ai",
     ("plan.yml", "persona-deliberation"): "planning-ai",
     ("plan.yml", "persona-approval"): "persona-approval",
+    ("preview.yml", "preview"): "planning-ai",
+    ("preview.yml", "approval"): "storyboard-preview-approval",
     ("execute.yml", "execute"): "render-approval",
     ("publish.yml", "publish"): "publication-approval",
 }
@@ -24,6 +26,9 @@ ALLOWED_SECRETS = {
     ("plan.yml", "agent-review"): {"OPENAI_API_KEY"},
     ("plan.yml", "persona-deliberation"): {"OPENAI_API_KEY"},
     ("plan.yml", "persona-approval"): {"GITHUB_TOKEN"},
+    ("preview.yml", "preview"): {"GITHUB_TOKEN", "OPENAI_API_KEY"},
+    ("preview.yml", "preflight"): {"GITHUB_TOKEN"},
+    ("preview.yml", "approval"): {"GITHUB_TOKEN"},
     ("execute.yml", "execute"): {
         "GITHUB_TOKEN",
         "OPENAI_TTS_API_KEY",

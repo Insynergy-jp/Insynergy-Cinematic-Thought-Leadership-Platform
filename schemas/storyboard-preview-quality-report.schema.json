@@ -1,0 +1,225 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v3.4/preview/storyboard-preview-quality-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "advisory": {
+      "additionalProperties": false,
+      "properties": {
+        "disposition": {
+          "enum": [
+            "NOT_RUN",
+            "PASS",
+            "MANUAL_REVIEW_REQUIRED"
+          ]
+        },
+        "findings": {
+          "items": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 128,
+          "type": "array"
+        }
+      },
+      "required": [
+        "disposition",
+        "findings"
+      ],
+      "type": "object"
+    },
+    "build_id": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "type": "string"
+    },
+    "checks": {
+      "additionalProperties": false,
+      "properties": {
+        "all_shots_covered": {
+          "type": "boolean"
+        },
+        "animatic_hash_verified": {
+          "type": "boolean"
+        },
+        "captions_hash_verified": {
+          "type": "boolean"
+        },
+        "five_review_dimensions_present": {
+          "type": "boolean"
+        },
+        "frames_hash_verified": {
+          "type": "boolean"
+        },
+        "image_prompts_complete": {
+          "type": "boolean"
+        },
+        "non_publishable": {
+          "type": "boolean"
+        },
+        "review_html_hash_verified": {
+          "type": "boolean"
+        },
+        "runway_not_contacted": {
+          "type": "boolean"
+        },
+        "shot_identity_overlay_present": {
+          "type": "boolean"
+        },
+        "shot_order_preserved": {
+          "type": "boolean"
+        },
+        "video_prompts_complete": {
+          "type": "boolean"
+        },
+        "watermark_present": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "all_shots_covered",
+        "shot_order_preserved",
+        "five_review_dimensions_present",
+        "image_prompts_complete",
+        "video_prompts_complete",
+        "frames_hash_verified",
+        "animatic_hash_verified",
+        "captions_hash_verified",
+        "review_html_hash_verified",
+        "runway_not_contacted",
+        "watermark_present",
+        "shot_identity_overlay_present",
+        "non_publishable"
+      ],
+      "type": "object"
+    },
+    "contract_version": {
+      "const": "storyboard-preview-quality/1"
+    },
+    "decision": {
+      "enum": [
+        "PASS",
+        "FAIL"
+      ]
+    },
+    "deterministic_disposition": {
+      "enum": [
+        "PASS",
+        "FAIL"
+      ]
+    },
+    "fail_closed": {
+      "const": true
+    },
+    "gate_id": {
+      "const": "storyboard_preview_quality_gate"
+    },
+    "limitations": {
+      "items": {
+        "maxLength": 20000,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "type": "array"
+    },
+    "openai_usage": {
+      "additionalProperties": false,
+      "properties": {
+        "estimated_cost_usd": {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        "input_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_cost_usd": {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        "output_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "total_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "input_tokens",
+        "output_tokens",
+        "total_tokens",
+        "estimated_cost_usd",
+        "max_cost_usd"
+      ],
+      "type": "object"
+    },
+    "passed": {
+      "type": "boolean"
+    },
+    "plan_key": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "review_dimensions": {
+      "items": {
+        "maxLength": 20000,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 5,
+      "minItems": 5,
+      "type": "array"
+    },
+    "runway_usage": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_count": {
+          "const": 0
+        },
+        "credit_count": {
+          "const": 0
+        },
+        "request_count": {
+          "const": 0
+        },
+        "task_count": {
+          "const": 0
+        }
+      },
+      "required": [
+        "request_count",
+        "task_count",
+        "attempt_count",
+        "credit_count"
+      ],
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "3.4.0"
+    }
+  },
+  "required": [
+    "schema_version",
+    "contract_version",
+    "build_id",
+    "gate_id",
+    "decision",
+    "passed",
+    "fail_closed",
+    "checks",
+    "deterministic_disposition",
+    "advisory",
+    "limitations",
+    "openai_usage",
+    "runway_usage",
+    "review_dimensions",
+    "plan_key"
+  ],
+  "title": "StoryboardPreviewQualityReport",
+  "type": "object"
+}

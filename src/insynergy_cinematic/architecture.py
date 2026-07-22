@@ -10,7 +10,7 @@ from .errors import ValidationError
 from .util import content_hash
 
 
-ARCHITECTURE_CONTRACT_VERSION = "vision-architecture/3.3.0"
+ARCHITECTURE_CONTRACT_VERSION = "vision-architecture/3.4.0"
 
 _LAYER_NAMES = (
     "Knowledge",
@@ -52,6 +52,8 @@ _FLOW_COMPONENTS = (
     "shot_planner",
     "planning_quality_gates",
     "agent_review_boundary",
+    "storyboard_previsualization",
+    "storyboard_preview_approval",
     "execution_approval",
     "render_strategy",
     "animated_assets",
@@ -68,7 +70,9 @@ _FLOW_EDGES = (
     ("screenplay_engine", "shot_planner", "screenplay"),
     ("shot_planner", "planning_quality_gates", "shot_plan_and_storyboard"),
     ("planning_quality_gates", "agent_review_boundary", "sealed_planning_bundle"),
-    ("agent_review_boundary", "execution_approval", "review_evidence_or_not_applicable"),
+    ("agent_review_boundary", "storyboard_previsualization", "review_evidence_or_not_applicable"),
+    ("storyboard_previsualization", "storyboard_preview_approval", "zero_runway_preview_bundle_or_not_applicable"),
+    ("storyboard_preview_approval", "execution_approval", "approved_preview_or_not_applicable"),
     ("execution_approval", "render_strategy", "approved_execution_plan"),
     ("render_strategy", "animated_assets", "deterministic_asset_work"),
     ("render_strategy", "external_video_provider", "provider_asset_work"),
@@ -264,6 +268,8 @@ def architecture_contract() -> dict[str, Any]:
                 "shot_planner",
                 "planning_quality_gates",
                 "agent_review_boundary",
+                "storyboard_previsualization",
+                "storyboard_preview_quality_gate",
             ],
             "approval_barrier": "execution_approval",
             "expensive_execution": [
@@ -298,6 +304,13 @@ def architecture_contract() -> dict[str, Any]:
         },
         "governance": {
             "human_approvals": [
+                {
+                    "gate": "storyboard_preview_approval",
+                    "position": "before_execution_approval",
+                    "gates": "creative_preview",
+                    "fail_closed": True,
+                    "mode": "storyboard_animatic_or_not_applicable",
+                },
                 {
                     "gate": "execution_approval",
                     "position": "before_rendering",
@@ -381,6 +394,19 @@ def architecture_contract() -> dict[str, Any]:
                 ],
                 "raw_chain_of_thought_persisted": False,
                 "runtime_status": "live_bounded_manager_owned_agents_as_tools",
+            },
+            "storyboard_previsualization": {
+                "modes": ["off", "storyboard_animatic"],
+                "position": "post_sealed_planning_pre_execution_approval",
+                "planning_model": "gpt-5.6-sol",
+                "image_tool": "image_generation",
+                "video_provider_access": False,
+                "runway_counters_before_approval": 0,
+                "animatic_composer": "ffmpeg",
+                "non_publishable": True,
+                "final_cache_eligible": False,
+                "human_approval_required_when_enabled": True,
+                "render_approval_remains_independent": True,
             },
         },
     }
@@ -599,9 +625,16 @@ class ArchitectureValidator:
         governance = document.get("governance", {})
         approvals = governance.get("human_approvals", [])
         record(
-            "exactly_two_fail_closed_human_approvals",
+            "three_scoped_fail_closed_human_approvals",
             approvals
             == [
+                {
+                    "gate": "storyboard_preview_approval",
+                    "position": "before_execution_approval",
+                    "gates": "creative_preview",
+                    "fail_closed": True,
+                    "mode": "storyboard_animatic_or_not_applicable",
+                },
                 {
                     "gate": "execution_approval",
                     "position": "before_rendering",
@@ -658,6 +691,7 @@ class ArchitectureValidator:
             "/authority_boundaries/agent_review",
         )
         council = boundaries.get("persona_council", {})
+        preview = boundaries.get("storyboard_previsualization", {})
         record(
             "persona_council_bounded_and_human_gated",
             council.get("modes") == ["off", "council"]
@@ -680,7 +714,15 @@ class ArchitectureValidator:
             }
             and council.get("raw_chain_of_thought_persisted") is False
             and council.get("runtime_status")
-            == "live_bounded_manager_owned_agents_as_tools",
+            == "live_bounded_manager_owned_agents_as_tools"
+            and preview.get("modes") == ["off", "storyboard_animatic"]
+            and preview.get("video_provider_access") is False
+            and preview.get("runway_counters_before_approval") == 0
+            and preview.get("animatic_composer") == "ffmpeg"
+            and preview.get("non_publishable") is True
+            and preview.get("final_cache_eligible") is False
+            and preview.get("human_approval_required_when_enabled") is True
+            and preview.get("render_approval_remains_independent") is True,
             "/authority_boundaries/persona_council",
         )
 
@@ -713,6 +755,7 @@ _PROTECTED_PROVIDER_ISOLATION_MODULES = (
     "shot_planner.py",
     "prompt.py",
     "package.py",
+    "previsualization.py",
 )
 
 
@@ -783,7 +826,7 @@ def part1_coverage_report() -> dict[str, Any]:
         ("story_first_invalidation", "FULL", "content-hash lineage invalidates downstream derivations"),
         ("sole_branch_and_convergence", "FULL", "Render Strategy fork and FFmpeg convergence"),
         ("hybrid_render_strategy", "FULL", "cheapest-sufficient provider-agnostic selection"),
-        ("two_human_approvals", "FULL", "execution and publication approvals fail closed"),
+        ("three_scoped_human_approvals", "FULL", "preview, execution, and publication approvals fail closed"),
         ("determinism_immutability_incrementality", "FULL", "CAS artifacts and exact caches"),
         ("architectural_principles_ar1_ar7", "FULL", "stable rules with executable evidence"),
         ("agent_review_boundary", "FULL", "single-turn tool-free read-only reviewer"),

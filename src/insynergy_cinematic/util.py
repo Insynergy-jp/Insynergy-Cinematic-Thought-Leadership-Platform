@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 
-PLATFORM_VERSION = "3.3.0"
+PLATFORM_VERSION = "3.4.0"
 SCHEMA_VERSION = "2.0"
 CONTRACT_VERSION = "2.0.0"
 DETERMINISTIC_TIME = "1970-01-01T00:00:00Z"

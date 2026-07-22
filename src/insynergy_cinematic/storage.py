@@ -115,7 +115,15 @@ class BuildRepository:
             BuildState.CANCELLED,
         },
         BuildState.PLANNING: {BuildState.PLANNED, BuildState.FAILED, BuildState.CANCELLED},
-        BuildState.PLANNED: {BuildState.AWAITING_EXECUTION_APPROVAL, BuildState.CANCELLED},
+        BuildState.PLANNED: {
+            BuildState.AWAITING_STORYBOARD_PREVIEW_APPROVAL,
+            BuildState.AWAITING_EXECUTION_APPROVAL,
+            BuildState.CANCELLED,
+        },
+        BuildState.AWAITING_STORYBOARD_PREVIEW_APPROVAL: {
+            BuildState.AWAITING_EXECUTION_APPROVAL,
+            BuildState.CANCELLED,
+        },
         BuildState.AWAITING_EXECUTION_APPROVAL: {
             BuildState.EXECUTING,
             BuildState.CANCELLED,
@@ -289,6 +297,15 @@ class BuildRepository:
                     "persona_content_hash": None,
                     "quality_report_content_hash": None,
                     "approval_binding_content_hash": None,
+                },
+                "previsualization": {
+                    "mode": "off",
+                    "status": "DISABLED",
+                    "plan_key": None,
+                    "preview_manifest_content_hash": None,
+                    "quality_report_content_hash": None,
+                    "approval_binding_content_hash": None,
+                    "runway_api_calls": 0,
                 },
                 "transitions": [
                     {
@@ -484,6 +501,11 @@ class BuildRepository:
                 raise ValidationError(
                     f"Persona sealed document hash is invalid: {artifact_type}"
                 )
+        elif artifact_type == "storyboard_preview_approval_binding":
+            from .previsualization import validate_preview_approval_binding
+
+            validate_preview_approval_binding(document)
+            validate_schema_document("storyboard-preview-approval-binding", document)
         else:
             raise ValidationError(f"Unsupported sealed document: {artifact_type}")
         existing = manifest.get("artifacts", {}).get(artifact_type)
@@ -534,6 +556,13 @@ class BuildRepository:
                         raise ValidationError(
                             f"Persona artifact integrity failure: {artifact_type}"
                         )
+                elif artifact_type == "storyboard_preview_approval_binding":
+                    from .previsualization import validate_preview_approval_binding
+
+                    validate_preview_approval_binding(document)
+                    validate_schema_document(
+                        "storyboard-preview-approval-binding", document
+                    )
                 else:
                     raise ValidationError(
                         f"Unknown sealed document artifact: {artifact_type}"
@@ -857,6 +886,7 @@ class BuildRepository:
         elif state == BuildState.PAUSED:
             outcome = "RESUME" if latest and latest.get("clean") else "RECONCILE"
         elif state in {
+            BuildState.AWAITING_STORYBOARD_PREVIEW_APPROVAL,
             BuildState.AWAITING_EXECUTION_APPROVAL,
             BuildState.AWAITING_PUBLISH_APPROVAL,
         }:

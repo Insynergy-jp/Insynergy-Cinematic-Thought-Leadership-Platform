@@ -179,11 +179,16 @@ def resolve_github_environment_review(
 
 
 def resolve_github_environment_policy(
-    configuration: object, *, environment: str
+    configuration: object,
+    *,
+    environment: str,
+    branch_policies: object,
+    required_branch: str = "main",
 ) -> dict[str, Any]:
-    """Validate the live Required reviewers and self-review policy."""
+    """Validate live reviewers, self-review, and exact deployment branch policy."""
 
     _safe_scalar("environment", environment, GITHUB_ENVIRONMENT)
+    _safe_scalar("required branch", required_branch, GITHUB_ENVIRONMENT)
     if not isinstance(configuration, dict) or configuration.get("name") != environment:
         raise ValidationError("GitHub Environment configuration is invalid")
     environment_id = configuration.get("id")
@@ -210,7 +215,7 @@ def resolve_github_environment_policy(
     for entry in reviewers:
         if not isinstance(entry, dict) or entry.get("type") != "User":
             raise ValidationError(
-                "Persona approval requires direct GitHub user reviewers"
+                "Environment approval requires direct GitHub user reviewers"
             )
         reviewer = entry.get("reviewer")
         login = reviewer.get("login") if isinstance(reviewer, dict) else None
@@ -222,6 +227,33 @@ def resolve_github_environment_policy(
         resolved_reviewers.append({"login": login, "id": reviewer_id})
     if not resolved_reviewers or len(resolved_reviewers) > 6:
         raise ValidationError("GitHub Required reviewers list is invalid")
+    deployment_policy = configuration.get("deployment_branch_policy")
+    if not isinstance(deployment_policy, dict) or deployment_policy != {
+        "protected_branches": False,
+        "custom_branch_policies": True,
+    }:
+        raise ValidationError(
+            "GitHub Environment must use an exact custom deployment branch policy"
+        )
+    if not isinstance(branch_policies, dict):
+        raise ValidationError("GitHub deployment branch policy response is invalid")
+    total_count = branch_policies.get("total_count")
+    entries = branch_policies.get("branch_policies")
+    if total_count != 1 or not isinstance(entries, list) or len(entries) != 1:
+        raise ValidationError(
+            "GitHub Environment must allow exactly one deployment branch"
+        )
+    branch_policy = entries[0]
+    if (
+        not isinstance(branch_policy, dict)
+        or branch_policy.get("name") != required_branch
+        or branch_policy.get("type", "branch") != "branch"
+        or not isinstance(branch_policy.get("id"), int)
+        or branch_policy["id"] <= 0
+    ):
+        raise ValidationError(
+            f"GitHub Environment deployment branch must be exactly {required_branch}"
+        )
     policy: dict[str, Any] = {
         "schema_version": "1.0.0",
         "contract_version": GITHUB_ENVIRONMENT_POLICY_CONTRACT_VERSION,
@@ -229,6 +261,8 @@ def resolve_github_environment_policy(
         "environment_id": environment_id,
         "prevent_self_review": prevent_self_review,
         "required_reviewers": resolved_reviewers,
+        "deployment_branch": required_branch,
+        "deployment_branch_policy_id": branch_policy["id"],
     }
     policy["content_hash"] = content_hash(policy)
     return policy

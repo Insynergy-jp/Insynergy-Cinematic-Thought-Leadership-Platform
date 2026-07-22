@@ -181,7 +181,7 @@ def audit_schema_bundle(root: Path | None = None) -> dict[str, Any]:
     else:
         registry = read_json(registry_path)
     entries = registry.get("schemas", []) if isinstance(registry, dict) else []
-    if registry.get("schema_version") != "3.3.0" or registry.get("dialect") != DIALECT:
+    if registry.get("schema_version") != "3.4.0" or registry.get("dialect") != DIALECT:
         errors.append({"code": "E-SCHEMA-006", "file": "schema-registry.json", "message": "registry version or dialect is invalid"})
     if registry.get("content_hash") != content_hash(entries):
         errors.append({"code": "E-FIX-001", "file": "schema-registry.json", "message": "registry hash mismatch"})

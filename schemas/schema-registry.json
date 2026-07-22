@@ -1,8 +1,8 @@
 {
-  "content_hash": "sha256:4dfe4d93582c67f3f97cee74971aa6db7302a31b64e362a842013e4035d24774",
+  "content_hash": "sha256:b01eb9c21d5f88fc167f87da76e9de3fb65307f82c64bcc808862c3a89d0fe51",
   "contract_version": "schema-registry/1",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
-  "schema_version": "3.3.0",
+  "schema_version": "3.4.0",
   "schemas": [
     {
       "chapter": "9.2",
@@ -531,6 +531,54 @@
       "name": "persona-approval-binding",
       "owner": "1.0.2, 8.0.2",
       "version": "3.3"
+    },
+    {
+      "chapter": "9.0.3",
+      "file": "previsualization-plan.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v3.4/preview/previsualization-plan.schema.json",
+      "name": "previsualization-plan",
+      "owner": "1.0.3, 4.0.3, 5.0.3",
+      "version": "3.4"
+    },
+    {
+      "chapter": "9.0.3",
+      "file": "image-prompt-set.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v3.4/preview/image-prompt-set.schema.json",
+      "name": "image-prompt-set",
+      "owner": "4.0.3, 5.0.3",
+      "version": "3.4"
+    },
+    {
+      "chapter": "9.0.3",
+      "file": "video-prompt-set.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v3.4/preview/video-prompt-set.schema.json",
+      "name": "video-prompt-set",
+      "owner": "4.0.3, 5.0.3",
+      "version": "3.4"
+    },
+    {
+      "chapter": "9.0.3",
+      "file": "storyboard-preview-manifest.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v3.4/preview/storyboard-preview-manifest.schema.json",
+      "name": "storyboard-preview-manifest",
+      "owner": "4.0.3, 6.0.3",
+      "version": "3.4"
+    },
+    {
+      "chapter": "9.0.3",
+      "file": "storyboard-preview-quality-report.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v3.4/preview/storyboard-preview-quality-report.schema.json",
+      "name": "storyboard-preview-quality-report",
+      "owner": "7.0.3",
+      "version": "3.4"
+    },
+    {
+      "chapter": "9.0.3",
+      "file": "storyboard-preview-approval-binding.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v3.4/preview/storyboard-preview-approval-binding.schema.json",
+      "name": "storyboard-preview-approval-binding",
+      "owner": "1.0.3, 8.0.3",
+      "version": "3.4"
     }
   ]
 }

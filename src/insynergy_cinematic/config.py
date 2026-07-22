@@ -13,7 +13,7 @@ from .errors import ValidationError
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "schema_version": "2.0",
-    "platform_version": "3.3.0",
+    "platform_version": "3.4.0",
     "profile": "preview",
     "deterministic": True,
     "render": {
@@ -103,6 +103,21 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "prompt_version": "agent-review-v2",
         "allowed_models": ["gpt-5.6-sol"],
         "policy_version": "agent-review-policy/1",
+    },
+    "pre_render_preview": {
+        "mode": "off",
+        "model": "gpt-5.6-sol",
+        "reasoning_effort": "medium",
+        "image_size": "1536x1024",
+        "image_quality": "medium",
+        "image_output_format": "png",
+        "timeout_seconds": 300,
+        "max_output_tokens": 24000,
+        "max_images": 12,
+        "preflight_estimated_cost_usd": 5.0,
+        "max_cost_usd": 10.0,
+        "prompt_version": "storyboard-preview-v1",
+        "allowed_models": ["gpt-5.6-sol"],
     },
     "persona_council": {
         "model": "gpt-5.6-sol",
@@ -204,6 +219,19 @@ class PlatformConfig:
     agent_review_prompt_version: str
     agent_review_allowed_models: tuple[str, ...]
     agent_review_policy_version: str
+    pre_render_preview_mode: str
+    preview_model: str
+    preview_reasoning_effort: str
+    preview_image_size: str
+    preview_image_quality: str
+    preview_image_output_format: str
+    preview_timeout_seconds: int
+    preview_max_output_tokens: int
+    preview_max_images: int
+    preview_preflight_estimated_cost_usd: float
+    preview_max_cost_usd: float
+    preview_prompt_version: str
+    preview_allowed_models: tuple[str, ...]
     persona_model: str
     persona_reasoning_effort: str
     persona_trace_mode: str
@@ -253,6 +281,7 @@ def load_config(
     runway_scope: str | None = None,
     narration_provider: str | None = None,
     agent_review_mode: str | None = None,
+    pre_render_preview_mode: str | None = None,
     persona_mode: str | None = None,
     environ: dict[str, str] | None = None,
 ) -> PlatformConfig:
@@ -269,6 +298,7 @@ def load_config(
     quality = values.get("quality", {})
     performance = values.get("performance", {})
     agent_review = values.get("agent_review", {})
+    pre_render_preview = values.get("pre_render_preview", {})
     persona_council = values.get("persona_council", {})
     narration = values.get("narration", {})
     youtube = values.get("youtube", {})
@@ -281,6 +311,10 @@ def load_config(
     )
     selected_agent_review_mode = agent_review_mode or environment.get(
         "INSYNERGY_AGENT_REVIEW_MODE", agent_review.get("mode", "off")
+    )
+    selected_preview_mode = pre_render_preview_mode or environment.get(
+        "INSYNERGY_PRE_RENDER_PREVIEW_MODE",
+        pre_render_preview.get("mode", "off"),
     )
     selected_persona_mode = persona_mode or environment.get(
         "INSYNERGY_PERSONA_MODE", story.get("persona_mode", "off")
@@ -299,6 +333,10 @@ def load_config(
     if selected_agent_review_mode not in {"off", "review"}:
         raise ValidationError(
             f"Unsupported Agent Review mode: {selected_agent_review_mode}"
+        )
+    if selected_preview_mode not in {"off", "storyboard_animatic"}:
+        raise ValidationError(
+            f"Unsupported pre-render preview mode: {selected_preview_mode}"
         )
     if selected_persona_mode not in {"off", "council"}:
         raise ValidationError(
@@ -512,6 +550,51 @@ def load_config(
     )
     if not all((agent_version, prompt_version, policy_version)):
         raise ValidationError("Agent Review version identifiers are required")
+    preview_reasoning = environment.get(
+        "OPENAI_PREVIEW_REASONING_EFFORT",
+        str(pre_render_preview.get("reasoning_effort", "medium")),
+    )
+    if preview_reasoning not in {"none", "low", "medium", "high", "xhigh", "max"}:
+        raise ValidationError("OPENAI_PREVIEW_REASONING_EFFORT is not allow-listed")
+    preview_model = environment.get(
+        "OPENAI_MODEL_PREVIEW",
+        str(pre_render_preview.get("model", "gpt-5.6-sol")),
+    )
+    raw_preview_models = pre_render_preview.get("allowed_models", ["gpt-5.6-sol"])
+    if not isinstance(raw_preview_models, list):
+        raise ValidationError("pre_render_preview.allowed_models must be a list")
+    preview_allowed_models = tuple(str(value) for value in raw_preview_models)
+    if not preview_model or preview_model not in preview_allowed_models:
+        raise ValidationError("OPENAI_MODEL_PREVIEW is not allow-listed")
+    preview_image_size = str(pre_render_preview.get("image_size", "1536x1024"))
+    if preview_image_size not in {"1024x1024", "1536x1024", "1024x1536"}:
+        raise ValidationError("pre_render_preview.image_size is not supported")
+    preview_image_quality = str(pre_render_preview.get("image_quality", "medium"))
+    if preview_image_quality not in {"low", "medium", "high"}:
+        raise ValidationError("pre_render_preview.image_quality is not supported")
+    preview_output_format = str(
+        pre_render_preview.get("image_output_format", "png")
+    )
+    if preview_output_format not in {"png", "jpeg", "webp"}:
+        raise ValidationError("pre_render_preview.image_output_format is not supported")
+    preview_timeout = int(pre_render_preview.get("timeout_seconds", 300))
+    preview_output_tokens = int(pre_render_preview.get("max_output_tokens", 24000))
+    preview_max_images = int(pre_render_preview.get("max_images", 12))
+    preview_preflight_cost = float(
+        pre_render_preview.get("preflight_estimated_cost_usd", 5.0)
+    )
+    preview_max_cost = float(pre_render_preview.get("max_cost_usd", 10.0))
+    preview_prompt_version = str(
+        pre_render_preview.get("prompt_version", "storyboard-preview-v1")
+    )
+    if (
+        min(preview_timeout, preview_output_tokens, preview_max_images) < 1
+        or preview_preflight_cost <= 0
+        or preview_max_cost <= 0
+        or preview_preflight_cost > preview_max_cost
+        or not preview_prompt_version
+    ):
+        raise ValidationError("Pre-render preview limits and prompt version are required")
     persona_reasoning = environment.get(
         "OPENAI_PERSONA_REASONING_EFFORT",
         str(persona_council.get("reasoning_effort", "medium")),
@@ -625,6 +708,19 @@ def load_config(
         agent_review_prompt_version=prompt_version,
         agent_review_allowed_models=allowed_models,
         agent_review_policy_version=policy_version,
+        pre_render_preview_mode=selected_preview_mode,
+        preview_model=preview_model,
+        preview_reasoning_effort=preview_reasoning,
+        preview_image_size=preview_image_size,
+        preview_image_quality=preview_image_quality,
+        preview_image_output_format=preview_output_format,
+        preview_timeout_seconds=preview_timeout,
+        preview_max_output_tokens=preview_output_tokens,
+        preview_max_images=preview_max_images,
+        preview_preflight_estimated_cost_usd=preview_preflight_cost,
+        preview_max_cost_usd=preview_max_cost,
+        preview_prompt_version=preview_prompt_version,
+        preview_allowed_models=preview_allowed_models,
         persona_model=persona_model,
         persona_reasoning_effort=persona_reasoning,
         persona_trace_mode=persona_trace,

@@ -1,0 +1,97 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v3.4/preview/video-prompt-set.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "build_id": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "type": "string"
+    },
+    "contract_version": {
+      "const": "video-prompt-set/1"
+    },
+    "plan_key": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "prompts": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "aspect_ratio": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "execution_status": {
+            "const": "SEALED_NOT_AUTHORIZED"
+          },
+          "negative_constraints": {
+            "items": {
+              "maxLength": 20000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 32,
+            "type": "array"
+          },
+          "order": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "prompt": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "prompt_id": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "safety_constraints": {
+            "items": {
+              "maxLength": 20000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 32,
+            "type": "array"
+          },
+          "shot_id": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "prompt_id",
+          "shot_id",
+          "order",
+          "prompt"
+        ],
+        "type": "object"
+      },
+      "maxItems": 128,
+      "minItems": 1,
+      "type": "array"
+    },
+    "provider_submission_allowed": {
+      "const": false
+    },
+    "schema_version": {
+      "const": "3.4.0"
+    }
+  },
+  "required": [
+    "schema_version",
+    "contract_version",
+    "build_id",
+    "plan_key",
+    "provider_submission_allowed",
+    "prompts"
+  ],
+  "title": "VideoPromptSet",
+  "type": "object"
+}

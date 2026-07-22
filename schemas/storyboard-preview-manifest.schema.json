@@ -1,0 +1,338 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v3.4/preview/storyboard-preview-manifest.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "animatic": {
+      "additionalProperties": false,
+      "properties": {
+        "codec": {
+          "const": "h264"
+        },
+        "container": {
+          "const": "mp4"
+        },
+        "content_hash": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "duration_seconds": {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        "expected_duration_seconds": {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        "ffmpeg_argument_contract": {
+          "const": "preview-animatic/1"
+        },
+        "ffmpeg_version": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "frame_rate": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "height": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "overlay_contract": {
+          "const": "preview-shot-identity-timecode/1"
+        },
+        "path": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "watermark_version": {
+          "const": "storyboard-preview-watermark/1"
+        },
+        "width": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "content_hash",
+        "width",
+        "height",
+        "frame_rate",
+        "duration_seconds",
+        "expected_duration_seconds",
+        "codec",
+        "container",
+        "watermark_version",
+        "overlay_contract",
+        "ffmpeg_version",
+        "ffmpeg_argument_contract"
+      ],
+      "type": "object"
+    },
+    "build_id": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "type": "string"
+    },
+    "captions": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "content_hash"
+      ],
+      "type": "object"
+    },
+    "contract_version": {
+      "const": "storyboard-preview-manifest/1"
+    },
+    "final_cache_eligible": {
+      "const": false
+    },
+    "frames": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_hash": {
+            "pattern": "^sha256:[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "asset_path": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "cache_hit": {
+            "type": "boolean"
+          },
+          "cache_key": {
+            "pattern": "^sha256:[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "duration_seconds": {
+            "exclusiveMinimum": 0,
+            "type": "number"
+          },
+          "end_seconds": {
+            "exclusiveMinimum": 0,
+            "type": "number"
+          },
+          "frame_id": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "model_resolved": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "narration": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "order": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "prompt_id": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "provider_response_id": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "scene_id": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "shot_id": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "start_seconds": {
+            "minimum": 0,
+            "type": "number"
+          },
+          "tempo": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "transition_seconds": {
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "frame_id",
+          "scene_id",
+          "shot_id",
+          "order",
+          "prompt_id",
+          "asset_path",
+          "asset_hash",
+          "duration_seconds",
+          "start_seconds",
+          "end_seconds",
+          "transition_seconds",
+          "narration",
+          "tempo",
+          "cache_key",
+          "cache_hit",
+          "provider_response_id",
+          "model_resolved"
+        ],
+        "type": "object"
+      },
+      "maxItems": 128,
+      "minItems": 1,
+      "type": "array"
+    },
+    "limitations": {
+      "items": {
+        "maxLength": 20000,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "type": "array"
+    },
+    "non_publishable": {
+      "const": true
+    },
+    "plan_key": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "provider_calls": {
+      "additionalProperties": false,
+      "properties": {
+        "gpt_image": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "gpt_plan": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "runway": {
+          "const": 0
+        }
+      },
+      "required": [
+        "gpt_plan",
+        "gpt_image",
+        "runway"
+      ],
+      "type": "object"
+    },
+    "review_html": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "content_hash"
+      ],
+      "type": "object"
+    },
+    "runway_contacted": {
+      "const": false
+    },
+    "schema_version": {
+      "const": "3.4.0"
+    },
+    "status": {
+      "const": "PREVIEW_READY"
+    },
+    "timebase": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "type": "string"
+    },
+    "usage_summary": {
+      "additionalProperties": false,
+      "properties": {
+        "estimated_cost_usd": {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        "input_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_cost_usd": {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        "output_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "total_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "input_tokens",
+        "output_tokens",
+        "total_tokens",
+        "estimated_cost_usd",
+        "max_cost_usd"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "contract_version",
+    "build_id",
+    "plan_key",
+    "status",
+    "frames",
+    "animatic",
+    "captions",
+    "review_html",
+    "provider_calls",
+    "usage_summary",
+    "timebase",
+    "non_publishable",
+    "final_cache_eligible",
+    "limitations",
+    "runway_contacted"
+  ],
+  "title": "StoryboardPreviewManifest",
+  "type": "object"
+}

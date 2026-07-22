@@ -78,6 +78,12 @@ SCHEMA_NAMES = (
     "persona",
     "persona-quality-report",
     "persona-approval-binding",
+    "previsualization-plan",
+    "image-prompt-set",
+    "video-prompt-set",
+    "storyboard-preview-manifest",
+    "storyboard-preview-quality-report",
+    "storyboard-preview-approval-binding",
 )
 
 
@@ -186,6 +192,17 @@ _SCHEMA_GROUPS: dict[str, tuple[str, dict[str, str]]] = {
             "persona": "1.0.2",
             "persona-quality-report": "7.0.2",
             "persona-approval-binding": "1.0.2, 8.0.2",
+        },
+    ),
+    "9.0.3": (
+        "3.4",
+        {
+            "previsualization-plan": "1.0.3, 4.0.3, 5.0.3",
+            "image-prompt-set": "4.0.3, 5.0.3",
+            "video-prompt-set": "4.0.3, 5.0.3",
+            "storyboard-preview-manifest": "4.0.3, 6.0.3",
+            "storyboard-preview-quality-report": "7.0.3",
+            "storyboard-preview-approval-binding": "1.0.3, 8.0.3",
         },
     ),
 }
@@ -317,10 +334,290 @@ def _generic_schema(name: str) -> dict[str, Any]:
     }
 
 
+def _preview_schema(name: str) -> dict[str, Any]:
+    """Return the closed v3.4 preview data contract for one canonical artifact."""
+    string = {"type": "string", "minLength": 1, "maxLength": 20000}
+    digest = {"type": "string", "pattern": r"^sha256:[a-f0-9]{64}$"}
+    positive = {"type": "number", "exclusiveMinimum": 0}
+    scene = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": [
+            "scene_id", "shot_id", "order", "duration_seconds",
+            "scene_composition", "direction", "camera_work", "narration",
+            "tempo", "image_prompt", "video_prompt", "risk_flags",
+        ],
+        "properties": {
+            "scene_id": string, "shot_id": string,
+            "order": {"type": "integer", "minimum": 1},
+            "duration_seconds": positive,
+            "scene_composition": string, "direction": string,
+            "camera_work": string, "narration": string, "tempo": string,
+            "image_prompt": string, "video_prompt": string,
+            "risk_flags": {"type": "array", "maxItems": 32, "items": string},
+        },
+    }
+    prompt = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["prompt_id", "shot_id", "order", "prompt"],
+        "properties": {
+            "prompt_id": string, "shot_id": string,
+            "order": {"type": "integer", "minimum": 1}, "prompt": string,
+            "negative_constraints": {
+                "type": "array", "maxItems": 32, "items": string,
+            },
+            "safety_constraints": {
+                "type": "array", "maxItems": 32, "items": string,
+            },
+            "aspect_ratio": string,
+            "execution_status": {"const": "SEALED_NOT_AUTHORIZED"},
+        },
+    }
+    base: dict[str, Any] = {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": f"https://schemas.insynergy.co/cttp/v3.4/preview/{name}.schema.json",
+        "title": "".join(word.title() for word in name.split("-")),
+        "type": "object",
+        "additionalProperties": False,
+    }
+    if name == "previsualization-plan":
+        properties = {
+            "schema_version": {"const": "3.4.0"},
+            "contract_version": {"const": "previsualization-plan/1"},
+            "build_id": string, "planning_hash": digest, "plan_key": digest,
+            "status": {"const": "PREVIEW_READY"}, "summary": string,
+            "scenes": {"type": "array", "minItems": 1, "maxItems": 128, "items": scene},
+            "review_dimensions": {
+                "type": "array", "minItems": 5, "maxItems": 5, "uniqueItems": True,
+                "items": {"enum": ["scene_composition", "direction", "camera_work", "narration", "tempo"]},
+            },
+            "model_requested": string, "model_resolved": string,
+            "reasoning_effort": {"enum": ["none", "low", "medium", "high", "xhigh", "max"]},
+            "prompt_version": string, "provider_response_id": string,
+            "usage": {
+                "type": "object", "additionalProperties": False,
+                "properties": {
+                    "input_tokens": {"type": "integer", "minimum": 0},
+                    "output_tokens": {"type": "integer", "minimum": 0},
+                    "total_tokens": {"type": "integer", "minimum": 0},
+                },
+            },
+            "cache_hit": {"type": "boolean"},
+            "generated_at": {"type": "string", "format": "date-time"},
+        }
+    elif name == "image-prompt-set":
+        properties = {
+            "schema_version": {"const": "3.4.0"},
+            "contract_version": {"const": "image-prompt-set/1"},
+            "build_id": string, "plan_key": digest,
+            "image_size": {"enum": ["1024x1024", "1536x1024", "1024x1536"]},
+            "image_quality": {"enum": ["low", "medium", "high"]},
+            "output_format": {"enum": ["png", "jpeg", "webp"]},
+            "prompts": {"type": "array", "minItems": 1, "maxItems": 128, "items": prompt},
+        }
+    elif name == "video-prompt-set":
+        properties = {
+            "schema_version": {"const": "3.4.0"},
+            "contract_version": {"const": "video-prompt-set/1"},
+            "build_id": string, "plan_key": digest,
+            "provider_submission_allowed": {"const": False},
+            "prompts": {"type": "array", "minItems": 1, "maxItems": 128, "items": prompt},
+        }
+    elif name == "storyboard-preview-manifest":
+        frame = {
+            "type": "object", "additionalProperties": False,
+            "required": ["frame_id", "scene_id", "shot_id", "order", "prompt_id", "asset_path", "asset_hash", "duration_seconds", "start_seconds", "end_seconds", "transition_seconds", "narration", "tempo", "cache_key", "cache_hit", "provider_response_id", "model_resolved"],
+            "properties": {
+                "frame_id": string, "scene_id": string, "shot_id": string,
+                "order": {"type": "integer", "minimum": 1}, "prompt_id": string,
+                "asset_path": string, "asset_hash": digest,
+                "duration_seconds": positive, "cache_key": digest,
+                "start_seconds": {"type": "number", "minimum": 0},
+                "end_seconds": positive,
+                "transition_seconds": {"type": "number", "minimum": 0},
+                "narration": string, "tempo": string,
+                "cache_hit": {"type": "boolean"},
+                "provider_response_id": string, "model_resolved": string,
+            },
+        }
+        asset = {
+            "type": "object", "additionalProperties": False,
+            "required": ["path", "content_hash"],
+            "properties": {"path": string, "content_hash": digest},
+        }
+        properties = {
+            "schema_version": {"const": "3.4.0"},
+            "contract_version": {"const": "storyboard-preview-manifest/1"},
+            "build_id": string, "plan_key": digest,
+            "status": {"const": "PREVIEW_READY"},
+            "frames": {"type": "array", "minItems": 1, "maxItems": 128, "items": frame},
+            "animatic": {
+                "type": "object", "additionalProperties": False,
+                "required": ["path", "content_hash", "width", "height", "frame_rate", "duration_seconds", "expected_duration_seconds", "codec", "container", "watermark_version", "overlay_contract", "ffmpeg_version", "ffmpeg_argument_contract"],
+                "properties": {
+                    "path": string, "content_hash": digest,
+                    "width": {"type": "integer", "minimum": 1},
+                    "height": {"type": "integer", "minimum": 1},
+                    "frame_rate": {"type": "integer", "minimum": 1},
+                    "duration_seconds": positive, "expected_duration_seconds": positive,
+                    "codec": {"const": "h264"},
+                    "container": {"const": "mp4"},
+                    "watermark_version": {"const": "storyboard-preview-watermark/1"},
+                    "overlay_contract": {"const": "preview-shot-identity-timecode/1"},
+                    "ffmpeg_version": string,
+                    "ffmpeg_argument_contract": {"const": "preview-animatic/1"},
+                },
+            },
+            "captions": asset, "review_html": asset,
+            "provider_calls": {
+                "type": "object", "additionalProperties": False,
+                "required": ["gpt_plan", "gpt_image", "runway"],
+                "properties": {
+                    "gpt_plan": {"type": "integer", "minimum": 0},
+                    "gpt_image": {"type": "integer", "minimum": 0},
+                    "runway": {"const": 0},
+                },
+            },
+            "usage_summary": {
+                "type": "object", "additionalProperties": False,
+                "required": ["input_tokens", "output_tokens", "total_tokens", "estimated_cost_usd", "max_cost_usd"],
+                "properties": {
+                    "input_tokens": {"type": "integer", "minimum": 0},
+                    "output_tokens": {"type": "integer", "minimum": 0},
+                    "total_tokens": {"type": "integer", "minimum": 0},
+                    "estimated_cost_usd": positive, "max_cost_usd": positive,
+                },
+            },
+            "timebase": string,
+            "non_publishable": {"const": True},
+            "final_cache_eligible": {"const": False},
+            "limitations": {"type": "array", "minItems": 1, "maxItems": 16, "items": string},
+            "runway_contacted": {"const": False},
+        }
+    elif name == "storyboard-preview-quality-report":
+        check_names = [
+            "all_shots_covered", "shot_order_preserved",
+            "five_review_dimensions_present", "image_prompts_complete",
+            "video_prompts_complete", "frames_hash_verified",
+            "animatic_hash_verified", "captions_hash_verified",
+            "review_html_hash_verified", "runway_not_contacted",
+            "watermark_present", "shot_identity_overlay_present", "non_publishable",
+        ]
+        properties = {
+            "schema_version": {"const": "3.4.0"},
+            "contract_version": {"const": "storyboard-preview-quality/1"},
+            "build_id": string,
+            "gate_id": {"const": "storyboard_preview_quality_gate"},
+            "decision": {"enum": ["PASS", "FAIL"]}, "passed": {"type": "boolean"},
+            "fail_closed": {"const": True},
+            "checks": {
+                "type": "object", "additionalProperties": False,
+                "required": check_names,
+                "properties": {key: {"type": "boolean"} for key in check_names},
+            },
+            "deterministic_disposition": {"enum": ["PASS", "FAIL"]},
+            "advisory": {
+                "type": "object", "additionalProperties": False,
+                "required": ["disposition", "findings"],
+                "properties": {
+                    "disposition": {"enum": ["NOT_RUN", "PASS", "MANUAL_REVIEW_REQUIRED"]},
+                    "findings": {"type": "array", "maxItems": 128, "items": string},
+                },
+            },
+            "limitations": {"type": "array", "minItems": 1, "maxItems": 16, "items": string},
+            "openai_usage": {
+                "type": "object", "additionalProperties": False,
+                "required": ["input_tokens", "output_tokens", "total_tokens", "estimated_cost_usd", "max_cost_usd"],
+                "properties": {
+                    "input_tokens": {"type": "integer", "minimum": 0},
+                    "output_tokens": {"type": "integer", "minimum": 0},
+                    "total_tokens": {"type": "integer", "minimum": 0},
+                    "estimated_cost_usd": positive, "max_cost_usd": positive,
+                },
+            },
+            "runway_usage": {
+                "type": "object", "additionalProperties": False,
+                "required": ["request_count", "task_count", "attempt_count", "credit_count"],
+                "properties": {
+                    "request_count": {"const": 0}, "task_count": {"const": 0},
+                    "attempt_count": {"const": 0}, "credit_count": {"const": 0},
+                },
+            },
+            "review_dimensions": {
+                "type": "array", "minItems": 5, "maxItems": 5,
+                "items": string,
+            },
+            "plan_key": digest,
+        }
+    else:
+        properties = {
+            "schema_version": {"const": "3.4.0"},
+            "contract_version": {"const": "storyboard-preview-approval/1"},
+            "approval_id": string, "build_id": string,
+            "decision": {"const": "APPROVED"}, "approver": string,
+            "workflow_initiator": string, "environment_reviewer": string,
+            "environment_reviewer_id": {"type": "integer", "minimum": 1},
+            "prevent_self_review": {"type": "boolean"},
+            "approved_at": {"type": "string", "format": "date-time"},
+            "planning_hash": digest,
+            "artifact_hashes": {
+                "type": "object", "additionalProperties": False,
+                "required": [
+                    "previsualization_plan", "image_prompt_set", "video_prompt_set",
+                    "storyboard_preview_manifest", "storyboard_preview_quality_report",
+                ],
+                "properties": {
+                    key: digest
+                    for key in (
+                        "previsualization_plan", "image_prompt_set", "video_prompt_set",
+                        "storyboard_preview_manifest", "storyboard_preview_quality_report",
+                    )
+                },
+            },
+            "environment_review_hash": digest,
+            "environment_policy_hash": digest,
+            "rationale": string,
+            "content_hash": digest,
+        }
+    base["required"] = [
+        key
+        for key in properties
+        if key
+        not in {
+            "environment_reviewer_id",
+            "environment_review_hash",
+            "environment_policy_hash",
+            "rationale",
+        }
+    ]
+    base["properties"] = properties
+    if name == "storyboard-preview-approval-binding":
+        github_evidence = [
+            "environment_reviewer_id",
+            "environment_review_hash",
+            "environment_policy_hash",
+        ]
+        base["dependentRequired"] = {
+            field: [other for other in github_evidence if other != field]
+            for field in github_evidence
+        }
+    return base
+
+
 def schema_for(name: str) -> dict[str, Any]:
     normalized = name.removesuffix(".schema.json")
     if normalized not in SCHEMA_NAMES:
         raise ValidationError(f"Unknown schema: {name}")
+    if normalized in {
+        "previsualization-plan",
+        "image-prompt-set",
+        "video-prompt-set",
+        "storyboard-preview-manifest",
+        "storyboard-preview-quality-report",
+        "storyboard-preview-approval-binding",
+    }:
+        return _preview_schema(normalized)
     bundled = _bundled_schema_root() / f"{normalized}.schema.json"
     repository_schema = (
         Path(__file__).resolve().parents[2]
@@ -383,7 +680,7 @@ def registry() -> dict[str, Any]:
         for name in SCHEMA_NAMES
     ]
     value = {
-        "schema_version": "3.3.0",
+        "schema_version": "3.4.0",
         "contract_version": "schema-registry/1",
         "dialect": "https://json-schema.org/draft/2020-12/schema",
         "schemas": entries,
@@ -401,7 +698,12 @@ def export_schemas(destination: Path) -> int:
             target = destination / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, target)
-        return len(list(bundled.rglob("*.json")))
+        for name in SCHEMA_NAMES:
+            target = destination / f"{name}.schema.json"
+            if not target.is_file() or name.startswith(("previsualization-", "image-prompt-", "video-prompt-", "storyboard-preview-")):
+                atomic_write_json(target, schema_for(name))
+        atomic_write_json(destination / "schema-registry.json", registry())
+        return len(list(destination.rglob("*.json")))
     common = destination / "common"
     common.mkdir(exist_ok=True)
     atomic_write_json(common / "defs.schema.json", common_definitions())

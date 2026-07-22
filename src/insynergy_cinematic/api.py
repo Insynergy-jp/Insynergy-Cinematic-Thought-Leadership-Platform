@@ -20,7 +20,7 @@ from .util import PLATFORM_VERSION, now_iso, stable_id
 
 class APIHandler(BaseHTTPRequestHandler):
     orchestrator: BuildOrchestrator
-    server_version = "InsynergyCinematic/3.3"
+    server_version = "InsynergyCinematic/3.4"
 
     def log_message(self, format: str, *args: object) -> None:
         # The API intentionally leaves structured access logging to its host.
@@ -171,6 +171,17 @@ class APIHandler(BaseHTTPRequestHandler):
             )
             self._send(HTTPStatus.OK, result)
             return
+        preview_preflight_match = re.fullmatch(
+            r"/api/v2/builds/([^/]+)/preview-preflight", path
+        )
+        if method == "GET" and preview_preflight_match:
+            self._send(
+                HTTPStatus.OK,
+                self.orchestrator.preview_preflight(
+                    preview_preflight_match.group(1)
+                ),
+            )
+            return
         if method == "POST" and path == "/api/v2/builds":
             key = self._mutation_guard()
             body = self._body()
@@ -200,7 +211,7 @@ class APIHandler(BaseHTTPRequestHandler):
             self._send(HTTPStatus.ACCEPTED, operation)
             return
         action_match = re.fullmatch(
-            r"/api/v2/builds/([^/]+)/(review|approve|execute|publish|pause|resume|cancel)",
+            r"/api/v2/builds/([^/]+)/(review|previsualize|approve|execute|publish|pause|resume|cancel)",
             path,
         )
         if method == "POST" and action_match:
@@ -221,6 +232,17 @@ class APIHandler(BaseHTTPRequestHandler):
                         is True,
                         agent_exception_reason=body.get(
                             "agent_exception_reason", ""
+                        ),
+                        workflow_initiator=body.get("workflow_initiator"),
+                        environment_reviewer=body.get("environment_reviewer"),
+                        environment_reviewer_id=body.get("environment_reviewer_id"),
+                        prevent_self_review=body.get("prevent_self_review", False)
+                        is True,
+                        environment_review_hash=body.get(
+                            "environment_review_hash"
+                        ),
+                        environment_policy_hash=body.get(
+                            "environment_policy_hash"
                         ),
                     )
                 return getattr(self.orchestrator, action)(build_id)
