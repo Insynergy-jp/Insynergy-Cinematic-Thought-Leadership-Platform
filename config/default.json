@@ -1,12 +1,12 @@
 {
   "schema_version": "2.0",
-  "platform_version": "3.2.0",
+  "platform_version": "3.4.0",
   "profile": "preview",
   "deterministic": true,
   "render": {
     "provider": "local",
     "runway_scope": "hybrid",
-    "max_runway_credits": 360,
+    "max_runway_credits": 480,
     "max_parallel_shots": 4,
     "max_attempts": 3,
     "quality_threshold": 0.9,
@@ -27,10 +27,59 @@
   },
   "story": {
     "concept_ratio_max": 0.2,
-    "supporting_role_max": 3
+    "supporting_role_max": 3,
+    "canonical_duration_seconds": 28,
+    "draft_duration_seconds": 12,
+    "genre": "cinematic_thought_leadership",
+    "audience": "executive",
+    "author_style": [
+      "human decision first",
+      "institutional accuracy",
+      "restrained executive tone"
+    ],
+    "persona_mode": "off",
+    "thresholds": {
+      "dramatic_score": 0.85,
+      "conflict_score": 0.80,
+      "stakes_score": 0.85,
+      "emotional_progression": 0.85
+    }
+  },
+  "screenplay": {
+    "generation": {
+      "scene_count_min": 8,
+      "scene_count_max": 12,
+      "scene_duration_min": 4,
+      "scene_duration_target": 7,
+      "scene_duration_max": 10
+    },
+    "dialogue": {
+      "words_per_line": 15,
+      "lines_per_turn": 2,
+      "exposition_allowed": false,
+      "silence_allowed": true
+    },
+    "continuity": {
+      "all_dimensions_checked": true,
+      "violation_fails_validation": true
+    },
+    "export": {
+      "fountain": true,
+      "json": true,
+      "custom_syntax": false
+    }
   },
   "quality": {
     "fail_closed": true
+  },
+  "performance": {
+    "max_in_flight_tasks": 4,
+    "provider_parallel_limits": {
+      "local": 4,
+      "runway": 4
+    },
+    "checkpoint_enabled": true,
+    "event_hash_chain_enabled": true
   },
   "narration": {
     "provider": "offline",
@@ -57,5 +106,34 @@
     "prompt_version": "agent-review-v2",
     "allowed_models": ["gpt-5.6-sol"],
     "policy_version": "agent-review-policy/1"
+  },
+  "pre_render_preview": {
+    "mode": "off",
+    "model": "gpt-5.6-sol",
+    "reasoning_effort": "medium",
+    "image_size": "1536x1024",
+    "image_quality": "medium",
+    "image_output_format": "png",
+    "timeout_seconds": 300,
+    "max_output_tokens": 24000,
+    "max_images": 12,
+    "preflight_estimated_cost_usd": 5.0,
+    "max_cost_usd": 10.0,
+    "prompt_version": "storyboard-preview-v1",
+    "allowed_models": ["gpt-5.6-sol"]
+  },
+  "persona_council": {
+    "model": "gpt-5.6-sol",
+    "reasoning_effort": "medium",
+    "trace_mode": "disabled",
+    "timeout_seconds": 180,
+    "max_input_bytes": 524288,
+    "max_output_tokens": 20000,
+    "preflight_estimated_cost_usd": 1.0,
+    "max_cost_usd": 5.0,
+    "manager_agent_version": "persona-manager-v1",
+    "prompt_version": "persona-council-v1",
+    "policy_version": "persona-policy/1",
+    "allowed_models": ["gpt-5.6-sol"]
   }
 }

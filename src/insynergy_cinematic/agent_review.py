@@ -58,8 +58,11 @@ STORY_ARTIFACT_TYPES = (
 SCREENPLAY_ARTIFACT_TYPES = (
     "screenplay",
     "scene_index",
+    "dialogue",
     "continuity",
     "screenplay_metrics",
+    "screenplay_config",
+    "screenplay_state",
 )
 QUALITY_EVIDENCE_TYPES = (
     "story_quality_report",

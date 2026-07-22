@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.insynergy.co/cttp/v3.3/persona/persona-deliberation.schema.json",
+  "title": "PersonaDeliberationRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "contract_version", "deliberation_id", "build_id", "deliberation_key", "article_hash", "creative_brief_hash", "proposal_set_hash", "red_team_report_hash", "resolutions", "selected_elements", "rejected_elements", "invocation_ledger", "manager_provenance", "usage", "generated_at", "content_hash"],
+  "properties": {
+    "schema_version": {"const": "3.3.0"},
+    "contract_version": {"const": "persona-council/1"},
+    "deliberation_id": {"type": "string", "pattern": "^DEL-[A-Za-z0-9._:-]{8,128}$"},
+    "build_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "deliberation_key": {"$ref": "persona.schema.json#/$defs/ContentHash"},
+    "article_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"},
+    "creative_brief_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"},
+    "proposal_set_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"},
+    "red_team_report_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"},
+    "resolutions": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/Resolution"}},
+    "selected_elements": {"type": "array", "minItems": 1, "maxItems": 32, "items": {"$ref": "#/$defs/ElementDecision"}},
+    "rejected_elements": {"type": "array", "maxItems": 32, "items": {"$ref": "#/$defs/ElementDecision"}},
+    "invocation_ledger": {
+      "type": "array", "minItems": 5, "maxItems": 5, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/Invocation"},
+      "allOf": [
+        {"contains": {"required": ["role"], "properties": {"role": {"const": "audience_researcher"}}}, "minContains": 1, "maxContains": 1},
+        {"contains": {"required": ["role"], "properties": {"role": {"const": "empathy_narrative_analyst"}}}, "minContains": 1, "maxContains": 1},
+        {"contains": {"required": ["role"], "properties": {"role": {"const": "brand_strategist"}}}, "minContains": 1, "maxContains": 1},
+        {"contains": {"required": ["role"], "properties": {"role": {"const": "red_team_critic"}}}, "minContains": 1, "maxContains": 1},
+        {"contains": {"required": ["role"], "properties": {"role": {"const": "persona_manager"}}}, "minContains": 1, "maxContains": 1}
+      ]
+    },
+    "manager_provenance": {"$ref": "persona.schema.json#/$defs/AgentProvenance"},
+    "usage": {"$ref": "persona.schema.json#/$defs/Usage"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "content_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"}
+  },
+  "$defs": {
+    "Resolution": {
+      "type": "object", "additionalProperties": false,
+      "required": ["objection_id", "disposition", "changed_fields", "summary"],
+      "properties": {
+        "objection_id": {"type": "string", "pattern": "^OBJ-[A-Za-z0-9._:-]{8,128}$"},
+        "disposition": {"enum": ["RESOLVED", "EXPOSED"]},
+        "changed_fields": {"type": "array", "maxItems": 16, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 64}},
+        "summary": {"type": "string", "minLength": 1, "maxLength": 1000}
+      }
+    },
+    "ElementDecision": {
+      "type": "object", "additionalProperties": false,
+      "required": ["proposal_hash", "field", "summary"],
+      "properties": {
+        "proposal_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"},
+        "field": {"enum": ["role", "job_to_be_done", "dominant_desire", "dominant_fear", "internal_contradiction", "decision_pressure", "authority_boundary", "current_workaround", "emotional_arc_candidate"]},
+        "summary": {"type": "string", "minLength": 1, "maxLength": 1000}
+      }
+    },
+    "Invocation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["role", "attempt", "accepted", "input_hash", "output_hash"],
+      "properties": {
+        "role": {"enum": ["audience_researcher", "empathy_narrative_analyst", "brand_strategist", "red_team_critic", "persona_manager"]},
+        "attempt": {"type": "integer", "minimum": 1, "maximum": 2},
+        "accepted": {"const": true},
+        "input_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"},
+        "output_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"}
+      }
+    }
+  }
+}

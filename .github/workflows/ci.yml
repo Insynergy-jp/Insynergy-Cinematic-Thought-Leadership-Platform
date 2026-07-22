@@ -23,18 +23,27 @@ jobs:
           persist-credentials: false
       - name: Install FFmpeg
         run: |
+          set -euo pipefail
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends espeak-ng ffmpeg fonts-dejavu-core
       - name: Verify media toolchain
         run: |
-          ffmpeg -version | head -1
-          espeak-ng --version | head -1
+          set -euo pipefail
+          ffmpeg -version
+          espeak-ng --version
       - name: Test platform
         uses: ./.github/actions/test-platform
       - name: Verify workflow supply-chain policy
-        run: python3 tools/validate_workflows.py
+        run: |
+          set -euo pipefail
+          python3 tools/validate_workflows.py
       - name: Verify generated schemas are current
         run: |
+          set -euo pipefail
           schema_tmp="$(mktemp -d)"
           PYTHONPATH=src python3 -m insynergy_cinematic --compact export-schemas "$schema_tmp"
           diff -ru schemas "$schema_tmp"
+      - name: Audit Part 9 schema contracts
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python3 -m insynergy_cinematic --compact audit-schemas

@@ -41,6 +41,7 @@ jobs:
           SOURCE_RUN_ID: ${{ inputs.execution_run_id }}
           BUILD_ID: ${{ inputs.build_id }}
         run: |
+          set -euo pipefail
           case "$SOURCE_RUN_ID" in *[!0-9]*|'') echo "execution_run_id must be numeric" >&2; exit 2 ;; esac
           case "$BUILD_ID" in [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9]) ;; *) echo "invalid build_id" >&2; exit 2 ;; esac
       - name: Download validated build
@@ -50,12 +51,30 @@ jobs:
           path: .
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ inputs.execution_run_id }}
+      - name: Verify build identity
+        env:
+          EXPECTED_BUILD_ID: ${{ inputs.build_id }}
+        run: |
+          set -euo pipefail
+          test "$(tr -d '\n' < build-id.txt)" = "$EXPECTED_BUILD_ID"
+      - name: Verify immutable execution handoff
+        uses: ./.github/actions/workflow-evidence
+        with:
+          operation: verify
+          stage: execution
+          build-id: ${{ inputs.build_id }}
+          profile: ${{ inputs.profile }}
+          source-workflow: Execute Approved Plan
+          source-repository: ${{ github.repository }}
+          source-run-id: ${{ inputs.execution_run_id }}
+          source-sha: ${{ github.sha }}
       - name: Record publication approval and package
         env:
           BUILD_ID: ${{ inputs.build_id }}
           BUILD_PROFILE: ${{ inputs.profile }}
           APPROVER: ${{ github.actor }}
         run: |
+          set -euo pipefail
           PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" approve "$BUILD_ID" --gate publish --actor "$APPROVER"
           PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" publish "$BUILD_ID" > publication-result.json
           python3 -c 'import json; value=json.load(open("publication-result.json")); assert value["state"] == "PUBLISHED"'
@@ -64,6 +83,7 @@ jobs:
           BUILD_ID: ${{ inputs.build_id }}
           BUILD_PROFILE: ${{ inputs.profile }}
         run: |
+          set -euo pipefail
           PACKAGE_PATH=".insynergy/builds/${BUILD_ID}/package/${BUILD_ID}.zip"
           MASTER_PATH=".insynergy/builds/${BUILD_ID}/output/master.mp4"
           MANIFEST_PATH=".insynergy/builds/${BUILD_ID}/manifest.json"
@@ -75,6 +95,7 @@ jobs:
           install -m 0644 "$MASTER_PATH" publication-delivery/master.mp4
           install -m 0644 "$MANIFEST_PATH" publication-delivery/manifest.json
           install -m 0644 publication-result.json publication-delivery/publication-result.json
+          install -m 0644 build-id.txt publication-delivery/build-id.txt
           if [ "$BUILD_PROFILE" = "final" ]; then
             CAPTIONS_PATH=".insynergy/builds/${BUILD_ID}/output/captions.en.srt"
             DESCRIPTION_PATH=".insynergy/builds/${BUILD_ID}/output/youtube-description.txt"
@@ -83,6 +104,32 @@ jobs:
             install -m 0644 "$CAPTIONS_PATH" publication-delivery/captions.en.srt
             install -m 0644 "$DESCRIPTION_PATH" publication-delivery/youtube-description.txt
           fi
+      - name: Verify published runtime and quality evidence
+        env:
+          BUILD_ID: ${{ inputs.build_id }}
+          BUILD_PROFILE: ${{ inputs.profile }}
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" verify "$BUILD_ID" > publication-delivery/verification-result.json
+          python3 -c 'import json; value=json.load(open("publication-delivery/verification-result.json")); assert value["passed"] is True; assert value["quality_integrity"] is True'
+      - name: Seal publication delivery
+        uses: ./.github/actions/workflow-evidence
+        with:
+          operation: create
+          stage: publication
+          build-id: ${{ inputs.build_id }}
+          profile: ${{ inputs.profile }}
+          source-workflow: ${{ github.workflow }}
+          source-repository: ${{ github.repository }}
+          source-run-id: ${{ github.run_id }}
+          source-run-attempt: ${{ github.run_attempt }}
+          source-sha: ${{ github.sha }}
+          evidence-file: publication-delivery/workflow-evidence.json
+          paths: publication-delivery
+      - name: Write safe publication summary
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python3 tools/workflow_evidence.py summary --evidence publication-delivery/workflow-evidence.json --result publication-result.json
       - name: Upload publication package and evidence
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
@@ -92,6 +139,9 @@ jobs:
             publication-delivery/master.mp4
             publication-delivery/manifest.json
             publication-delivery/publication-result.json
+            publication-delivery/verification-result.json
+            publication-delivery/build-id.txt
+            publication-delivery/workflow-evidence.json
             publication-delivery/captions.en.srt
             publication-delivery/youtube-description.txt
           if-no-files-found: error

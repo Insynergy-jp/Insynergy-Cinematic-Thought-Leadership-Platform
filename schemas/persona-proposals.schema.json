@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.insynergy.co/cttp/v3.3/persona/persona-proposals.schema.json",
+  "title": "PersonaProposalSet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "contract_version", "build_id", "deliberation_key", "article_hash", "creative_brief_hash", "proposals", "agent_provenance", "usage", "generated_at", "content_hash"],
+  "properties": {
+    "schema_version": {"const": "3.3.0"},
+    "contract_version": {"const": "persona-council/1"},
+    "build_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "deliberation_key": {"$ref": "persona.schema.json#/$defs/ContentHash"},
+    "article_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"},
+    "creative_brief_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"},
+    "proposals": {
+      "type": "array", "minItems": 3, "maxItems": 3, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/Proposal"},
+      "allOf": [
+        {"contains": {"required": ["role"], "properties": {"role": {"const": "audience_researcher"}}}, "minContains": 1, "maxContains": 1},
+        {"contains": {"required": ["role"], "properties": {"role": {"const": "empathy_narrative_analyst"}}}, "minContains": 1, "maxContains": 1},
+        {"contains": {"required": ["role"], "properties": {"role": {"const": "brand_strategist"}}}, "minContains": 1, "maxContains": 1}
+      ]
+    },
+    "agent_provenance": {"$ref": "persona.schema.json#/$defs/AgentProvenance"},
+    "usage": {"$ref": "persona.schema.json#/$defs/Usage"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "content_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"}
+  },
+  "$defs": {
+    "Proposal": {
+      "type": "object", "additionalProperties": false,
+      "required": ["proposal_id", "role", "proposal_hash", "persona_fields", "evidence", "assumptions"],
+      "properties": {
+        "proposal_id": {"type": "string", "pattern": "^PRP-[A-Za-z0-9._:-]{8,128}$"},
+        "role": {"enum": ["audience_researcher", "empathy_narrative_analyst", "brand_strategist"]},
+        "proposal_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"},
+        "persona_fields": {
+          "type": "object", "additionalProperties": false,
+          "required": ["role", "job_to_be_done", "dominant_desire", "dominant_fear", "internal_contradiction", "decision_pressure", "authority_boundary", "current_workaround", "emotional_arc_candidate"],
+          "properties": {
+            "role": {"$ref": "persona.schema.json#/$defs/PersonaField"},
+            "job_to_be_done": {"$ref": "persona.schema.json#/$defs/PersonaField"},
+            "dominant_desire": {"$ref": "persona.schema.json#/$defs/PersonaField"},
+            "dominant_fear": {"$ref": "persona.schema.json#/$defs/PersonaField"},
+            "internal_contradiction": {"$ref": "persona.schema.json#/$defs/PersonaField"},
+            "decision_pressure": {"$ref": "persona.schema.json#/$defs/PersonaField"},
+            "authority_boundary": {"$ref": "persona.schema.json#/$defs/PersonaField"},
+            "current_workaround": {"$ref": "persona.schema.json#/$defs/PersonaField"},
+            "emotional_arc_candidate": {"$ref": "persona.schema.json#/$defs/PersonaField"}
+          }
+        },
+        "evidence": {"type": "array", "minItems": 1, "maxItems": 64, "items": {"$ref": "persona.schema.json#/$defs/EvidenceRef"}},
+        "assumptions": {"type": "array", "maxItems": 32, "items": {"$ref": "persona.schema.json#/$defs/Assumption"}}
+      }
+    }
+  }
+}

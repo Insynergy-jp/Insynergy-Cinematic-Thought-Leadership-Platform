@@ -1,295 +1,584 @@
 {
-  "schema_version": "2.0",
+  "content_hash": "sha256:b01eb9c21d5f88fc167f87da76e9de3fb65307f82c64bcc808862c3a89d0fe51",
+  "contract_version": "schema-registry/1",
+  "dialect": "https://json-schema.org/draft/2020-12/schema",
+  "schema_version": "3.4.0",
   "schemas": [
     {
+      "chapter": "9.2",
       "file": "product-contract.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/vision/product-contract.schema.json",
-      "name": "product-contract"
+      "name": "product-contract",
+      "owner": "1.1.1",
+      "version": "2.0"
     },
     {
+      "chapter": "9.2",
       "file": "layer-contract.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/vision/layer-contract.schema.json",
-      "name": "layer-contract"
+      "name": "layer-contract",
+      "owner": "1.3.3",
+      "version": "2.0"
     },
     {
+      "chapter": "9.2",
       "file": "data-flow.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/vision/data-flow.schema.json",
-      "name": "data-flow"
+      "name": "data-flow",
+      "owner": "1.3.2",
+      "version": "2.0"
     },
     {
+      "chapter": "9.2",
       "file": "asset-selection.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/vision/asset-selection.schema.json",
-      "name": "asset-selection"
+      "name": "asset-selection",
+      "owner": "1.3.6",
+      "version": "2.0"
     },
     {
+      "chapter": "9.2",
       "file": "approval-record.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/vision/approval-record.schema.json",
-      "name": "approval-record"
+      "name": "approval-record",
+      "owner": "1.4.1",
+      "version": "2.0"
     },
     {
+      "chapter": "9.3",
       "file": "argument-map.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/story/argument-map.schema.json",
-      "name": "argument-map"
+      "name": "argument-map",
+      "owner": "2.1.2",
+      "version": "2.0"
     },
     {
+      "chapter": "9.3",
       "file": "theme.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/story/theme.schema.json",
-      "name": "theme"
+      "name": "theme",
+      "owner": "2.1.2",
+      "version": "2.0"
     },
     {
+      "chapter": "9.3",
       "file": "dramatic-question.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/story/dramatic-question.schema.json",
-      "name": "dramatic-question"
+      "name": "dramatic-question",
+      "owner": "2.1.2",
+      "version": "2.0"
     },
     {
+      "chapter": "9.3",
       "file": "dramatic-premise.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/story/dramatic-premise.schema.json",
-      "name": "dramatic-premise"
+      "name": "dramatic-premise",
+      "owner": "2.1.3",
+      "version": "2.0"
     },
     {
+      "chapter": "9.3",
       "file": "logline.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/story/logline.schema.json",
-      "name": "logline"
+      "name": "logline",
+      "owner": "2.1.3",
+      "version": "2.0"
     },
     {
+      "chapter": "9.3",
       "file": "character-bible.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/story/character-bible.schema.json",
-      "name": "character-bible"
+      "name": "character-bible",
+      "owner": "2.1.4",
+      "version": "2.0"
     },
     {
+      "chapter": "9.3",
       "file": "conflict.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/story/conflict.schema.json",
-      "name": "conflict"
+      "name": "conflict",
+      "owner": "2.1.5",
+      "version": "2.0"
     },
     {
+      "chapter": "9.3",
       "file": "stakes.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/story/stakes.schema.json",
-      "name": "stakes"
+      "name": "stakes",
+      "owner": "2.1.5",
+      "version": "2.0"
     },
     {
+      "chapter": "9.3",
       "file": "time-pressure.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/story/time-pressure.schema.json",
-      "name": "time-pressure"
+      "name": "time-pressure",
+      "owner": "2.1.5",
+      "version": "2.0"
     },
     {
+      "chapter": "9.3",
       "file": "story-arc.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/story/story-arc.schema.json",
-      "name": "story-arc"
+      "name": "story-arc",
+      "owner": "2.1.6",
+      "version": "2.0"
     },
     {
+      "chapter": "9.3",
       "file": "three-act-structure.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/story/three-act-structure.schema.json",
-      "name": "three-act-structure"
+      "name": "three-act-structure",
+      "owner": "2.1.6",
+      "version": "2.0"
     },
     {
+      "chapter": "9.3",
       "file": "emotional-arc.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/story/emotional-arc.schema.json",
-      "name": "emotional-arc"
+      "name": "emotional-arc",
+      "owner": "2.1.6",
+      "version": "2.0"
     },
     {
+      "chapter": "9.3",
       "file": "concept-placement.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/story/concept-placement.schema.json",
-      "name": "concept-placement"
+      "name": "concept-placement",
+      "owner": "2.1.6",
+      "version": "2.0"
     },
     {
+      "chapter": "9.3",
       "file": "story-quality-report.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/story/story-quality-report.schema.json",
-      "name": "story-quality-report"
+      "name": "story-quality-report",
+      "owner": "2.1.7",
+      "version": "2.0"
     },
     {
+      "chapter": "9.3",
       "file": "story-metrics.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/story/story-metrics.schema.json",
-      "name": "story-metrics"
+      "name": "story-metrics",
+      "owner": "2.1.7",
+      "version": "2.0"
     },
     {
+      "chapter": "9.3",
       "file": "story-cache-key.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/story/story-cache-key.schema.json",
-      "name": "story-cache-key"
+      "name": "story-cache-key",
+      "owner": "2.1.8",
+      "version": "2.0"
     },
     {
+      "chapter": "9.4",
       "file": "screenplay.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/screenplay.schema.json",
-      "name": "screenplay"
+      "name": "screenplay",
+      "owner": "3.1.7",
+      "version": "2.0"
     },
     {
+      "chapter": "9.4",
       "file": "scene.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/scene.schema.json",
-      "name": "scene"
+      "name": "scene",
+      "owner": "3.1.3",
+      "version": "2.0"
     },
     {
+      "chapter": "9.4",
       "file": "scene-index.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/scene-index.schema.json",
-      "name": "scene-index"
+      "name": "scene-index",
+      "owner": "3.1.7",
+      "version": "2.0"
     },
     {
+      "chapter": "9.4",
       "file": "dialogue.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/dialogue.schema.json",
-      "name": "dialogue"
+      "name": "dialogue",
+      "owner": "3.1.5",
+      "version": "2.0"
     },
     {
+      "chapter": "9.4",
       "file": "continuity.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/continuity.schema.json",
-      "name": "continuity"
+      "name": "continuity",
+      "owner": "3.1.8",
+      "version": "2.0"
     },
     {
+      "chapter": "9.4",
       "file": "screenplay-metrics.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/screenplay-metrics.schema.json",
-      "name": "screenplay-metrics"
+      "name": "screenplay-metrics",
+      "owner": "3.1.8",
+      "version": "2.0"
     },
     {
+      "chapter": "9.4",
       "file": "screenplay-config.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/screenplay-config.schema.json",
-      "name": "screenplay-config"
+      "name": "screenplay-config",
+      "owner": "3.1.9",
+      "version": "2.0"
     },
     {
+      "chapter": "9.4",
       "file": "screenplay-state.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/screenplay/screenplay-state.schema.json",
-      "name": "screenplay-state"
+      "name": "screenplay-state",
+      "owner": "3.1.11",
+      "version": "2.0"
     },
     {
+      "chapter": "9.5",
       "file": "shot-list.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/shot/shot-list.schema.json",
-      "name": "shot-list"
+      "name": "shot-list",
+      "owner": "4.1.2",
+      "version": "2.0"
     },
     {
+      "chapter": "9.5",
       "file": "shot.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/shot/shot.schema.json",
-      "name": "shot"
+      "name": "shot",
+      "owner": "4.1.2",
+      "version": "2.0"
     },
     {
+      "chapter": "9.5",
       "file": "camera-plan.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/shot/camera-plan.schema.json",
-      "name": "camera-plan"
+      "name": "camera-plan",
+      "owner": "4.1.4",
+      "version": "2.0"
     },
     {
+      "chapter": "9.5",
       "file": "blocking.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/shot/blocking.schema.json",
-      "name": "blocking"
+      "name": "blocking",
+      "owner": "4.1.5",
+      "version": "2.0"
     },
     {
+      "chapter": "9.5",
       "file": "storyboard.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/shot/storyboard.schema.json",
-      "name": "storyboard"
+      "name": "storyboard",
+      "owner": "4.1.6",
+      "version": "2.0"
     },
     {
+      "chapter": "9.5",
       "file": "continuity-report.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/shot/continuity-report.schema.json",
-      "name": "continuity-report"
+      "name": "continuity-report",
+      "owner": "4.1.8",
+      "version": "2.0"
     },
     {
+      "chapter": "9.5",
       "file": "render-strategy.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/shot/render-strategy.schema.json",
-      "name": "render-strategy"
+      "name": "render-strategy",
+      "owner": "4.1.9",
+      "version": "2.0"
     },
     {
+      "chapter": "9.5",
       "file": "shot-metrics.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/shot/shot-metrics.schema.json",
-      "name": "shot-metrics"
+      "name": "shot-metrics",
+      "owner": "4.1.13",
+      "version": "2.0"
     },
     {
+      "chapter": "9.5",
       "file": "shot-gate-report.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/shot/shot-gate-report.schema.json",
-      "name": "shot-gate-report"
+      "name": "shot-gate-report",
+      "owner": "4.1.12",
+      "version": "2.0"
     },
     {
+      "chapter": "9.5",
       "file": "storyboard-gate-report.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/shot/storyboard-gate-report.schema.json",
-      "name": "storyboard-gate-report"
+      "name": "storyboard-gate-report",
+      "owner": "4.1.12",
+      "version": "2.0"
     },
     {
+      "chapter": "9.5",
       "file": "shot-cache-key.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/shot/shot-cache-key.schema.json",
-      "name": "shot-cache-key"
+      "name": "shot-cache-key",
+      "owner": "4.1.13",
+      "version": "2.0"
     },
     {
+      "chapter": "9.6",
       "file": "render-manifest.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/render/render-manifest.schema.json",
-      "name": "render-manifest"
+      "name": "render-manifest",
+      "owner": "5.1.4, 5.4.4",
+      "version": "2.0"
     },
     {
+      "chapter": "9.6",
       "file": "render-queue.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/render/render-queue.schema.json",
-      "name": "render-queue"
+      "name": "render-queue",
+      "owner": "5.1.4, 5.4.1",
+      "version": "2.0"
     },
     {
+      "chapter": "9.6",
       "file": "render-results.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/render/render-results.schema.json",
-      "name": "render-results"
+      "name": "render-results",
+      "owner": "5.1.4",
+      "version": "2.0"
     },
     {
+      "chapter": "9.6",
       "file": "metadata.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/render/metadata.schema.json",
-      "name": "metadata"
+      "name": "metadata",
+      "owner": "5.1.4",
+      "version": "2.0"
     },
     {
+      "chapter": "9.6",
       "file": "render-task.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/render/render-task.schema.json",
-      "name": "render-task"
+      "name": "render-task",
+      "owner": "5.4.3",
+      "version": "2.0"
     },
     {
+      "chapter": "9.6",
       "file": "provider-capability.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/render/provider-capability.schema.json",
-      "name": "provider-capability"
+      "name": "provider-capability",
+      "owner": "5.3.2",
+      "version": "2.0"
     },
     {
+      "chapter": "9.6",
       "file": "retry-policy.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/render/retry-policy.schema.json",
-      "name": "retry-policy"
+      "name": "retry-policy",
+      "owner": "5.4.5",
+      "version": "2.0"
     },
     {
+      "chapter": "9.6",
       "file": "prompt-assembly.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/render/prompt-assembly.schema.json",
-      "name": "prompt-assembly"
+      "name": "prompt-assembly",
+      "owner": "5.5.1",
+      "version": "2.0"
     },
     {
+      "chapter": "9.6",
       "file": "location-bible.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/render/location-bible.schema.json",
-      "name": "location-bible"
+      "name": "location-bible",
+      "owner": "5.1.4",
+      "version": "2.0"
     },
     {
+      "chapter": "9.7",
       "file": "performance-budget.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/build/performance-budget.schema.json",
-      "name": "performance-budget"
+      "name": "performance-budget",
+      "owner": "6.1.1",
+      "version": "2.0"
     },
     {
+      "chapter": "9.7",
       "file": "execution-plan.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/build/execution-plan.schema.json",
-      "name": "execution-plan"
+      "name": "execution-plan",
+      "owner": "6.1.3",
+      "version": "2.0"
     },
     {
+      "chapter": "9.7",
       "file": "dependency-graph.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/build/dependency-graph.schema.json",
-      "name": "dependency-graph"
+      "name": "dependency-graph",
+      "owner": "6.1.3",
+      "version": "2.0"
     },
     {
+      "chapter": "9.7",
       "file": "build-profile.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/build/build-profile.schema.json",
-      "name": "build-profile"
+      "name": "build-profile",
+      "owner": "6.1.7",
+      "version": "2.0"
     },
     {
+      "chapter": "9.7",
       "file": "performance-config.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/build/performance-config.schema.json",
-      "name": "performance-config"
+      "name": "performance-config",
+      "owner": "6.1.8",
+      "version": "2.0"
     },
     {
+      "chapter": "9.7",
       "file": "operational-state.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/build/operational-state.schema.json",
-      "name": "operational-state"
+      "name": "operational-state",
+      "owner": "6.1.11",
+      "version": "2.0"
     },
     {
+      "chapter": "9.7",
       "file": "quality-gate-registry.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.0/build/quality-gate-registry.schema.json",
-      "name": "quality-gate-registry"
+      "name": "quality-gate-registry",
+      "owner": "6.1.6, 7.1.3",
+      "version": "2.0"
     },
     {
+      "chapter": "9.7",
+      "file": "quality-gate-report.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/quality/quality-gate-report.schema.json",
+      "name": "quality-gate-report",
+      "owner": "7.1.3",
+      "version": "2.0"
+    },
+    {
+      "chapter": "9.7",
+      "file": "build-quality-report.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v2.0/quality/build-quality-report.schema.json",
+      "name": "build-quality-report",
+      "owner": "7.1.12",
+      "version": "2.0"
+    },
+    {
+      "chapter": "9.0.1",
       "file": "agent-review-report.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.1/review/agent-review-report.schema.json",
-      "name": "agent-review-report"
+      "name": "agent-review-report",
+      "owner": "1.0.1, 7.0.1",
+      "version": "2.1"
     },
     {
+      "chapter": "9.0.1",
       "file": "review-approval-binding.schema.json",
       "id": "https://schemas.insynergy.co/cttp/v2.1/review/review-approval-binding.schema.json",
-      "name": "review-approval-binding"
+      "name": "review-approval-binding",
+      "owner": "1.0.1, 8.0.1",
+      "version": "2.1"
+    },
+    {
+      "chapter": "9.0.2",
+      "file": "persona-proposals.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v3.3/persona/persona-proposals.schema.json",
+      "name": "persona-proposals",
+      "owner": "1.0.2, 6.0.2",
+      "version": "3.3"
+    },
+    {
+      "chapter": "9.0.2",
+      "file": "persona-red-team-report.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v3.3/persona/persona-red-team-report.schema.json",
+      "name": "persona-red-team-report",
+      "owner": "1.0.2, 6.0.2",
+      "version": "3.3"
+    },
+    {
+      "chapter": "9.0.2",
+      "file": "persona-deliberation.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v3.3/persona/persona-deliberation.schema.json",
+      "name": "persona-deliberation",
+      "owner": "1.0.2, 6.0.2",
+      "version": "3.3"
+    },
+    {
+      "chapter": "9.0.2",
+      "file": "persona.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v3.3/persona/persona.schema.json",
+      "name": "persona",
+      "owner": "1.0.2",
+      "version": "3.3"
+    },
+    {
+      "chapter": "9.0.2",
+      "file": "persona-quality-report.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v3.3/persona/persona-quality-report.schema.json",
+      "name": "persona-quality-report",
+      "owner": "7.0.2",
+      "version": "3.3"
+    },
+    {
+      "chapter": "9.0.2",
+      "file": "persona-approval-binding.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v3.3/persona/persona-approval-binding.schema.json",
+      "name": "persona-approval-binding",
+      "owner": "1.0.2, 8.0.2",
+      "version": "3.3"
+    },
+    {
+      "chapter": "9.0.3",
+      "file": "previsualization-plan.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v3.4/preview/previsualization-plan.schema.json",
+      "name": "previsualization-plan",
+      "owner": "1.0.3, 4.0.3, 5.0.3",
+      "version": "3.4"
+    },
+    {
+      "chapter": "9.0.3",
+      "file": "image-prompt-set.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v3.4/preview/image-prompt-set.schema.json",
+      "name": "image-prompt-set",
+      "owner": "4.0.3, 5.0.3",
+      "version": "3.4"
+    },
+    {
+      "chapter": "9.0.3",
+      "file": "video-prompt-set.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v3.4/preview/video-prompt-set.schema.json",
+      "name": "video-prompt-set",
+      "owner": "4.0.3, 5.0.3",
+      "version": "3.4"
+    },
+    {
+      "chapter": "9.0.3",
+      "file": "storyboard-preview-manifest.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v3.4/preview/storyboard-preview-manifest.schema.json",
+      "name": "storyboard-preview-manifest",
+      "owner": "4.0.3, 6.0.3",
+      "version": "3.4"
+    },
+    {
+      "chapter": "9.0.3",
+      "file": "storyboard-preview-quality-report.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v3.4/preview/storyboard-preview-quality-report.schema.json",
+      "name": "storyboard-preview-quality-report",
+      "owner": "7.0.3",
+      "version": "3.4"
+    },
+    {
+      "chapter": "9.0.3",
+      "file": "storyboard-preview-approval-binding.schema.json",
+      "id": "https://schemas.insynergy.co/cttp/v3.4/preview/storyboard-preview-approval-binding.schema.json",
+      "name": "storyboard-preview-approval-binding",
+      "owner": "1.0.3, 8.0.3",
+      "version": "3.4"
     }
   ]
 }

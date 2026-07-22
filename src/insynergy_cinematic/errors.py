@@ -58,6 +58,23 @@ class AgentReviewError(PlatformError):
         self.unavailable = unavailable
 
 
+class PersonaCouncilError(PlatformError):
+    code = "PERSONA_COUNCIL_FAILED"
+    exit_code = 7
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        error_class: str = "INTERNAL",
+        unavailable: bool = False,
+        details: dict | None = None,
+    ) -> None:
+        super().__init__(message, details=details)
+        self.error_class = error_class
+        self.unavailable = unavailable
+
+
 class StateConflictError(PlatformError):
     code = "STATE_CONFLICT"
     exit_code = 6

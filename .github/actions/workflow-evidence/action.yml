@@ -1,0 +1,103 @@
+name: Seal or verify workflow evidence
+description: Bind a cross-run artifact to its files, build, profile, run, and source commit
+inputs:
+  operation:
+    description: create or verify
+    required: true
+  stage:
+    description: planning, execution, or publication
+    required: true
+  build-id:
+    description: Canonical build identifier
+    required: true
+  profile:
+    description: Canonical build profile
+    required: true
+  source-workflow:
+    description: Workflow that produced the evidence
+    required: true
+  source-repository:
+    description: Repository that produced the evidence
+    required: true
+  source-run-id:
+    description: Workflow run that produced the evidence
+    required: true
+  source-run-attempt:
+    description: Workflow attempt for create operations
+    required: false
+    default: "1"
+  source-sha:
+    description: Source commit that produced the evidence
+    required: true
+  evidence-file:
+    description: Repository-relative evidence file
+    required: false
+    default: workflow-evidence.json
+  paths:
+    description: Newline-separated paths for create operations
+    required: false
+    default: ""
+outputs:
+  bundle-hash:
+    description: Verified content bundle hash
+    value: ${{ steps.evidence.outputs.bundle_hash }}
+  evidence-hash:
+    description: Evidence document hash
+    value: ${{ steps.evidence.outputs.evidence_hash }}
+runs:
+  using: composite
+  steps:
+    - name: Seal or verify artifact handoff
+      id: evidence
+      shell: bash
+      env:
+        EVIDENCE_OPERATION: ${{ inputs.operation }}
+        EVIDENCE_STAGE: ${{ inputs.stage }}
+        EVIDENCE_BUILD_ID: ${{ inputs['build-id'] }}
+        EVIDENCE_PROFILE: ${{ inputs.profile }}
+        EVIDENCE_SOURCE_WORKFLOW: ${{ inputs['source-workflow'] }}
+        EVIDENCE_SOURCE_REPOSITORY: ${{ inputs['source-repository'] }}
+        EVIDENCE_SOURCE_RUN_ID: ${{ inputs['source-run-id'] }}
+        EVIDENCE_SOURCE_RUN_ATTEMPT: ${{ inputs['source-run-attempt'] }}
+        EVIDENCE_SOURCE_SHA: ${{ inputs['source-sha'] }}
+        EVIDENCE_FILE: ${{ inputs['evidence-file'] }}
+        EVIDENCE_PATHS: ${{ inputs.paths }}
+      run: |
+        set -euo pipefail
+        arguments=(
+          --root "$GITHUB_WORKSPACE"
+          "$EVIDENCE_OPERATION"
+          --stage "$EVIDENCE_STAGE"
+          --build-id "$EVIDENCE_BUILD_ID"
+          --profile "$EVIDENCE_PROFILE"
+          --workflow "$EVIDENCE_SOURCE_WORKFLOW"
+          --repository "$EVIDENCE_SOURCE_REPOSITORY"
+          --run-id "$EVIDENCE_SOURCE_RUN_ID"
+          --source-sha "$EVIDENCE_SOURCE_SHA"
+        )
+        if [ "$EVIDENCE_OPERATION" = "create" ]; then
+          arguments+=(
+            --output "$EVIDENCE_FILE"
+            --run-attempt "$EVIDENCE_SOURCE_RUN_ATTEMPT"
+          )
+          while IFS= read -r evidence_path; do
+            test -z "$evidence_path" || arguments+=("$evidence_path")
+          done <<< "$EVIDENCE_PATHS"
+        elif [ "$EVIDENCE_OPERATION" = "verify" ]; then
+          arguments+=(--evidence "$EVIDENCE_FILE")
+        else
+          echo "operation must be create or verify" >&2
+          exit 2
+        fi
+        PYTHONPATH=src python3 tools/workflow_evidence.py "${arguments[@]}" > workflow-evidence-result.json
+        python3 - <<'PY'
+        import json
+        import os
+
+        value = json.load(open("workflow-evidence-result.json", encoding="utf-8"))
+        if value.get("passed") is not True:
+            raise SystemExit("workflow evidence did not pass")
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+            output.write(f"bundle_hash={value['bundle_hash']}\n")
+            output.write(f"evidence_hash={value['evidence_hash']}\n")
+        PY

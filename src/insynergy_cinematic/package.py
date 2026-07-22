@@ -3,11 +3,45 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import zipfile
 from pathlib import Path
 from typing import Any
 
 from .util import file_hash
+
+
+def create_thumbnail(master_video: Path, destination: Path) -> dict[str, Any]:
+    """Extract a deterministic publication poster from the validated Master."""
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    completed = subprocess.run(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-ss",
+            "1",
+            "-i",
+            str(master_video),
+            "-frames:v",
+            "1",
+            "-map_metadata",
+            "-1",
+            str(destination),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode or not destination.is_file():
+        destination.unlink(missing_ok=True)
+        raise RuntimeError(f"Thumbnail extraction failed: {completed.stderr[-1000:]}")
+    return {
+        "thumbnail_uri": str(destination.resolve()),
+        "thumbnail_hash": file_hash(destination),
+    }
 
 
 def create_publish_package(
@@ -23,6 +57,9 @@ def create_publish_package(
     youtube_description = build_dir / "output" / "youtube-description.txt"
     if youtube_description.is_file():
         entries.append((youtube_description, "metadata/youtube-description.txt"))
+    thumbnail = build_dir / "output" / "thumbnail.jpg"
+    if thumbnail.is_file():
+        entries.append((thumbnail, "media/thumbnail.jpg"))
     artifact_dir = build_dir / "artifacts"
     for path in sorted(artifact_dir.glob("*.json")):
         entries.append((path, f"artifacts/{path.name}"))

@@ -20,6 +20,7 @@ from .media import AssetValidator, RenderQualityGate
 from .models import RenderRequest, RenderResult, RenderState
 from .prompt import PromptAssembler
 from .providers import VideoProvider
+from .runtime import DurableTaskQueue
 from .storage import ContentAddressableStore
 from .util import atomic_write_json, content_hash, file_hash, read_json, stable_id
 
@@ -287,6 +288,8 @@ class RenderingPlatform:
         storyboard: dict[str, Any],
         *,
         approved: bool,
+        runtime_queue: DurableTaskQueue | None = None,
+        execution_generation: int = 1,
     ) -> dict[str, Any]:
         if not approved:
             raise StoryboardNotApprovedError("Execution approval is required before rendering")
@@ -308,9 +311,92 @@ class RenderingPlatform:
                 "Estimated provider cost exceeds build budget",
                 details={"estimated_usd": estimate, "budget_usd": self.config.budget_usd},
             )
+        requests = {frame["shot_id"]: self._request(frame) for frame in frames}
+        if runtime_queue is not None:
+            runtime_queue.initialize(
+                [
+                    {
+                        "render_task_id": request.render_task_id,
+                        "shot_id": request.shot_id,
+                        "provider": request.provider,
+                        "cache_key": request.cache_key,
+                        "estimated_cost_usd": (
+                            math.ceil(request.duration_seconds)
+                            * RUNWAY_GEN45_CREDITS_PER_SECOND
+                            * RUNWAY_CREDIT_USD
+                            if request.provider == "runway"
+                            else 0.0
+                        ),
+                    }
+                    for request in requests.values()
+                ],
+                generation=execution_generation,
+            )
+
+        def execute_frame(frame: dict[str, Any]) -> RenderResult:
+            request = requests[frame["shot_id"]]
+            claim: dict[str, Any] | None = None
+            if runtime_queue is not None:
+                claim = runtime_queue.claim(
+                    request.render_task_id,
+                    worker_id=threading.current_thread().name,
+                )
+                if claim["outcome"] == "DEFERRED":
+                    error = RenderingError(
+                        f"Runtime dispatch deferred: {claim['reason']}",
+                        render_task_id=request.render_task_id,
+                    )
+                    error.failure_class = "capacity"
+                    raise error
+            try:
+                result = self.render_shot(frame)
+            except Exception as exc:
+                if (
+                    runtime_queue is not None
+                    and claim is not None
+                    and claim["outcome"] == "CLAIMED"
+                ):
+                    runtime_queue.complete(
+                        request.render_task_id,
+                        lease_id=str(claim["lease_id"]),
+                        result={
+                            "render_task_id": request.render_task_id,
+                            "shot_id": request.shot_id,
+                            "state": "FAILED",
+                            "error": {
+                                "code": getattr(exc, "code", "UNEXPECTED_RENDER_ERROR"),
+                                "message": str(exc),
+                            },
+                        },
+                    )
+                raise
+            if (
+                runtime_queue is not None
+                and claim is not None
+                and claim["outcome"] == "CLAIMED"
+            ):
+                runtime_queue.complete(
+                    request.render_task_id,
+                    lease_id=str(claim["lease_id"]),
+                    result=result.as_dict(),
+                )
+            return result
+
         results: list[RenderResult] = []
-        with ThreadPoolExecutor(max_workers=self.config.max_parallel_shots) as executor:
-            futures = {executor.submit(self.render_shot, frame): frame for frame in frames}
+        provider_names = {request.provider for request in requests.values()}
+        provider_worker_limit = min(
+            self.config.provider_parallel_limits.get(
+                provider, self.config.max_in_flight_tasks
+            )
+            for provider in provider_names
+        )
+        worker_limit = min(
+            self.config.max_parallel_shots,
+            self.config.max_in_flight_tasks,
+            provider_worker_limit,
+        )
+        with ThreadPoolExecutor(max_workers=worker_limit) as executor:
+            futures = {executor.submit(execute_frame, frame): frame for frame in frames}
             for future in as_completed(futures):
                 try:
                     results.append(future.result())
@@ -337,7 +423,7 @@ class RenderingPlatform:
             result.state in {RenderState.COMPLETED, RenderState.CACHED} for result in results
         )
         cached_count = sum(result.from_cache for result in results)
-        return {
+        value = {
             "schema_version": "2.0",
             "contract_version": self.contract_version,
             "build_id": self.build_root.name,
@@ -363,8 +449,12 @@ class RenderingPlatform:
                 "estimated_provider_cost_usd": estimate,
                 "estimated_runway_credits": estimated_runway_credits,
                 "runway_credit_limit": self.config.max_runway_credits,
+                "runtime_worker_limit": worker_limit,
             },
         }
+        if runtime_queue is not None:
+            value["runtime_queue"] = runtime_queue.snapshot()
+        return value
 
     def cancel_build(self, build_id: str, scope: str = "all") -> dict[str, Any]:
         return {"build_id": build_id, "scope": scope, "accepted": True}

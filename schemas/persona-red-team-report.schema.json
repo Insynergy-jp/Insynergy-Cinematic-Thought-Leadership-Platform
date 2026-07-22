@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.insynergy.co/cttp/v3.3/persona/persona-red-team-report.schema.json",
+  "title": "PersonaRedTeamReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "contract_version", "report_id", "build_id", "deliberation_key", "article_hash", "creative_brief_hash", "proposal_set_hash", "objections", "critic_provenance", "usage", "generated_at", "content_hash"],
+  "properties": {
+    "schema_version": {"const": "3.3.0"},
+    "contract_version": {"const": "persona-council/1"},
+    "report_id": {"type": "string", "pattern": "^PRT-[A-Za-z0-9._:-]{8,128}$"},
+    "build_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "deliberation_key": {"$ref": "persona.schema.json#/$defs/ContentHash"},
+    "article_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"},
+    "creative_brief_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"},
+    "proposal_set_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"},
+    "objections": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/Objection"}},
+    "critic_provenance": {"$ref": "persona.schema.json#/$defs/AgentProvenance"},
+    "usage": {"$ref": "persona.schema.json#/$defs/Usage"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "content_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"}
+  },
+  "$defs": {
+    "Objection": {
+      "type": "object", "additionalProperties": false,
+      "required": ["objection_id", "code", "severity", "blocking", "proposal_hash", "evidence_refs", "summary"],
+      "properties": {
+        "objection_id": {"type": "string", "pattern": "^OBJ-[A-Za-z0-9._:-]{8,128}$"},
+        "code": {"enum": ["UNSUPPORTED_BIOGRAPHY", "STEREOTYPE", "BORROWED_STAKES", "MANIPULATION", "CONTRADICTION", "WEAK_CAUSALITY", "EVIDENCE_GAP"]},
+        "severity": {"enum": ["INFO", "WARNING", "BLOCKING"]},
+        "blocking": {"type": "boolean"},
+        "proposal_hash": {"$ref": "persona.schema.json#/$defs/ContentHash"},
+        "evidence_refs": {"type": "array", "maxItems": 16, "items": {"type": "string", "minLength": 1, "maxLength": 256}},
+        "summary": {"type": "string", "minLength": 1, "maxLength": 1000}
+      }
+    }
+  }
+}

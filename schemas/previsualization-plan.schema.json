@@ -1,0 +1,212 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v3.4/preview/previsualization-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "build_id": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "type": "string"
+    },
+    "cache_hit": {
+      "type": "boolean"
+    },
+    "contract_version": {
+      "const": "previsualization-plan/1"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "model_requested": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "type": "string"
+    },
+    "model_resolved": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "type": "string"
+    },
+    "plan_key": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "planning_hash": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "prompt_version": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "type": "string"
+    },
+    "provider_response_id": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "type": "string"
+    },
+    "reasoning_effort": {
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ]
+    },
+    "review_dimensions": {
+      "items": {
+        "enum": [
+          "scene_composition",
+          "direction",
+          "camera_work",
+          "narration",
+          "tempo"
+        ]
+      },
+      "maxItems": 5,
+      "minItems": 5,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "scenes": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "camera_work": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "direction": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "duration_seconds": {
+            "exclusiveMinimum": 0,
+            "type": "number"
+          },
+          "image_prompt": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "narration": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "order": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "risk_flags": {
+            "items": {
+              "maxLength": 20000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 32,
+            "type": "array"
+          },
+          "scene_composition": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "scene_id": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "shot_id": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "tempo": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "video_prompt": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "scene_id",
+          "shot_id",
+          "order",
+          "duration_seconds",
+          "scene_composition",
+          "direction",
+          "camera_work",
+          "narration",
+          "tempo",
+          "image_prompt",
+          "video_prompt",
+          "risk_flags"
+        ],
+        "type": "object"
+      },
+      "maxItems": 128,
+      "minItems": 1,
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "3.4.0"
+    },
+    "status": {
+      "const": "PREVIEW_READY"
+    },
+    "summary": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "type": "string"
+    },
+    "usage": {
+      "additionalProperties": false,
+      "properties": {
+        "input_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "output_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "total_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "contract_version",
+    "build_id",
+    "planning_hash",
+    "plan_key",
+    "status",
+    "summary",
+    "scenes",
+    "review_dimensions",
+    "model_requested",
+    "model_resolved",
+    "reasoning_effort",
+    "prompt_version",
+    "provider_response_id",
+    "usage",
+    "cache_hit",
+    "generated_at"
+  ],
+  "title": "PrevisualizationPlan",
+  "type": "object"
+}

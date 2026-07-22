@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "insynergy-cinematic"
-version = "3.2.0"
+version = "3.4.0"
 description = "Deterministic cinematic thought-leadership build platform"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -14,6 +14,7 @@ dependencies = []
 
 [project.optional-dependencies]
 agent-review = ["openai-agents==0.16.0", "openai==2.44.0"]
+previsualization = ["openai==2.44.0"]
 
 [project.scripts]
 insynergy-cinematic = "insynergy_cinematic.cli:main"

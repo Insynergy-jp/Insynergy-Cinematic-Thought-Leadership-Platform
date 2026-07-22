@@ -1,0 +1,137 @@
+{
+  "$id": "https://schemas.insynergy.co/cttp/v3.4/preview/storyboard-preview-approval-binding.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "dependentRequired": {
+    "environment_policy_hash": [
+      "environment_reviewer_id",
+      "environment_review_hash"
+    ],
+    "environment_review_hash": [
+      "environment_reviewer_id",
+      "environment_policy_hash"
+    ],
+    "environment_reviewer_id": [
+      "environment_review_hash",
+      "environment_policy_hash"
+    ]
+  },
+  "properties": {
+    "approval_id": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "type": "string"
+    },
+    "approved_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "approver": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "type": "string"
+    },
+    "artifact_hashes": {
+      "additionalProperties": false,
+      "properties": {
+        "image_prompt_set": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "previsualization_plan": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "storyboard_preview_manifest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "storyboard_preview_quality_report": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "video_prompt_set": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "previsualization_plan",
+        "image_prompt_set",
+        "video_prompt_set",
+        "storyboard_preview_manifest",
+        "storyboard_preview_quality_report"
+      ],
+      "type": "object"
+    },
+    "build_id": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "type": "string"
+    },
+    "content_hash": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "contract_version": {
+      "const": "storyboard-preview-approval/1"
+    },
+    "decision": {
+      "const": "APPROVED"
+    },
+    "environment_policy_hash": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "environment_review_hash": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "environment_reviewer": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "type": "string"
+    },
+    "environment_reviewer_id": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "planning_hash": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "prevent_self_review": {
+      "type": "boolean"
+    },
+    "rationale": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "3.4.0"
+    },
+    "workflow_initiator": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "contract_version",
+    "approval_id",
+    "build_id",
+    "decision",
+    "approver",
+    "workflow_initiator",
+    "environment_reviewer",
+    "prevent_self_review",
+    "approved_at",
+    "planning_hash",
+    "artifact_hashes",
+    "content_hash"
+  ],
+  "title": "StoryboardPreviewApprovalBinding",
+  "type": "object"
+}

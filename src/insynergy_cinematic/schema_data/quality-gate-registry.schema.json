@@ -22,8 +22,15 @@
             "screenplay_quality_gate",
             "shot_quality_gate",
             "storyboard_quality_gate",
+            "agent_review_gate",
             "rendering_technical_gate",
             "rendering_editorial_gate",
+            "render_quality_gate",
+            "render_storyboard_coherence_gate",
+            "composition_quality_gate",
+            "narration_audio_quality_gate",
+            "metadata_packaging_quality_gate",
+            "publication_quality_gate",
             "execution_approval",
             "publish_approval"
           ],
@@ -32,7 +39,8 @@
         "gate_type": {
           "enum": [
             "automated",
-            "human_approval"
+            "human_approval",
+            "hybrid_review"
           ],
           "type": "string"
         },
@@ -48,8 +56,13 @@
             "screenplay",
             "shot_planning",
             "storyboard",
+            "planning_review",
             "rendering",
             "validation",
+            "composition",
+            "audio",
+            "packaging",
+            "cross_stage",
             "approval",
             "publication"
           ],
