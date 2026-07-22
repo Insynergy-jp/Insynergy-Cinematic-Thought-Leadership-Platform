@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
 from time import perf_counter
 from typing import Any
@@ -1559,33 +1560,67 @@ class BuildOrchestrator:
             raise StateConflictError(
                 f"Build cannot recompose Storyboard Preview from {manifest['state']}"
             )
+        self._verify_preview_evidence(manifest, require_approval=False)
         preview = self.repository.load_artifact(
             manifest, "storyboard_preview_manifest"
         )["data"]
         animatic = preview["animatic"]
-        recomposed = PreviewAnimaticComposer().compose(
-            directory=self.repository.build_dir(build_id) / "previsualization",
-            frames=preview["frames"],
-            width=int(animatic["width"]),
-            height=int(animatic["height"]),
-            frame_rate=int(animatic["frame_rate"]),
+        composer = PreviewAnimaticComposer()
+        previsualization_dir = self.repository.build_dir(build_id) / "previsualization"
+        with tempfile.TemporaryDirectory(
+            prefix=".storyboard-recompose-", dir=previsualization_dir
+        ) as temporary:
+            recomposed = composer.compose(
+                directory=Path(temporary),
+                frames=preview["frames"],
+                width=int(animatic["width"]),
+                height=int(animatic["height"]),
+                frame_rate=int(animatic["frame_rate"]),
+            )
+            visual_verification = composer.compare_visual_equivalence(
+                sealed=Path(animatic["path"]),
+                recomposed=Path(recomposed["path"]),
+            )
+        technical_fields = (
+            "width",
+            "height",
+            "frame_rate",
+            "duration_seconds",
+            "expected_duration_seconds",
+            "codec",
+            "container",
+            "watermark_version",
+            "overlay_contract",
+            "ffmpeg_argument_contract",
         )
-        if recomposed != animatic:
+        mismatches = {
+            field: {"sealed": animatic.get(field), "recomposed": recomposed.get(field)}
+            for field in technical_fields
+            if recomposed.get(field) != animatic.get(field)
+        }
+        if mismatches:
             raise ValidationError(
-                "Secretless FFmpeg recomposition changed the sealed animatic",
-                details={
-                    "expected_hash": animatic["content_hash"],
-                    "actual_hash": recomposed["content_hash"],
-                },
+                "Secretless FFmpeg recomposition changed the animatic contract",
+                details={"mismatches": mismatches},
             )
         self._verify_preview_evidence(manifest, require_approval=False)
+        verification = {
+            **visual_verification,
+            "sealed_content_hash": animatic["content_hash"],
+            "recomposed_content_hash": recomposed["content_hash"],
+            "sealed_ffmpeg_version": animatic["ffmpeg_version"],
+            "recomposed_ffmpeg_version": recomposed["ffmpeg_version"],
+            "runway_api_calls": 0,
+        }
         self.repository.record_event(
             manifest,
             "previsualization_secretless_recomposition_verified",
-            {"animatic_content_hash": recomposed["content_hash"]},
+            verification,
         )
         manifest = self.repository.save(manifest)
-        return self._view(manifest)
+        result = self._view(manifest)
+        result["recomposition_verification"] = verification
+        return result
 
     @staticmethod
     def _planning_hash(manifest: dict) -> str:
@@ -1604,6 +1639,7 @@ class BuildOrchestrator:
     def _verify_preview_evidence(
         self, manifest: dict[str, Any], *, require_approval: bool
     ) -> None:
+        self.repository.verify_artifacts(manifest)
         projection = manifest.get("previsualization", {})
         if projection.get("mode") != "storyboard_animatic":
             if require_approval:

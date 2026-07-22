@@ -28,6 +28,7 @@ ALLOWED_SECRETS = {
     ("plan.yml", "persona-approval"): {"GITHUB_TOKEN"},
     ("preview.yml", "preview"): {"GITHUB_TOKEN", "OPENAI_API_KEY"},
     ("preview.yml", "preflight"): {"GITHUB_TOKEN"},
+    ("preview.yml", "compose"): {"GITHUB_TOKEN"},
     ("preview.yml", "approval"): {"GITHUB_TOKEN"},
     ("execute.yml", "execute"): {
         "GITHUB_TOKEN",
