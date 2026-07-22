@@ -6,6 +6,7 @@ import html
 import json
 import math
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -32,6 +33,8 @@ PREVIEW_ARTIFACT_TYPES = (
     "storyboard_preview_manifest",
     "storyboard_preview_quality_report",
 )
+
+MIN_RECOMPOSITION_SSIM = 0.999
 
 
 @dataclass(frozen=True)
@@ -299,6 +302,59 @@ class PreviewAnimaticComposer:
             "overlay_contract": "preview-shot-identity-timecode/1",
             "ffmpeg_version": ffmpeg_version,
             "ffmpeg_argument_contract": "preview-animatic/1",
+        }
+
+    def compare_visual_equivalence(
+        self,
+        *,
+        sealed: Path,
+        recomposed: Path,
+        minimum_ssim: float = MIN_RECOMPOSITION_SSIM,
+    ) -> dict[str, Any]:
+        """Compare decoded video content without requiring container-byte identity."""
+        if not sealed.is_file() or not recomposed.is_file():
+            raise ValidationError("Storyboard animatic comparison inputs are missing")
+        if sealed.resolve() == recomposed.resolve():
+            raise ValidationError(
+                "Storyboard animatic recomposition must not overwrite sealed evidence"
+            )
+        completed = subprocess.run(
+            [
+                self.ffmpeg_binary,
+                "-hide_banner",
+                "-nostdin",
+                "-i",
+                str(sealed),
+                "-i",
+                str(recomposed),
+                "-lavfi",
+                "ssim",
+                "-an",
+                "-f",
+                "null",
+                "-",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        matches = re.findall(r"\bAll:([0-9]+(?:\.[0-9]+)?)", completed.stderr)
+        if completed.returncode or not matches:
+            raise ValidationError(
+                "Storyboard animatic visual comparison failed",
+                details={"stderr": completed.stderr[-2000:]},
+            )
+        score = float(matches[-1])
+        if not math.isfinite(score) or score < minimum_ssim:
+            raise ValidationError(
+                "Secretless FFmpeg recomposition changed storyboard visuals",
+                details={"ssim": score, "minimum_ssim": minimum_ssim},
+            )
+        return {
+            "passed": True,
+            "metric": "ssim",
+            "score": score,
+            "minimum": minimum_ssim,
         }
 
 

@@ -22,6 +22,7 @@ GITHUB_LOGIN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$")
 GITHUB_ENVIRONMENT = re.compile(r"^[A-Za-z0-9_.-]{1,255}$")
 GITHUB_ENVIRONMENT_REVIEW_CONTRACT_VERSION = "github-environment-review/1"
 GITHUB_ENVIRONMENT_POLICY_CONTRACT_VERSION = "github-environment-policy/1"
+PREVIEW_RECOVERY_CONTRACT_VERSION = "storyboard-preview-recovery/1"
 TEXT_SUFFIXES = frozenset(
     {".csv", ".json", ".md", ".srt", ".txt", ".yaml", ".yml"}
 )
@@ -72,6 +73,183 @@ def _validate_metadata(
     _safe_scalar("run_id", run_id, RUN_ID)
     _safe_scalar("run_attempt", run_attempt, RUN_ID)
     _safe_scalar("source_sha", source_sha, SOURCE_SHA)
+
+
+def _validate_action_run(
+    value: object,
+    *,
+    repository: str,
+    run_id: str,
+    workflow: str,
+    workflow_path: str,
+    conclusion: str,
+) -> str:
+    if not isinstance(value, dict):
+        raise ValidationError(f"GitHub {workflow} run metadata is invalid")
+    repository_value = value.get("repository")
+    head_repository = value.get("head_repository")
+    expected = {
+        "id": int(run_id),
+        "name": workflow,
+        "path": workflow_path,
+        "event": "workflow_dispatch",
+        "status": "completed",
+        "conclusion": conclusion,
+        "head_branch": "main",
+    }
+    actual = {key: value.get(key) for key in expected}
+    if actual != expected:
+        raise ValidationError(
+            f"GitHub {workflow} run is not an eligible recovery source",
+            details={"run_id": run_id},
+        )
+    if (
+        not isinstance(repository_value, dict)
+        or repository_value.get("full_name") != repository
+        or not isinstance(head_repository, dict)
+        or head_repository.get("full_name") != repository
+    ):
+        raise ValidationError(f"GitHub {workflow} run repository is invalid")
+    source_sha = value.get("head_sha")
+    if not isinstance(source_sha, str) or not SOURCE_SHA.fullmatch(source_sha):
+        raise ValidationError(f"GitHub {workflow} run source SHA is invalid")
+    return source_sha
+
+
+def validate_storyboard_preview_recovery_bundle(
+    *,
+    root: Path,
+    repository: str,
+    provider_run_id: str,
+    planning_run_id: str,
+    build_id: str,
+    profile: str,
+    provider_run: object,
+    planning_run: object,
+) -> dict[str, Any]:
+    """Bind one immutable failed Preview run to its successful planning source."""
+
+    _safe_scalar("repository", repository, REPOSITORY)
+    _safe_scalar("provider_run_id", provider_run_id, RUN_ID)
+    _safe_scalar("planning_run_id", planning_run_id, RUN_ID)
+    _safe_scalar("build_id", build_id, BUILD_ID)
+    if profile not in ALLOWED_PROFILES:
+        raise ValidationError("Storyboard Preview recovery profile is invalid")
+    if provider_run_id == planning_run_id:
+        raise ValidationError("Storyboard Preview recovery run identities are ambiguous")
+    provider_sha = _validate_action_run(
+        provider_run,
+        repository=repository,
+        run_id=provider_run_id,
+        workflow="Storyboard Preview",
+        workflow_path=".github/workflows/preview.yml",
+        conclusion="failure",
+    )
+    planning_sha = _validate_action_run(
+        planning_run,
+        repository=repository,
+        run_id=planning_run_id,
+        workflow="Plan Article",
+        workflow_path=".github/workflows/plan.yml",
+        conclusion="success",
+    )
+    if provider_sha != planning_sha:
+        raise ValidationError(
+            "Storyboard Preview and planning recovery SHAs do not match"
+        )
+
+    root = root.resolve()
+    build_file = root / "build-id.txt"
+    if not build_file.is_file() or build_file.read_text(encoding="utf-8").strip() != build_id:
+        raise ValidationError("Storyboard Preview recovery build identity is invalid")
+
+    evidence = read_json(root / "workflow-evidence.json")
+    evidence_hash = content_hash(
+        {key: value for key, value in evidence.items() if key != "evidence_hash"}
+    )
+    source = evidence.get("source") if isinstance(evidence, dict) else None
+    evidence_files = evidence.get("files") if isinstance(evidence, dict) else None
+    if (
+        not isinstance(source, dict)
+        or not isinstance(evidence_files, list)
+        or not evidence_files
+        or evidence.get("evidence_hash") != evidence_hash
+        or evidence.get("stage") != "planning"
+        or evidence.get("build_id") != build_id
+        or evidence.get("profile") != profile
+        or source.get("workflow") != "Plan Article"
+        or source.get("repository") != repository
+        or source.get("run_id") != planning_run_id
+        or source.get("source_sha") != planning_sha
+        or evidence.get("secret_scan")
+        != {"status": "PASS", "policy": "artifact-patterns/1"}
+        or evidence.get("bundle_hash") != content_hash(evidence_files)
+    ):
+        raise ValidationError("Storyboard Preview recovery planning binding is invalid")
+
+    preflight = read_json(root / "preview-preflight-result.json")
+    preflight_payload = {
+        key: value for key, value in preflight.items() if key != "content_hash"
+    }
+    if (
+        preflight.get("content_hash") != content_hash(preflight_payload)
+        or preflight.get("build_id") != build_id
+        or preflight.get("passed") is not True
+        or preflight.get("openai_provider_initialized") is not False
+        or preflight.get("runway_provider_initialized") is not False
+        or preflight.get("runway_api_calls") != 0
+    ):
+        raise ValidationError("Storyboard Preview recovery preflight is invalid")
+
+    preview_result = read_json(root / "preview-result.json")
+    projection = preview_result.get("previsualization", {})
+    manifest = read_json(root / ".insynergy" / "builds" / build_id / "manifest.json")
+    manifest_projection = manifest.get("previsualization", {})
+    preview_reference = manifest.get("artifacts", {}).get(
+        "storyboard_preview_manifest", {}
+    )
+    preview_document = read_json(
+        root
+        / ".insynergy"
+        / "builds"
+        / build_id
+        / "artifacts"
+        / "storyboard_preview_manifest.json"
+    )
+    preview_data = preview_document.get("data", {})
+    if (
+        preview_result.get("build_id") != build_id
+        or preview_result.get("state") != "AWAITING_STORYBOARD_PREVIEW_APPROVAL"
+        or projection.get("status") != "PREVIEW_READY"
+        or projection.get("runway_api_calls") != 0
+        or manifest.get("build_id") != build_id
+        or manifest.get("profile") != profile
+        or manifest.get("state") != "AWAITING_STORYBOARD_PREVIEW_APPROVAL"
+        or manifest_projection.get("runway_api_calls") != 0
+        or preview_document.get("build_id") != build_id
+        or preview_document.get("content_hash") != content_hash(preview_data)
+        or preview_reference.get("content_hash") != preview_document.get("content_hash")
+        or preview_data.get("runway_contacted") is not False
+        or preview_data.get("provider_calls", {}).get("runway") != 0
+    ):
+        raise ValidationError("Storyboard Preview recovery evidence is invalid")
+
+    result = {
+        "schema_version": "1.0.0",
+        "contract_version": PREVIEW_RECOVERY_CONTRACT_VERSION,
+        "passed": True,
+        "repository": repository,
+        "provider_run_id": provider_run_id,
+        "planning_run_id": planning_run_id,
+        "source_sha": provider_sha,
+        "build_id": build_id,
+        "profile": profile,
+        "preview_manifest_content_hash": preview_document["content_hash"],
+        "runway_api_calls": 0,
+        "openai_api_calls": 0,
+    }
+    result["content_hash"] = content_hash(result)
+    return result
 
 
 def resolve_github_environment_review(

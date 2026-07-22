@@ -391,6 +391,10 @@ OPENAI_PREVIEW_REASONING_EFFORT = medium
 
 `storyboard-preview-approval` Environmentにはsecretを置かず、Required reviewerを`Insynergy-jp`、Deployment branchesをcustom policyの`main` 1件だけに限定します。Workflow initiatorも`Insynergy-jp`で同一ユーザー承認を許可する運用ではPrevent self-reviewを無効にします。有効にしたまま同一ユーザーが承認すると、review履歴取得後のapplication gateでもfail closedになります。Workflowは実行時にReviewer login/ID、Prevent self-review、`main`限定branch policyをGitHub APIから再検証し、review履歴hashとEnvironment policy hashを承認bindingへ封印します。
 
+Provider生成後にsecretless再合成だけが失敗した場合は、`Storyboard Preview`を`provider_run_id`付きで再実行できます。復旧経路は元Runが`main`上の失敗したStoryboard Previewであること、対応するPlan Articleが同じcommitで成功していること、Planning evidence／Build ID／Profile／Preview manifestが一致することをGitHub APIとbundle内hashで検証します。検証後は既存のProvider artifactを再利用し、`planning-ai`、OpenAI、Runwayを呼ばずに再合成とEnvironment承認へ進みます。
+
+Secretless再合成はsealed MP4を先にhash検証し、別の一時ディレクトリへ出力するため原本を上書きしません。入力Frame hash、Shot順、時間、解像度、FPS、Codec、watermark／overlay契約を厳密に検証し、runner間で変動し得るMP4 container byte列の代わりにdecoded映像のSSIM `0.999`以上を要求します。失敗時の構造化エラーはActions logへ安全に出力されます。
+
 ## Schema
 
 現行v3.4.0のPart 9 schema bundleを出力できます。監査対象は72件の登録Schemaと共通定義を合わせた73 Schema IDです。`schema-registry.json`と`compatibility-baseline.json`は別のRegistry／互換性証拠です。
@@ -408,7 +412,7 @@ PYTHONPATH=src python3 -m compileall -q src
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
-134件のテストは、従来の決定論、Story／Screenplay／Persona／Outcome／Agent Review／Render／Schemaに加え、fake GPT planning、fixture image、hash検証付きCache replay、FFmpeg durationとwatermark、Prompt分離、provider-free budget preflight、実Reviewer login/ID、Environment policy、自己承認policy、Frame／Cache改ざん、Secret隔離、Runway Provider初期化spyを検証します。通常CIはfake providerを使い、実OpenAI／Runway呼び出しを行いません。
+135件のテストは、従来の決定論、Story／Screenplay／Persona／Outcome／Agent Review／Render／Schemaに加え、fake GPT planning、fixture image、hash検証付きCache replay、FFmpeg durationとwatermark、非破壊secretless再合成、失敗Run復旧binding、Prompt分離、provider-free budget preflight、実Reviewer login/ID、Environment policy、自己承認policy、Frame／Cache改ざん、Secret隔離、Runway Provider初期化spyを検証します。通常CIはfake providerを使い、実OpenAI／Runway呼び出しを行いません。
 
 ## 重要な運用境界
 

@@ -11,10 +11,11 @@ from insynergy_cinematic.github_actions import (
     part8_coverage_report,
     resolve_github_environment_policy,
     resolve_github_environment_review,
+    validate_storyboard_preview_recovery_bundle,
     verify_workflow_evidence,
     workflow_summary,
 )
-from insynergy_cinematic.util import atomic_write_json, read_json
+from insynergy_cinematic.util import atomic_write_json, content_hash, read_json
 from tools.validate_workflows import ROOT, _validate_workflow, validate
 
 
@@ -23,6 +24,24 @@ SOURCE_SHA = "a" * 40
 
 
 class GitHubActionsArchitectureTests(unittest.TestCase):
+    @staticmethod
+    def _workflow_run(
+        run_id: str, *, name: str, path: str, conclusion: str
+    ) -> dict:
+        repository = {"full_name": "Insynergy-jp/platform"}
+        return {
+            "id": int(run_id),
+            "name": name,
+            "path": path,
+            "event": "workflow_dispatch",
+            "status": "completed",
+            "conclusion": conclusion,
+            "head_branch": "main",
+            "head_sha": SOURCE_SHA,
+            "repository": repository,
+            "head_repository": repository,
+        }
+
     def _environment_approval(
         self,
         *,
@@ -253,6 +272,10 @@ class GitHubActionsArchitectureTests(unittest.TestCase):
         self.assertIn("environment: storyboard-preview-approval", preview)
         self.assertIn("needs: preflight", preview)
         self.assertIn("preview-preflight", preview)
+        self.assertIn("provider_run_id", preview)
+        self.assertIn("Validate failed-run recovery binding", preview)
+        self.assertIn("github_preview_recovery.py", preview)
+        self.assertIn("recomposition_verification", preview)
         self.assertNotIn("RUNWAY_API_KEY", preview)
         self.assertNotIn("api.dev.runwayml.com", preview)
         self.assertIn("Resolve actual Storyboard Preview reviewer", preview)
@@ -261,6 +284,121 @@ class GitHubActionsArchitectureTests(unittest.TestCase):
         self.assertIn("--environment-policy-hash", preview)
         self.assertIn("environment: render-approval", execute)
         self.assertIn("--pre-render-preview-mode", execute)
+
+    def test_storyboard_preview_recovery_binds_failed_run_without_provider_calls(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            build = root / ".insynergy" / "builds" / BUILD_ID
+            artifacts = build / "artifacts"
+            artifacts.mkdir(parents=True)
+            (root / "build-id.txt").write_text(BUILD_ID + "\n", encoding="utf-8")
+
+            files = [{"path": "build-id.txt", "size": 13, "sha256": "sha256:test"}]
+            evidence = {
+                "schema_version": "1.0.0",
+                "contract_version": "workflow-evidence/1",
+                "stage": "planning",
+                "build_id": BUILD_ID,
+                "profile": "preview",
+                "source": {
+                    "workflow": "Plan Article",
+                    "repository": "Insynergy-jp/platform",
+                    "run_id": "12345",
+                    "run_attempt": "1",
+                    "source_sha": SOURCE_SHA,
+                },
+                "secret_scan": {"status": "PASS", "policy": "artifact-patterns/1"},
+                "files": files,
+                "bundle_hash": content_hash(files),
+            }
+            evidence["evidence_hash"] = content_hash(evidence)
+            atomic_write_json(root / "workflow-evidence.json", evidence)
+
+            preflight = {
+                "build_id": BUILD_ID,
+                "passed": True,
+                "openai_provider_initialized": False,
+                "runway_provider_initialized": False,
+                "runway_api_calls": 0,
+            }
+            preflight["content_hash"] = content_hash(preflight)
+            atomic_write_json(root / "preview-preflight-result.json", preflight)
+
+            preview_data = {
+                "runway_contacted": False,
+                "provider_calls": {"gpt_plan": 1, "gpt_image": 8, "runway": 0},
+            }
+            preview_document = {
+                "build_id": BUILD_ID,
+                "content_hash": content_hash(preview_data),
+                "data": preview_data,
+            }
+            atomic_write_json(
+                artifacts / "storyboard_preview_manifest.json", preview_document
+            )
+            manifest = {
+                "build_id": BUILD_ID,
+                "profile": "preview",
+                "state": "AWAITING_STORYBOARD_PREVIEW_APPROVAL",
+                "previsualization": {"runway_api_calls": 0},
+                "artifacts": {
+                    "storyboard_preview_manifest": {
+                        "content_hash": preview_document["content_hash"]
+                    }
+                },
+            }
+            atomic_write_json(build / "manifest.json", manifest)
+            atomic_write_json(
+                root / "preview-result.json",
+                {
+                    "build_id": BUILD_ID,
+                    "state": "AWAITING_STORYBOARD_PREVIEW_APPROVAL",
+                    "previsualization": {
+                        "status": "PREVIEW_READY",
+                        "runway_api_calls": 0,
+                    },
+                },
+            )
+
+            provider_run = self._workflow_run(
+                "67890",
+                name="Storyboard Preview",
+                path=".github/workflows/preview.yml",
+                conclusion="failure",
+            )
+            planning_run = self._workflow_run(
+                "12345",
+                name="Plan Article",
+                path=".github/workflows/plan.yml",
+                conclusion="success",
+            )
+            result = validate_storyboard_preview_recovery_bundle(
+                root=root,
+                repository="Insynergy-jp/platform",
+                provider_run_id="67890",
+                planning_run_id="12345",
+                build_id=BUILD_ID,
+                profile="preview",
+                provider_run=provider_run,
+                planning_run=planning_run,
+            )
+            self.assertTrue(result["passed"])
+            self.assertEqual(result["openai_api_calls"], 0)
+            self.assertEqual(result["runway_api_calls"], 0)
+
+            invalid = deepcopy(provider_run)
+            invalid["conclusion"] = "success"
+            with self.assertRaises(ValidationError):
+                validate_storyboard_preview_recovery_bundle(
+                    root=root,
+                    repository="Insynergy-jp/platform",
+                    provider_run_id="67890",
+                    planning_run_id="12345",
+                    build_id=BUILD_ID,
+                    profile="preview",
+                    provider_run=invalid,
+                    planning_run=planning_run,
+                )
 
     def test_environment_review_resolves_actual_reviewer_separately(self) -> None:
         record = resolve_github_environment_review(

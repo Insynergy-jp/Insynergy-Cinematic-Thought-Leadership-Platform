@@ -17,6 +17,7 @@ from insynergy_cinematic.previsualization import (
     PreviewFrameResult,
     PrevisualizationService,
 )
+from insynergy_cinematic.util import file_hash
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -153,6 +154,7 @@ class PrevisualizationTests(unittest.TestCase):
             animatic = Path(preview["previsualization"]["animatic_path"])
             review_html = Path(preview["previsualization"]["review_html_path"])
             self.assertTrue(animatic.is_file())
+            sealed_animatic_hash = file_hash(animatic)
             self.assertTrue(review_html.is_file())
             manifest = orchestrator.repository.load(planned["build_id"])
             preview_document = orchestrator.repository.load_artifact(
@@ -176,6 +178,15 @@ class PrevisualizationTests(unittest.TestCase):
             recomposed = orchestrator.recompose_preview(planned["build_id"])
             self.assertEqual(recomposed["state"], preview["state"])
             self.assertEqual((provider.plan_calls, provider.image_calls), (1, 8))
+            self.assertEqual(file_hash(animatic), sealed_animatic_hash)
+            verification = recomposed["recomposition_verification"]
+            self.assertTrue(verification["passed"])
+            self.assertGreaterEqual(verification["score"], verification["minimum"])
+            self.assertEqual(verification["sealed_content_hash"], sealed_animatic_hash)
+            self.assertEqual(verification["runway_api_calls"], 0)
+            self.assertFalse(
+                any(animatic.parent.glob(".storyboard-recompose-*"))
+            )
 
             approved = orchestrator.approve(
                 planned["build_id"],
