@@ -25,12 +25,14 @@ class RuntimeCompatibilityTests(unittest.TestCase):
         self._git(root, "config", "user.name", "Runtime Test")
         self._git(root, "config", "user.email", "runtime@example.invalid")
         (root / ".github" / "workflows").mkdir(parents=True)
-        (root / "src" / "insynergy_cinematic").mkdir(parents=True)
+        (root / "src" / "insynergy_cinematic" / "providers").mkdir(parents=True)
         execute = root / ".github" / "workflows" / "execute.yml"
         prompt = root / "src" / "insynergy_cinematic" / "prompt.py"
+        provider = root / "src" / "insynergy_cinematic" / "providers" / "runway.py"
         rendering = root / "src" / "insynergy_cinematic" / "rendering.py"
         execute.write_text("runtime: approved\n", encoding="utf-8")
         prompt.write_text("contract = 'storyboard-only'\n", encoding="utf-8")
+        provider.write_text("duration = 'approved'\n", encoding="utf-8")
         rendering.write_text("provider = 'runway'\n", encoding="utf-8")
         self._git(root, "add", ".github", "src")
         self._git(root, "commit", "-m", "approved planning source")
@@ -39,6 +41,7 @@ class RuntimeCompatibilityTests(unittest.TestCase):
         prompt.write_text(
             "contract = 'storyboard-only-bounded'\n", encoding="utf-8"
         )
+        provider.write_text("duration = 'integer-and-trimmed'\n", encoding="utf-8")
         rendering.write_text("provider = 'runway-bounded'\n", encoding="utf-8")
         self._git(root, "add", ".github", "src")
         self._git(root, "commit", "-m", "bounded runtime")
@@ -60,6 +63,7 @@ class RuntimeCompatibilityTests(unittest.TestCase):
                 {
                     ".github/workflows/execute.yml",
                     "src/insynergy_cinematic/prompt.py",
+                    "src/insynergy_cinematic/providers/runway.py",
                     "src/insynergy_cinematic/rendering.py",
                 },
             )

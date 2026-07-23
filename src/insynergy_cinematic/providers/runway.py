@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import shutil
 import socket
@@ -149,15 +150,17 @@ class RunwayProvider:
             "Runway conditioning images must use an HTTPS URL or image data URI"
         )
 
-    def _duration(self, request: RenderRequest) -> int:
+    @staticmethod
+    def _target_duration(request: RenderRequest) -> float:
         requested = float(request.duration_seconds)
-        if not requested.is_integer():
-            raise ValidationError("Gen-4.5 duration must be a whole number of seconds")
         profile_max = 10 if request.render_profile == "final" else 5
-        duration = min(int(requested), profile_max)
-        if not 2 <= duration <= 10:
+        duration = min(requested, float(profile_max))
+        if not math.isfinite(duration) or not 2 <= duration <= 10:
             raise ValidationError("Gen-4.5 duration must be between 2 and 10 seconds")
         return duration
+
+    def _duration(self, request: RenderRequest) -> int:
+        return math.ceil(self._target_duration(request))
 
     def map_request(self, request: RenderRequest) -> dict[str, Any]:
         """Map without mutating the approved prompt or adding unsupported fields."""
@@ -376,7 +379,8 @@ class RunwayProvider:
                 "target_width": request.width,
                 "target_height": request.height,
                 "target_frame_rate": request.frame_rate,
-                "duration_seconds": self._duration(request),
+                "duration_seconds": self._target_duration(request),
+                "provider_duration_seconds": self._duration(request),
                 "native_width": native_width,
                 "native_height": native_height,
             }
@@ -551,6 +555,7 @@ class RunwayProvider:
                 "-v",
                 "error",
                 "-show_streams",
+                "-show_format",
                 "-of",
                 "json",
                 str(asset),
@@ -587,10 +592,20 @@ class RunwayProvider:
             raise ProviderSubmissionError(
                 "Downloaded Runway asset has an invalid frame rate"
             ) from exc
+        raw_duration = value.get("format", {}).get("duration") or video.get(
+            "duration"
+        )
+        try:
+            duration = float(raw_duration or 0)
+        except (TypeError, ValueError) as exc:
+            raise ProviderSubmissionError(
+                "Downloaded Runway asset has an invalid duration"
+            ) from exc
         return {
             "width": int(video.get("width", 0)),
             "height": int(video.get("height", 0)),
             "frame_rate": rate,
+            "duration_seconds": duration,
             "has_audio": any(
                 stream.get("codec_type") == "audio" for stream in streams
             ),
@@ -603,10 +618,14 @@ class RunwayProvider:
         target_width = int(record["target_width"])
         target_height = int(record["target_height"])
         target_rate = int(record["target_frame_rate"])
+        target_duration = float(record["duration_seconds"])
+        duration_tolerance = max(0.05, 1 / target_rate)
         if (
             probe["width"] == target_width
             and probe["height"] == target_height
             and abs(probe["frame_rate"] - target_rate) < 0.01
+            and abs(probe["duration_seconds"] - target_duration)
+            <= duration_tolerance
             and probe["has_audio"]
         ):
             os.replace(source, destination)
@@ -634,7 +653,7 @@ class RunwayProvider:
                     "-f",
                     "lavfi",
                     "-i",
-                    f"anullsrc=r=48000:cl=stereo:d={record['duration_seconds']}",
+                    f"anullsrc=r=48000:cl=stereo:d={target_duration}",
                 ]
             )
         command.extend(
@@ -665,6 +684,8 @@ class RunwayProvider:
                 "2",
                 "-movflags",
                 "+faststart",
+                "-t",
+                f"{target_duration:.6f}",
             ]
         )
         if not probe["has_audio"]:
@@ -686,6 +707,8 @@ class RunwayProvider:
             normalized["width"] != target_width
             or normalized["height"] != target_height
             or abs(normalized["frame_rate"] - target_rate) >= 0.01
+            or abs(normalized["duration_seconds"] - target_duration)
+            > duration_tolerance
             or not normalized["has_audio"]
         ):
             temporary.unlink(missing_ok=True)

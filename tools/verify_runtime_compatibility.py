@@ -18,12 +18,15 @@ ALLOWED_RUNTIME_CHANGES = frozenset(
         ".github/workflows/execute.yml",
         ".github/workflows/plan.yml",
         "src/insynergy_cinematic/prompt.py",
+        "src/insynergy_cinematic/providers/runway.py",
         "src/insynergy_cinematic/rendering.py",
         "tests/test_prompt_transport.py",
         "tests/test_runtime_compatibility.py",
+        "tests/test_runway_provider.py",
         "tests/test_workflow_recovery.py",
         "tools/github_planning_source.py",
         "tools/recover_planning_evidence.py",
+        "tools/recover_runway_execution.py",
         "tools/verify_runtime_compatibility.py",
     }
 )
@@ -31,6 +34,7 @@ ALLOWED_STATUSES = frozenset({"A", "M"})
 REQUIRED_RUNTIME_CHANGES = {
     ".github/workflows/execute.yml": "M",
     "src/insynergy_cinematic/prompt.py": "M",
+    "src/insynergy_cinematic/providers/runway.py": "M",
     "src/insynergy_cinematic/rendering.py": "M",
 }
 
