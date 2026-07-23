@@ -21,6 +21,7 @@ ALLOWED_RUNTIME_CHANGES = frozenset(
         "src/insynergy_cinematic/providers/runway.py",
         "src/insynergy_cinematic/rendering.py",
         "tests/test_prompt_transport.py",
+        "tests/test_rendering.py",
         "tests/test_runtime_compatibility.py",
         "tests/test_runway_provider.py",
         "tests/test_workflow_recovery.py",

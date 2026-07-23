@@ -207,7 +207,7 @@ class WorkflowRecoveryTests(unittest.TestCase):
             self.assertEqual(result["recovered_jobs"], 1)
             self.assertTrue(target.is_file())
 
-    def test_runway_recovery_rejects_successful_run_or_unsafe_state(self) -> None:
+    def test_successful_execute_run_is_a_safe_recovery_source(self) -> None:
         repository = {"full_name": REPOSITORY}
         metadata = {
             "id": 1,
@@ -221,12 +221,15 @@ class WorkflowRecoveryTests(unittest.TestCase):
             "repository": repository,
             "head_repository": repository,
         }
-        with self.assertRaises(ValidationError):
-            inspect_execution_recovery(
-                metadata,
-                repository=REPOSITORY,
-                run_id="1",
-            )
+        inspection = inspect_execution_recovery(
+            metadata,
+            repository=REPOSITORY,
+            run_id="1",
+        )
+        self.assertEqual(inspection["artifact_name"], "validated-1")
+        self.assertEqual(inspection["conclusion"], "success")
+
+    def test_runway_recovery_rejects_unsafe_state(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source = root / "jobs.json"
@@ -258,6 +261,9 @@ class WorkflowRecoveryTests(unittest.TestCase):
         self.assertIn("tools/verify_runtime_compatibility.py", execute)
         self.assertIn("tools/recover_runway_execution.py", execute)
         self.assertIn("runway_recovery_run_id", execute)
+        self.assertIn("runway_fidelity_recovery", execute)
+        self.assertIn("INSYNERGY_RUNWAY_RECOVERY_SHOTS", execute)
+        self.assertIn("INSYNERGY_RUNWAY_STORYBOARD_REFERENCES", execute)
         self.assertIn("source-sha: ${{ steps.planning_source.outputs.source_sha }}", execute)
         self.assertIn("fetch-depth: 0", execute)
         self.assertNotIn("Checkout approved planning source", execute)
