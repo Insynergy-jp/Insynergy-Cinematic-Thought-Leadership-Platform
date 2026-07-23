@@ -51,9 +51,8 @@ def create_publish_package(
     package_dir.mkdir(parents=True, exist_ok=True)
     destination = package_dir / f"{manifest['build_id']}.zip"
     entries: list[tuple[Path, str]] = [(master_video, "media/master.mp4")]
-    captions = build_dir / "output" / "captions.en.srt"
-    if captions.is_file():
-        entries.append((captions, "media/captions.en.srt"))
+    for captions in sorted((build_dir / "output").glob("captions.*.srt")):
+        entries.append((captions, f"media/{captions.name}"))
     youtube_description = build_dir / "output" / "youtube-description.txt"
     if youtube_description.is_file():
         entries.append((youtube_description, "metadata/youtube-description.txt"))

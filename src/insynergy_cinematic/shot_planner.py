@@ -44,11 +44,31 @@ class ShotPlanner:
         if len(scenes) > len(SHOT_LANGUAGE):
             raise ValidationError("Shot language does not cover every screenplay scene")
         for order, scene in enumerate(scenes, start=1):
-            framing, lens, angle = SHOT_LANGUAGE[order - 1]
+            authored_design = scene.get("shot_design")
+            if authored_design is not None and not isinstance(authored_design, dict):
+                raise ValidationError("Authored shot design must be an object")
+            default_framing, default_lens, default_angle = SHOT_LANGUAGE[order - 1]
+            framing = (
+                str(authored_design["framing"])
+                if authored_design is not None
+                else default_framing
+            )
+            lens = (
+                str(authored_design["lens"])
+                if authored_design is not None
+                else default_lens
+            )
+            angle = (
+                str(authored_design["angle"])
+                if authored_design is not None
+                else default_angle
+            )
             shot_id = f"{scene['scene_id']}-shot-01"
             is_climax = scene["act"] == 3 and scene["purpose"] == "Force decision"
             is_title = scene["purpose"] == "Resolve conflict"
-            if is_title:
+            if authored_design is not None:
+                strategy = str(authored_design["render_strategy"])
+            elif is_title:
                 strategy = "title_card"
             elif is_climax:
                 strategy = "runway_video"
@@ -56,7 +76,26 @@ class ShotPlanner:
                 strategy = "animated_still"
             else:
                 strategy = "motion_graphics"
-            movement = "slow_push" if strategy == "runway_video" else "static"
+            movement = (
+                str(authored_design["movement"])
+                if authored_design is not None
+                else ("slow_push" if strategy == "runway_video" else "static")
+            )
+            speed = (
+                str(authored_design["speed"])
+                if authored_design is not None
+                else ("slow" if movement != "static" else "none")
+            )
+            screen_direction = (
+                str(authored_design["screen_direction"])
+                if authored_design is not None
+                else "left_to_right"
+            )
+            performance_note = (
+                str(authored_design["performance_note"])
+                if authored_design is not None
+                else "restrained, specific, no theatrical gesture"
+            )
             action = scene["actions"][0]
             dialogue_line = scene["dialogue"][0]
             dialogue = "SILENCE" if dialogue_line["silence"] else dialogue_line["text"]
@@ -73,13 +112,13 @@ class ShotPlanner:
                     "framing": framing,
                     "lens": lens,
                     "movement": movement,
-                    "speed": "slow" if movement != "static" else "none",
+                    "speed": speed,
                     "angle": angle,
                 },
                 "blocking": {
                     "primary_action": action,
-                    "screen_direction": "left_to_right",
-                    "performance_note": "restrained, specific, no theatrical gesture",
+                    "screen_direction": screen_direction,
+                    "performance_note": performance_note,
                 },
                 "dialogue_or_silence": dialogue,
                 "emotion": scene["emotion_end"],
@@ -91,11 +130,17 @@ class ShotPlanner:
                     "execution_capability": STRATEGY_CAPABILITIES[strategy],
                     "narrative_value": 1.0 if is_climax else 0.65,
                     "justification": (
-                        "climactic human decision warrants generative motion"
-                        if is_climax
-                        else "cheapest sufficient deterministic asset class"
+                        "approved authored scenario render assignment"
+                        if authored_design is not None
+                        else (
+                            "climactic human decision warrants generative motion"
+                            if is_climax
+                            else "cheapest sufficient deterministic asset class"
+                        )
                     ),
                 },
+                "ui_overlays": list(scene.get("ui_overlays", [])),
+                "sound_design": str(scene.get("sound_design", "")),
             }
             shots.append(shot)
             storyboard_frames.append(
@@ -103,27 +148,45 @@ class ShotPlanner:
                     "frame_id": f"frame-{order:03d}",
                     "shot_id": shot_id,
                     "scene_id": scene["scene_id"],
-                    "composition": f"{framing}, {angle}, subject follows {shot['blocking']['screen_direction']}",
+                    "composition": (
+                        str(authored_design["composition"])
+                        if authored_design is not None
+                        else f"{framing}, {angle}, subject follows {shot['blocking']['screen_direction']}"
+                    ),
                     "visible_action": action,
                     "camera": shot["camera"],
                     "characters": list(scene["characters"]),
                     "character_continuity": continuity_keys,
                     "location": scene["location"],
-                    "lighting": "low-key institutional practical lighting",
+                    "lighting": (
+                        str(authored_design["lighting"])
+                        if authored_design is not None
+                        else "low-key institutional practical lighting"
+                    ),
                     "emotion": scene["emotion_end"],
-                    "style": [
-                        "live-action institutional realism",
-                        "restrained cinematic contrast",
-                        "natural human performance",
-                    ],
-                    "forbidden_style": [
-                        "cartoon",
-                        "anime",
-                        "glossy corporate explainer",
-                        "speculative hologram interface",
-                    ],
+                    "style": (
+                        list(authored_design["style"])
+                        if authored_design is not None
+                        else [
+                            "live-action institutional realism",
+                            "restrained cinematic contrast",
+                            "natural human performance",
+                        ]
+                    ),
+                    "forbidden_style": (
+                        list(authored_design["forbidden_style"])
+                        if authored_design is not None
+                        else [
+                            "cartoon",
+                            "anime",
+                            "glossy corporate explainer",
+                            "speculative hologram interface",
+                        ]
+                    ),
                     "duration_seconds": duration,
                     "render_strategy": shot["render_strategy"],
+                    "ui_overlays": list(scene.get("ui_overlays", [])),
+                    "sound_design": str(scene.get("sound_design", "")),
                 }
             )
         runway_count = sum(
@@ -145,7 +208,11 @@ class ShotPlanner:
                     {"shot_id": shot["shot_id"], **shot["camera"]} for shot in shots
                 ],
                 "jump_cuts": False,
-                "camera_language": "restrained_institutional_cinema",
+                "camera_language": (
+                    "authored_creative_scenario"
+                    if screenplay.get("creative_scenario_hash")
+                    else "restrained_institutional_cinema"
+                ),
             },
             "blocking": {
                 "shots": [
@@ -157,7 +224,12 @@ class ShotPlanner:
                 "approved": False,
                 "frames": storyboard_frames,
                 "frame_count": len(storyboard_frames),
-                "source": "screenplay_only",
+                "source": (
+                    "screenplay_authored_creative_scenario"
+                    if screenplay.get("creative_scenario_hash")
+                    else "screenplay_only"
+                ),
+                "creative_scenario_hash": screenplay.get("creative_scenario_hash"),
             },
             "continuity_report": {
                 "character_identity_consistent": True,

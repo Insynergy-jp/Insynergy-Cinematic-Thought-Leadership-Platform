@@ -1,0 +1,6 @@
+{
+  "model": "lyria-3-clip-preview",
+  "prompt_file": "creative/full-auto-30s/audio/full-auto-lyria-prompt-v3-minimal.txt",
+  "prompt_sha256": "2820794bde04dbed78443f3508f7f2c0a2ea024ff49e159e9663b288879e7440",
+  "output_file": "creative/full-auto-30s/audio/full-auto-bgm-lyria-v3.mp3"
+}

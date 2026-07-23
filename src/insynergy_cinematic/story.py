@@ -19,7 +19,7 @@ from .models import Article
 from .util import atomic_write_json, content_hash, read_json
 
 
-STORY_ENGINE_VERSION = "3.3.0"
+STORY_ENGINE_VERSION = "3.4.0"
 CLAIM_CLASSES = ("Factual", "Structural", "Tension", "Consequence")
 STORY_ARC_STAGES = (
     "Normal World",
@@ -476,6 +476,21 @@ class PremiseGenerator:
 
 
 class LoglineGenerator:
+    @staticmethod
+    def _compact_goal(goal: str) -> str:
+        """Keep the dramatic action complete without copying a long Persona field verbatim."""
+
+        normalized = re.sub(r"\s+", " ", goal).strip(" .,:;-")
+        lowered = normalized.casefold()
+        if "decision boundary" in lowered:
+            return "define the Decision Boundary"
+        if "owner" in lowered and "decision" in lowered:
+            return "make decision ownership explicit"
+        first_clause = re.split(r"[,;:]", normalized, maxsplit=1)[0].strip()
+        if 1 <= len(first_clause.split()) <= 10:
+            return first_clause
+        return "make the required human decision"
+
     def generate(
         self,
         *,
@@ -485,10 +500,20 @@ class LoglineGenerator:
         measurable_stake: str,
     ) -> dict[str, Any]:
         incident = f"a routine institutional process exposes that {_trim(problem, 12).rstrip('.').lower()}"
+        protagonist_clause = protagonist.strip(" .,:;-")
+        goal_clause = self._compact_goal(goal)
+        fixed_words = len(
+            (
+                f"Facing evidence that the {protagonist_clause} must {goal_clause} "
+                "before the decision binds, or an unowned consequence becomes real."
+            ).split()
+        )
+        problem_word_budget = min(8, max(1, 50 - fixed_words))
+        problem_clause = _trim(problem, problem_word_budget).rstrip(".").lower()
         logline = (
-            f"Facing evidence that {_trim(problem, 12).rstrip('.').lower()}, the {protagonist} "
-            f"must {goal} before the decision becomes binding, or an unowned institutional "
-            "consequence becomes real."
+            f"Facing evidence that {problem_clause}, the {protagonist_clause} "
+            f"must {goal_clause} before the decision binds, or an unowned consequence "
+            "becomes real."
         )
         if len(logline.split()) > 50:
             raise ValidationError("Logline exceeds the 50-word limit")
@@ -1150,7 +1175,10 @@ class StoryEngine:
         )
 
     def _cache_identity(
-        self, article: Article, persona_lineage: dict[str, Any] | None
+        self,
+        article: Article,
+        persona_lineage: dict[str, Any] | None,
+        creative_scenario: dict[str, Any] | None,
     ) -> tuple[str, str]:
         article_hash = self.article_hash(article)
         return article_hash, content_hash(
@@ -1170,6 +1198,11 @@ class StoryEngine:
                     if persona_lineage is not None
                     else None
                 ),
+                "creative_scenario_hash": (
+                    creative_scenario["content_hash"]
+                    if creative_scenario is not None
+                    else None
+                ),
             }
         )
 
@@ -1178,6 +1211,7 @@ class StoryEngine:
         article: Article,
         *,
         persona_context: dict[str, Any] | None = None,
+        creative_scenario: dict[str, Any] | None = None,
     ) -> dict[str, dict[str, Any]]:
         raw_persona: dict[str, Any] | None = None
         persona_lineage: dict[str, Any] | None = None
@@ -1190,7 +1224,30 @@ class StoryEngine:
             )
         elif persona_context is not None:
             raise ValidationError("Persona inputs are forbidden when Story persona mode is off")
-        article_hash, cache_key = self._cache_identity(article, persona_lineage)
+        if creative_scenario is not None:
+            if self.config.persona_mode != "council" or persona_context is None:
+                raise ValidationError(
+                    "Authored Creative Scenario is accepted only in approved council mode"
+                )
+            scenario_hash = creative_scenario.get("content_hash")
+            if scenario_hash != content_hash(
+                {
+                    key: value
+                    for key, value in creative_scenario.items()
+                    if key != "content_hash"
+                }
+            ):
+                raise ValidationError("Creative Scenario failed its content integrity check")
+            if (
+                creative_scenario.get("source", {}).get("creative_brief_hash")
+                != persona_context["creative_brief_hash"]
+            ):
+                raise ValidationError(
+                    "Creative Scenario is not bound to the approved Creative Brief"
+                )
+        article_hash, cache_key = self._cache_identity(
+            article, persona_lineage, creative_scenario
+        )
         if self.cache is not None:
             cached = self.cache.get(cache_key)
             self.last_cache_corrupt = self.cache.last_corrupt
@@ -1206,7 +1263,7 @@ class StoryEngine:
             _field_value(raw_persona or {}, "role", "")
             if raw_persona is not None
             else self._protagonist(article)
-        )
+        ).rstrip(" .")
         goal = (
             _field_value(
                 raw_persona or {},
@@ -1289,14 +1346,29 @@ class StoryEngine:
             "emotional_arc": emotional_arc,
             "concept_placement": concept_placement,
         }
+        if creative_scenario is not None:
+            artifacts["creative_scenario"] = deepcopy(creative_scenario)
         story_metrics = self.metrics.calculate(artifacts)
         artifacts["story_metrics"] = story_metrics
         persona_valid = self.config.persona_mode == "off" or persona_lineage is not None
         quality_report = self.quality.evaluate(
             artifacts, story_metrics, self.config, persona_valid
         )
+        if creative_scenario is not None:
+            quality_report["checks"]["creative_scenario_approval_binding_valid"] = True
+            quality_report["score"] = sum(quality_report["checks"].values()) / len(
+                quality_report["checks"]
+            )
         artifacts["story_quality_report"] = quality_report
         artifacts["story_config"] = self.config.artifact(cache_key)
+        artifacts["story_config"]["creative_scenario_mode"] = (
+            "authored" if creative_scenario is not None else "off"
+        )
+        artifacts["story_config"]["creative_scenario_hash"] = (
+            creative_scenario["content_hash"]
+            if creative_scenario is not None
+            else None
+        )
         artifacts["story_decision_log"] = self._decision_log(
             argument_map, theme, protagonist_name, solution, article_hash
         )

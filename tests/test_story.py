@@ -13,6 +13,7 @@ from insynergy_cinematic.story import (
     EMOTIONAL_STATES,
     STORY_ARC_STAGES,
     ArgumentExtractor,
+    LoglineGenerator,
     StoryCache,
     StoryConfig,
     StoryEngine,
@@ -359,6 +360,29 @@ class StoryEngineTests(unittest.TestCase):
         self.assertLessEqual(len(logline.split()), 50)
         self.assertTrue(logline.endswith("becomes real."))
         self.assertNotIn("will accept a.", logline)
+
+    def test_logline_compacts_long_persona_goal_at_a_semantic_boundary(self) -> None:
+        protagonist = (
+            "Engineering or product leader who authorizes autonomous AI-agent use and "
+            "is accountable for its operational boundaries."
+        )
+        goal = (
+            "Define a Decision Boundary before autonomous execution, including spending "
+            "limits, approval events, escalation ownership, and stop-versus-retry conditions."
+        )
+
+        artifact = LoglineGenerator().generate(
+            protagonist=protagonist,
+            problem="The central failure is not model accuracy.",
+            goal=goal,
+            measurable_stake="$744 of unattended usage by morning.",
+        )
+
+        self.assertLessEqual(artifact["word_count"], 50)
+        self.assertIn(protagonist.rstrip("."), artifact["logline"])
+        self.assertIn("define the Decision Boundary", artifact["logline"])
+        self.assertNotIn(". must", artifact["logline"])
+        self.assertEqual(artifact["goal"], goal)
 
 
 if __name__ == "__main__":

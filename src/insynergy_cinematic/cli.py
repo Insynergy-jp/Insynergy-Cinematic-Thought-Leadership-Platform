@@ -55,6 +55,11 @@ def _parser() -> argparse.ArgumentParser:
     plan = sub.add_parser("plan", help="Generate and gate all planning artifacts")
     plan.add_argument("article", type=Path)
     plan.add_argument("--creative-brief", type=Path)
+    plan.add_argument(
+        "--retry-failed-planning",
+        action="store_true",
+        help="Explicitly retry a previously failed planning stage without discarding approvals",
+    )
 
     review = sub.add_parser(
         "agent-review",
@@ -329,7 +334,9 @@ def main(argv: list[str] | None = None) -> int:
             result = part9_coverage_report()
         elif args.command == "plan":
             result = orchestrator.plan(
-                args.article, creative_brief_path=args.creative_brief
+                args.article,
+                creative_brief_path=args.creative_brief,
+                retry_failed_planning=args.retry_failed_planning,
             )
         elif args.command == "build":
             result = orchestrator.build(
