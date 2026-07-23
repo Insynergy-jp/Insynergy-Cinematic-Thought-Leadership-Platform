@@ -76,7 +76,7 @@ class FakePreviewProvider:
                         f"{shot['camera']['lens']} {shot['camera']['movement']}"
                     ),
                     "narration": (
-                        "Intentional silence."
+                        "[SILENCE]"
                         if shot["dialogue_or_silence"] == "SILENCE"
                         else shot["dialogue_or_silence"]
                     ),

@@ -88,8 +88,11 @@ class OpenAIPreviewProvider:
                     "content": (
                         "Create a production-review previsualization plan. Preserve every sealed "
                         "scene_id, shot_id, order, and duration exactly. Make scene composition, "
-                        "direction, camera work, narration, tempo, image prompt, and future video "
-                        "prompt explicit. Do not claim to generate MP4 and do not contact Runway."
+                        "direction, camera work, tempo, image prompt, and future video prompt "
+                        "explicit. The narration field is a sealed audio transcript: copy "
+                        "dialogue_or_silence exactly, using [SILENCE] when its value is "
+                        "SILENCE. Never invent voice-over. Do not claim to generate MP4 and do "
+                        "not contact Runway."
                     ),
                 },
                 {

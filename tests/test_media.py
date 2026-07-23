@@ -17,6 +17,7 @@ from insynergy_cinematic.errors import ValidationError
 from insynergy_cinematic.media import (
     AssetValidator,
     OpenAITTSNarrator,
+    SoundtrackMixer,
     YouTubeMastering,
     write_srt,
 )
@@ -146,6 +147,50 @@ class ProductionMediaTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             OpenAITTSNarrator(api_key="", instructions="Calm narration.")
 
+    def test_soundtrack_mix_is_hash_bound_and_trimmed_to_master(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            master = root / "master.mp4"
+            soundtrack = root / "soundtrack.mp3"
+            self._source(master, duration=3.0)
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-y",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "sine=frequency=330:sample_rate=48000:duration=4",
+                    str(soundtrack),
+                ],
+                check=True,
+            )
+            from insynergy_cinematic.util import file_hash
+
+            soundtrack_hash = file_hash(soundtrack)
+            result = SoundtrackMixer().mix(
+                master,
+                soundtrack,
+                duration_seconds=3.0,
+                gain_db=-20.0,
+                expected_hash=soundtrack_hash,
+            )
+
+            validation = AssetValidator().validate(
+                master,
+                width=320,
+                height=180,
+                frame_rate=24,
+                duration_seconds=3.0,
+                require_audio=True,
+            )
+            self.assertTrue(validation["audio_non_silent"])
+            self.assertEqual(result["soundtrack_hash"], soundtrack_hash)
+            self.assertEqual(result["soundtrack_duration_seconds"], 3.0)
+
     def test_youtube_mastering_and_delivery_gate(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             master = Path(temporary) / "master.mp4"
@@ -188,6 +233,27 @@ class ProductionMediaTests(unittest.TestCase):
             self.assertIn("00:00:00,650 --> 00:00:09,650", contents)
             self.assertIn("Authority requires an owner.", contents)
             self.assertEqual(result["caption_language"], "en")
+
+    def test_srt_preserves_japanese_dialogue_language(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            destination = Path(temporary) / "captions.ja.srt"
+            result = write_srt(
+                destination,
+                [
+                    {
+                        "start_seconds": 0.65,
+                        "end_seconds": 2.65,
+                        "text": "朝には終わってるだろ。",
+                    }
+                ],
+                duration_seconds=3.0,
+                language="ja",
+            )
+
+            self.assertIn(
+                "朝には終わってるだろ。", destination.read_text(encoding="utf-8")
+            )
+            self.assertEqual(result["caption_language"], "ja")
 
     def test_final_build_packages_production_narration_and_youtube_assets(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

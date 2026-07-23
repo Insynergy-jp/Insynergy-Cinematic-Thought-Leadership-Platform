@@ -13,11 +13,12 @@ from pathlib import Path
 import re
 from typing import Any
 
+from .creative_scenario import AUTHORED_SCENE_DURATION_MIN
 from .errors import QualityGateError, StateConflictError, ValidationError
 from .util import atomic_write_json, content_hash, read_json
 
 
-SCREENPLAY_ENGINE_VERSION = "3.3.0"
+SCREENPLAY_ENGINE_VERSION = "3.4.0"
 ALLOWED_PURPOSES = frozenset(
     {
         "Introduce protagonist",
@@ -342,8 +343,14 @@ class ScreenplayQualityGate:
         continuity: dict[str, Any],
         config: ScreenplayConfig,
         persona_lineage: dict[str, Any] | None,
+        creative_scenario: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         dialogue_lines = [line for scene in scenes for line in scene["dialogue"]]
+        duration_minimum = (
+            AUTHORED_SCENE_DURATION_MIN
+            if creative_scenario is not None
+            else float(config.scene_duration_min)
+        )
         checks = {
             "scene_count_in_range": config.scene_count_min
             <= len(scenes)
@@ -381,9 +388,9 @@ class ScreenplayQualityGate:
             ),
             "silence_represented": any(line["silence"] for line in dialogue_lines),
             "duration_within_bounds": all(
-                config.scene_duration_min
-                <= int(scene["duration_seconds"])
-                <= config.scene_duration_max
+                duration_minimum
+                <= float(scene["duration_seconds"])
+                <= float(config.scene_duration_max)
                 for scene in scenes
             ),
             "cinematic_transitions_only": all(
@@ -405,6 +412,30 @@ class ScreenplayQualityGate:
                 for scene in scenes
             ),
         }
+        if creative_scenario is not None:
+            checks.update(
+                {
+                    "authored_scenario_hash_preserved": creative_scenario.get(
+                        "content_hash"
+                    )
+                    == content_hash(
+                        {
+                            key: value
+                            for key, value in creative_scenario.items()
+                            if key != "content_hash"
+                        }
+                    ),
+                    "authored_scenario_timing_exact": abs(
+                        sum(float(scene["duration_seconds"]) for scene in scenes)
+                        - float(creative_scenario["duration_seconds"])
+                    )
+                    <= 0.001,
+                    "authored_scenario_scene_identity_preserved": [
+                        scene["scene_id"] for scene in scenes
+                    ]
+                    == [scene["scene_id"] for scene in creative_scenario["scenes"]],
+                }
+            )
         score = sum(checks.values()) / len(checks)
         return {
             "gate_id": "screenplay_quality_gate",
@@ -629,6 +660,83 @@ class SceneGenerator:
         return scenes
 
 
+class AuthoredSceneGenerator:
+    """Maps an approved Creative Scenario into canonical Screenplay scenes."""
+
+    def generate(
+        self,
+        *,
+        scenario: dict[str, Any],
+        protagonist: dict[str, Any],
+        counterpart: dict[str, Any],
+        persona_lineage: dict[str, Any] | None,
+    ) -> list[dict[str, Any]]:
+        role_map = {
+            "protagonist": protagonist,
+            "counterforce": counterpart,
+        }
+        scenes: list[dict[str, Any]] = []
+        for order, authored in enumerate(scenario["scenes"], start=1):
+            characters = [
+                role_map[role]["character_id"] for role in authored["characters"]
+            ]
+            objectives = {
+                role_map[role]["character_id"]: role_map[role]["objective"]
+                for role in authored["characters"]
+            }
+            speaker = role_map[authored["dialogue"]["speaker"]]["character_id"]
+            heading = deepcopy(authored["heading"])
+            scene = {
+                "scene_id": authored["scene_id"],
+                "order": order,
+                "act": authored["act"],
+                "title": authored["title"],
+                "heading": heading,
+                "slugline": (
+                    f"{heading['interior_exterior']}. {heading['location'].upper()}"
+                    f" - {heading['time'].upper()}"
+                ),
+                "purpose": authored["purpose"],
+                "dramatic_purpose": authored["purpose"],
+                "characters": characters,
+                "objective": objectives,
+                "character_objectives": objectives,
+                "conflict": authored["conflict"],
+                "dominant_conflict": authored["conflict"],
+                "actions": [authored["action"]],
+                "dialogue": [
+                    {
+                        "character": speaker,
+                        "text": authored["dialogue"]["text"],
+                        "category": authored["dialogue"]["category"],
+                        "silence": authored["dialogue"]["silence"],
+                    }
+                ],
+                "visual_subtext": authored["title"],
+                "subtext": authored["title"],
+                "duration_seconds": authored["duration_seconds"],
+                "transition": authored["transition"],
+                "concepts": deepcopy(authored["concepts"]),
+                "emotion_start": authored["emotion_start"],
+                "emotion_end": authored["emotion_end"],
+                "countdown_seconds": authored["countdown_seconds"],
+                "props": deepcopy(authored["props"]),
+                "location": heading["location"],
+                "time_of_day": heading["time"],
+                "shot_design": deepcopy(authored["shot"]),
+                "ui_overlays": deepcopy(authored["ui_overlays"]),
+                "sound_design": authored["sound"],
+                "creative_scenario_hash": scenario["content_hash"],
+            }
+            if persona_lineage is not None:
+                scene["persona_id"] = persona_lineage["persona_id"]
+                scene["assumption_lineage"] = list(
+                    persona_lineage.get("assumption_lineage", [])
+                )
+            scenes.append(scene)
+        return scenes
+
+
 class ScreenplayEngine:
     REQUIRED_INPUTS = {
         "dramatic_premise",
@@ -651,6 +759,7 @@ class ScreenplayEngine:
         self.cache = cache
         self.last_cache_hit = False
         self.scenes = SceneGenerator()
+        self.authored_scenes = AuthoredSceneGenerator()
         self.dialogue = DialogueGenerator()
         self.continuity = ContinuityValidator()
         self.exporter = ScreenplayExporter()
@@ -681,6 +790,7 @@ class ScreenplayEngine:
         story_hash = content_hash(
             {name: story[name] for name in sorted(self.REQUIRED_INPUTS)}
             | ({"persona_lineage": story["persona_lineage"]} if "persona_lineage" in story else {})
+            | ({"creative_scenario": story["creative_scenario"]} if "creative_scenario" in story else {})
         )
         return story_hash, content_hash(
             {
@@ -715,14 +825,23 @@ class ScreenplayEngine:
             if value["role"] == "counterforce"
         )
         persona_lineage = self._persona_lineage(story)
-        scenes = self.scenes.generate(
-            protagonist=protagonist,
-            counterpart=counterpart,
-            concept=story["concept_placement"]["concept"],
-            question=story["dramatic_question"]["dramatic_question"],
-            persona_lineage=persona_lineage,
-            duration=self.config.scene_duration_min,
-        )
+        creative_scenario = story.get("creative_scenario")
+        if creative_scenario is not None:
+            scenes = self.authored_scenes.generate(
+                scenario=creative_scenario,
+                protagonist=protagonist,
+                counterpart=counterpart,
+                persona_lineage=persona_lineage,
+            )
+        else:
+            scenes = self.scenes.generate(
+                protagonist=protagonist,
+                counterpart=counterpart,
+                concept=story["concept_placement"]["concept"],
+                question=story["dramatic_question"]["dramatic_question"],
+                persona_lineage=persona_lineage,
+                duration=self.config.scene_duration_min,
+            )
         lifecycle = self.state.transition(lifecycle, "Generated")
         lifecycle = self.state.transition(lifecycle, "Validating")
         dialogue_lines = self.dialogue.validate(scenes, self.config)
@@ -730,25 +849,39 @@ class ScreenplayEngine:
             scenes, story["character_bible"], persona_lineage
         )
         report = self.quality.evaluate(
-            scenes, continuity, self.config, persona_lineage
+            scenes,
+            continuity,
+            self.config,
+            persona_lineage,
+            creative_scenario,
         )
         if not report["passed"]:
             raise QualityGateError("Screenplay Quality Gate failed", details=report)
         lifecycle = self.state.transition(lifecycle, "Validated")
         lifecycle = self.state.transition(lifecycle, "AwaitingApproval")
         screenplay = {
-            "title": "The Empty Approval Field",
+            "title": (
+                creative_scenario["title"]
+                if creative_scenario is not None
+                else "The Empty Approval Field"
+            ),
             "format": "cinematic_thought_leadership_short",
             "duration_seconds": sum(scene["duration_seconds"] for scene in scenes),
             "act_count": 3,
             "scene_count": len(scenes),
             "scenes": scenes,
-            "source_contract": "story_artifacts_only",
+            "source_contract": (
+                "story_artifacts_only:authored_creative_scenario"
+                if creative_scenario is not None
+                else "story_artifacts_only"
+            ),
             "story_hash": story_hash,
             "engine_version": SCREENPLAY_ENGINE_VERSION,
         }
         if persona_lineage is not None:
             screenplay["persona_lineage"] = persona_lineage
+        if creative_scenario is not None:
+            screenplay["creative_scenario_hash"] = creative_scenario["content_hash"]
         action_words = sum(
             len(action.split()) for scene in scenes for action in scene["actions"]
         )
@@ -787,13 +920,59 @@ class ScreenplayEngine:
         dialogue_artifact: dict[str, Any] = {"lines": dialogue_lines}
         if persona_lineage is not None:
             dialogue_artifact["persona_lineage"] = deepcopy(persona_lineage)
+        screenplay_config = self.config.artifact(cache_key)
+        screenplay_config.update(
+            {
+                "active_generation_contract": (
+                    "authored_creative_scenario/1"
+                    if creative_scenario is not None
+                    else "canonical_deterministic/1"
+                ),
+                "active_scene_duration_min": (
+                    AUTHORED_SCENE_DURATION_MIN
+                    if creative_scenario is not None
+                    else self.config.scene_duration_min
+                ),
+                "creative_scenario_hash": (
+                    creative_scenario["content_hash"]
+                    if creative_scenario is not None
+                    else None
+                ),
+            }
+        )
+        if creative_scenario is not None:
+            narration_segments = [
+                {"scene_id": line["scene_id"], "text": line["text"]}
+                for line in dialogue_lines
+                if not line["silence"]
+            ]
+            narration_language = creative_scenario["language"]
+        else:
+            narration_segments = [
+                {"scene_id": scene["scene_id"], "text": text}
+                for scene, text in zip(
+                    scenes,
+                    (
+                        "A consequential approval is already moving.",
+                        "Its authority has no named owner.",
+                        "The deadline makes delay visible.",
+                        "The decision boundary remains hidden.",
+                        "Silence exposes the inherited ambiguity.",
+                        "One human stops the process.",
+                        "Authority is accepted on the record.",
+                        "Recommendation is not authorization.",
+                    ),
+                    strict=True,
+                )
+            ]
+            narration_language = "en"
         artifacts: dict[str, dict[str, Any]] = {
             "screenplay": screenplay,
             "scene_index": scene_index,
             "dialogue": dialogue_artifact,
             "continuity": continuity,
             "screenplay_metrics": metrics,
-            "screenplay_config": self.config.artifact(cache_key),
+            "screenplay_config": screenplay_config,
             "screenplay_state": {
                 "state": lifecycle,
                 "scene_states": [
@@ -810,29 +989,15 @@ class ScreenplayEngine:
                 "approval_state": lifecycle,
             },
             "narration_script": {
-                "language": "en",
-                "segments": [
-                    {
-                        "scene_id": scene["scene_id"],
-                        "text": text,
-                    }
-                    for scene, text in zip(
-                        scenes,
-                        (
-                            "A consequential approval is already moving.",
-                            "Its authority has no named owner.",
-                            "The deadline makes delay visible.",
-                            "The decision boundary remains hidden.",
-                            "Silence exposes the inherited ambiguity.",
-                            "One human stops the process.",
-                            "Authority is accepted on the record.",
-                            "Recommendation is not authorization.",
-                        ),
-                        strict=True,
-                    )
-                ],
+                "language": narration_language,
+                "segments": narration_segments,
                 "throughline": True,
                 "final_audio_required": True,
+                "delivery": (
+                    "character_dialogue"
+                    if creative_scenario is not None
+                    else "narration"
+                ),
             },
         }
         if self.cache is not None:

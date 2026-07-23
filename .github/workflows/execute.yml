@@ -11,6 +11,11 @@ on:
         description: Build ID shown by the planning workflow
         required: true
         type: string
+      config_path:
+        description: Optional repository-relative production configuration used during planning
+        required: false
+        default: ""
+        type: string
       profile:
         description: Must match the planning profile
         required: true
@@ -85,12 +90,17 @@ jobs:
           BUILD_ID: ${{ inputs.build_id }}
           ALLOW_AGENT_EXCEPTION: ${{ inputs.allow_agent_exception }}
           AGENT_EXCEPTION_REASON: ${{ inputs.agent_exception_reason }}
+          CONFIG_PATH: ${{ inputs.config_path }}
         run: |
           set -euo pipefail
           case "$SOURCE_RUN_ID" in *[!0-9]*|'') echo "planning_run_id must be numeric" >&2; exit 2 ;; esac
           case "$BUILD_ID" in [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9]) ;; *) echo "invalid build_id" >&2; exit 2 ;; esac
           if [ "$ALLOW_AGENT_EXCEPTION" = "true" ]; then
             test -n "$AGENT_EXCEPTION_REASON" || { echo "agent_exception_reason is required" >&2; exit 2; }
+          fi
+          if test -n "$CONFIG_PATH"; then
+            case "$CONFIG_PATH" in /*|*..*) echo "config_path must be repository-relative and contain no .." >&2; exit 2 ;; esac
+            test -f "$CONFIG_PATH"
           fi
       - name: Download planning bundle
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
@@ -155,22 +165,28 @@ jobs:
           ALLOW_AGENT_EXCEPTION: ${{ inputs.allow_agent_exception }}
           AGENT_EXCEPTION_REASON: ${{ inputs.agent_exception_reason }}
           PRE_RENDER_PREVIEW_MODE: ${{ inputs.pre_render_preview_mode }}
+          CONFIG_PATH: ${{ inputs.config_path }}
         run: |
           set -euo pipefail
+          CONFIG_ARGUMENTS=()
+          test -z "$CONFIG_PATH" || CONFIG_ARGUMENTS=(--config "$CONFIG_PATH")
           if [ "$ALLOW_AGENT_EXCEPTION" = "true" ]; then
-            PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" approve "$BUILD_ID" --gate execution --actor "$APPROVER" --allow-agent-exception --agent-exception-reason "$AGENT_EXCEPTION_REASON"
+            PYTHONPATH=src python3 -m insynergy_cinematic "${CONFIG_ARGUMENTS[@]}" --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" approve "$BUILD_ID" --gate execution --actor "$APPROVER" --allow-agent-exception --agent-exception-reason "$AGENT_EXCEPTION_REASON"
           else
-            PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" approve "$BUILD_ID" --gate execution --actor "$APPROVER"
+            PYTHONPATH=src python3 -m insynergy_cinematic "${CONFIG_ARGUMENTS[@]}" --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" approve "$BUILD_ID" --gate execution --actor "$APPROVER"
           fi
-          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" execute "$BUILD_ID" > execution-result.json
+          PYTHONPATH=src python3 -m insynergy_cinematic "${CONFIG_ARGUMENTS[@]}" --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" execute "$BUILD_ID" > execution-result.json
           python3 -c 'import json; value=json.load(open("execution-result.json")); assert value["state"] == "READY"'
       - name: Verify runtime and quality evidence
         env:
           BUILD_ID: ${{ inputs.build_id }}
           BUILD_PROFILE: ${{ inputs.profile }}
+          CONFIG_PATH: ${{ inputs.config_path }}
         run: |
           set -euo pipefail
-          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" verify "$BUILD_ID" > verification-result.json
+          CONFIG_ARGUMENTS=()
+          test -z "$CONFIG_PATH" || CONFIG_ARGUMENTS=(--config "$CONFIG_PATH")
+          PYTHONPATH=src python3 -m insynergy_cinematic "${CONFIG_ARGUMENTS[@]}" --profile "$BUILD_PROFILE" verify "$BUILD_ID" > verification-result.json
           python3 -c 'import json; value=json.load(open("verification-result.json")); assert value["passed"] is True; assert value["quality_integrity"] is True'
       - name: Seal validated execution handoff
         uses: ./.github/actions/workflow-evidence

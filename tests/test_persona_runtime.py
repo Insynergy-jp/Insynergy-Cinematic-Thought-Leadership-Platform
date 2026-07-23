@@ -2,6 +2,7 @@ from copy import deepcopy
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
+from typing import get_args
 import tempfile
 import time
 import unittest
@@ -17,7 +18,11 @@ from insynergy_cinematic.persona import (
     PersonaCouncilService,
     deliberation_key,
 )
-from insynergy_cinematic.providers.openai_persona import OpenAIAgentsPersonaProvider
+from insynergy_cinematic.providers.openai_persona import (
+    OpenAIAgentsPersonaProvider,
+    _normalize_council_output,
+    _output_types,
+)
 from insynergy_cinematic.util import atomic_write_json, content_hash, read_json
 
 
@@ -429,6 +434,53 @@ class PersonaRuntimeTests(unittest.TestCase):
         with self.assertRaises(PersonaCouncilError) as raised:
             provider.deliberate(self._request("20260722-104"))
         self.assertEqual(raised.exception.error_class, "AUTHENTICATION")
+
+    def test_quality_failure_reports_structured_failed_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            provider = FakePersonaProvider()
+            provider.mutate = lambda output: output.update({"story_usability": 0.5})
+            service = PersonaCouncilService(
+                provider=provider,
+                cache=PersonaCouncilCache(Path(temporary) / "cache"),
+                max_input_bytes=524_288,
+                preflight_estimated_cost_usd=1.0,
+                max_cost_usd=5.0,
+            )
+            with self.assertRaises(PersonaCouncilError) as raised:
+                service.run(self._request("20260722-105"))
+            self.assertEqual(raised.exception.error_class, "QUALITY")
+            self.assertEqual(
+                raised.exception.details["failed_checks"], ["story_usability"]
+            )
+            self.assertEqual(
+                raised.exception.details["findings"][0]["code"],
+                "PQ-STORY_USABILITY",
+            )
+            self.assertNotIn("persona", raised.exception.details)
+
+    def test_live_output_contract_has_one_fixed_slot_per_proposal_role(self) -> None:
+        council_output = _output_types()["CouncilOutput"]
+        proposal_set = council_output.model_fields["proposals"].annotation
+        self.assertEqual(set(proposal_set.model_fields), set(COUNCIL_ROLES[:3]))
+        for role in COUNCIL_ROLES[:3]:
+            proposal = proposal_set.model_fields[role].annotation
+            self.assertEqual(get_args(proposal.model_fields["role"].annotation), (role,))
+
+        payload = {
+            "proposals": {
+                role: {"role": role}
+                for role in COUNCIL_ROLES[:3]
+            }
+        }
+        normalized = _normalize_council_output(payload)
+        self.assertEqual(
+            [proposal["role"] for proposal in normalized["proposals"]],
+            list(COUNCIL_ROLES[:3]),
+        )
+        with self.assertRaises(PersonaCouncilError):
+            _normalize_council_output(
+                {"proposals": {"audience_researcher": {"role": "audience_researcher"}}}
+            )
 
     def test_rejection_creates_no_binding_and_artifact_tamper_blocks_story(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

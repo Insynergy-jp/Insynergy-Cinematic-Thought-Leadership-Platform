@@ -644,6 +644,91 @@ class OpenAITTSNarrator(_NarrationMixer):
         }
 
 
+class SoundtrackMixer:
+    """Mix an approval-bound soundtrack beneath dialogue and trim it to the Master."""
+
+    def __init__(self, ffmpeg_binary: str = "ffmpeg") -> None:
+        self.ffmpeg_binary = ffmpeg_binary
+
+    def mix(
+        self,
+        master: Path,
+        soundtrack: Path,
+        *,
+        duration_seconds: float,
+        gain_db: float,
+        expected_hash: str,
+    ) -> dict[str, Any]:
+        if not shutil.which(self.ffmpeg_binary):
+            raise ValidationError("ffmpeg is required for soundtrack mixing")
+        if not soundtrack.is_file() or file_hash(soundtrack) != expected_hash:
+            raise ValidationError("Soundtrack integrity check failed")
+        if not -36.0 <= gain_db <= -6.0:
+            raise ValidationError("Soundtrack gain is out of range")
+        fade_duration = min(0.4, max(0.1, duration_seconds / 10))
+        fade_start = max(0.0, duration_seconds - 0.8)
+        soundtrack_end = max(fade_start + fade_duration, duration_seconds - 0.4)
+        temporary_master = master.with_suffix(".soundtrack.mp4")
+        temporary_master.unlink(missing_ok=True)
+        filters = (
+            f"[1:a]aresample=48000,aformat=channel_layouts=stereo,"
+            f"atrim=duration={soundtrack_end},volume={gain_db}dB,"
+            f"afade=t=out:st={fade_start}:d={fade_duration},"
+            f"apad,atrim=duration={duration_seconds}[soundtrack];"
+            f"[0:a][soundtrack]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,"
+            f"alimiter=limit=0.891251,apad,atrim=duration={duration_seconds}[mixed]"
+        )
+        command = [
+            self.ffmpeg_binary,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-i",
+            str(master),
+            "-stream_loop",
+            "-1",
+            "-i",
+            str(soundtrack),
+            "-filter_complex",
+            filters,
+            "-map",
+            "0:v:0",
+            "-map",
+            "[mixed]",
+            "-c:v",
+            "copy",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "384k",
+            "-ar",
+            "48000",
+            "-ac",
+            "2",
+            "-movflags",
+            "+faststart",
+            "-t",
+            str(duration_seconds),
+            str(temporary_master),
+        ]
+        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+        if completed.returncode:
+            temporary_master.unlink(missing_ok=True)
+            raise ValidationError(
+                "Soundtrack mix failed", details={"stderr": completed.stderr[-2000:]}
+            )
+        os.replace(temporary_master, master)
+        return {
+            "asset_hash": file_hash(master),
+            "soundtrack_uri": str(soundtrack.resolve()),
+            "soundtrack_hash": expected_hash,
+            "soundtrack_gain_db": gain_db,
+            "soundtrack_duration_seconds": duration_seconds,
+            "soundtrack_final_silence_seconds": 0.4,
+        }
+
+
 class YouTubeMastering:
     """Encode a final SDR master using YouTube's recommended delivery characteristics."""
 
@@ -834,7 +919,11 @@ def write_srt(
     timeline: list[dict[str, Any]],
     *,
     duration_seconds: float,
+    language: str = "en",
 ) -> dict[str, Any]:
+    normalized_language = language.strip().casefold()
+    if normalized_language not in {"en", "ja"}:
+        raise ValidationError("Caption language is not supported")
     blocks: list[str] = []
     for index, segment in enumerate(timeline, start=1):
         start = max(0.0, float(segment["start_seconds"]))
@@ -850,6 +939,6 @@ def write_srt(
         "caption_uri": str(destination.resolve()),
         "caption_hash": file_hash(destination),
         "caption_format": "srt",
-        "caption_language": "en",
+        "caption_language": normalized_language,
         "caption_segment_count": len(timeline),
     }

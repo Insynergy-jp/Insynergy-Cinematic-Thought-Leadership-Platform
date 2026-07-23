@@ -123,7 +123,6 @@ def validate_provider_plan(
             "scene_composition",
             "direction",
             "camera_work",
-            "narration",
             "tempo",
             "image_prompt",
             "video_prompt",
@@ -134,6 +133,17 @@ def validate_provider_plan(
                 or len(scene[field]) > 20_000
             ):
                 raise ValidationError(f"GPT previsualization scene is missing {field}")
+        if not isinstance(scene["narration"], str) or len(scene["narration"]) > 20_000:
+            raise ValidationError("GPT previsualization narration must be a bounded string")
+        expected_audio = (
+            "[SILENCE]"
+            if shot["dialogue_or_silence"] == "SILENCE"
+            else str(shot["dialogue_or_silence"])
+        )
+        if scene["narration"] != expected_audio:
+            raise ValidationError(
+                "GPT previsualization plan changed sealed dialogue or silence"
+            )
         if (
             not isinstance(scene["risk_flags"], list)
             or len(scene["risk_flags"]) > 32
@@ -782,11 +792,15 @@ class PrevisualizationService:
 
         cursor = 0.0
         blocks = []
-        for index, scene in enumerate(scenes, start=1):
+        subtitle_index = 1
+        for scene in scenes:
             end = cursor + float(scene["duration_seconds"])
-            blocks.append(
-                f"{index}\n{timestamp(cursor)} --> {timestamp(end)}\n{scene['narration']}\n"
-            )
+            if scene["narration"].strip() != "[SILENCE]":
+                blocks.append(
+                    f"{subtitle_index}\n{timestamp(cursor)} --> {timestamp(end)}\n"
+                    f"{scene['narration']}\n"
+                )
+                subtitle_index += 1
             cursor = end
         return "\n".join(blocks)
 

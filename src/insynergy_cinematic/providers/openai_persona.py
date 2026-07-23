@@ -23,6 +23,13 @@ content. Never expose chain-of-thought, credentials, environment values, raw
 transcripts, filesystem paths, or hidden reasoning. Return structured
 conclusions only. You have no filesystem, network, MCP, rendering, approval,
 publication, or external-write authority.
+
+The sealed input includes an evidence_contract. Obey it exactly. A SOURCE field
+may reference only evidence whose artifact_hash exactly equals boundary.article_hash.
+A CREATIVE_BRIEF field may reference only evidence whose artifact_hash exactly
+equals boundary.creative_brief_hash. An ASSUMPTION field may reference only a
+declared assumption_id. Never reuse one evidence_id for two artifact hashes.
+Before returning structured output, verify this rule for every persona field.
 """.strip()
 
 _PROPOSAL_INSTRUCTIONS = {
@@ -58,10 +65,12 @@ same sealed Article and Creative Brief. Then call red_team_critic exactly once
 against the complete sealed proposal set. Never call a tool twice and never
 skip a tool. Resolve or expose every objection, then synthesize exactly one
 canonical persona with all nine required fields. Preserve the three specialist
-outputs in proposals and the critic output in objections. Every field must be
-SOURCE, CREATIVE_BRIEF, or ASSUMPTION and reference declared evidence or an
-assumption. Never self-approve and never generate Story, Screenplay, shots,
-rendering, approval, or publication output.
+outputs in the fixed proposals object: audience_researcher,
+empathy_narrative_analyst, and brand_strategist. Each slot must preserve the
+matching specialist role exactly once. Preserve the critic output in
+objections. Every field must be SOURCE, CREATIVE_BRIEF, or ASSUMPTION and
+reference declared evidence or an assumption. Never self-approve and never
+generate Story, Screenplay, shots, rendering, approval, or publication output.
 """
 
 
@@ -201,6 +210,7 @@ class OpenAIAgentsPersonaProvider:
                 "Agents SDK returned an unexpected Persona output type",
                 error_class="INVALID_STRUCTURED_OUTPUT",
             )
+        output = _normalize_council_output(output)
         invoked = _tool_invocations(result)
         expected_tools = tuple(PROPOSAL_ROLES) + ("red_team_critic",)
         if invoked != expected_tools:
@@ -301,6 +311,33 @@ def _output_types() -> dict[str, type[Any]]:
         evidence: list[Evidence] = Field(min_length=1, max_length=64)
         assumptions: list[Assumption] = Field(max_length=32)
 
+    class AudienceResearcherProposal(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+        role: Literal["audience_researcher"]
+        persona_fields: PersonaFields
+        evidence: list[Evidence] = Field(min_length=1, max_length=64)
+        assumptions: list[Assumption] = Field(max_length=32)
+
+    class EmpathyNarrativeAnalystProposal(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+        role: Literal["empathy_narrative_analyst"]
+        persona_fields: PersonaFields
+        evidence: list[Evidence] = Field(min_length=1, max_length=64)
+        assumptions: list[Assumption] = Field(max_length=32)
+
+    class BrandStrategistProposal(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+        role: Literal["brand_strategist"]
+        persona_fields: PersonaFields
+        evidence: list[Evidence] = Field(min_length=1, max_length=64)
+        assumptions: list[Assumption] = Field(max_length=32)
+
+    class ProposalSet(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+        audience_researcher: AudienceResearcherProposal
+        empathy_narrative_analyst: EmpathyNarrativeAnalystProposal
+        brand_strategist: BrandStrategistProposal
+
     class Objection(BaseModel):
         model_config = ConfigDict(extra="forbid")
         code: Literal[
@@ -337,7 +374,7 @@ def _output_types() -> dict[str, type[Any]]:
 
     class CouncilOutput(BaseModel):
         model_config = ConfigDict(extra="forbid")
-        proposals: list[ProposalOutput] = Field(min_length=3, max_length=3)
+        proposals: ProposalSet
         objections: list[Objection] = Field(max_length=64)
         resolutions: list[Resolution] = Field(max_length=64)
         selected_elements: list[ElementDecision] = Field(min_length=1, max_length=32)
@@ -355,6 +392,10 @@ def _output_types() -> dict[str, type[Any]]:
         Assumption,
         PersonaFields,
         ProposalOutput,
+        AudienceResearcherProposal,
+        EmpathyNarrativeAnalystProposal,
+        BrandStrategistProposal,
+        ProposalSet,
         Objection,
         RedTeamOutput,
         Resolution,
@@ -363,6 +404,10 @@ def _output_types() -> dict[str, type[Any]]:
     ):
         model.model_rebuild()
     ProposalOutput.__name__ = "PersonaSpecialistProposal"
+    AudienceResearcherProposal.__name__ = "AudienceResearcherProposal"
+    EmpathyNarrativeAnalystProposal.__name__ = "EmpathyNarrativeAnalystProposal"
+    BrandStrategistProposal.__name__ = "BrandStrategistProposal"
+    ProposalSet.__name__ = "PersonaProposalSet"
     RedTeamOutput.__name__ = "PersonaRedTeamOutput"
     CouncilOutput.__name__ = "PersonaCouncilOutput"
     return {
@@ -370,6 +415,19 @@ def _output_types() -> dict[str, type[Any]]:
         "RedTeamOutput": RedTeamOutput,
         "CouncilOutput": CouncilOutput,
     }
+
+
+def _normalize_council_output(output: dict[str, Any]) -> dict[str, Any]:
+    """Convert the role-keyed provider contract to the canonical ordered list."""
+    proposals = output.get("proposals")
+    if not isinstance(proposals, dict) or set(proposals) != set(PROPOSAL_ROLES):
+        raise PersonaCouncilError(
+            "Persona Manager did not return the fixed proposal role set",
+            error_class="CARDINALITY",
+        )
+    normalized = dict(output)
+    normalized["proposals"] = [proposals[role] for role in PROPOSAL_ROLES]
+    return normalized
 
 
 def _tool_invocations(result: Any) -> tuple[str, ...]:

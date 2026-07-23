@@ -32,6 +32,7 @@ from .media import (
     FFmpegComposer,
     OfflineNarrator,
     OpenAITTSNarrator,
+    SoundtrackMixer,
     YouTubeMastering,
     write_srt,
 )
@@ -102,6 +103,7 @@ PLANNING_ARTIFACTS = {
     "architecture_validation_report",
     "structured_article",
     "creative_brief",
+    "creative_scenario",
     "persona-proposals",
     "persona-red-team-report",
     "persona-deliberation",
@@ -259,6 +261,15 @@ class BuildOrchestrator:
                 "openai_model": self.config.narration_openai_model,
                 "openai_voice": self.config.narration_openai_voice,
                 "openai_instructions": self.config.narration_openai_instructions,
+            },
+            "soundtrack": {
+                "path": (
+                    str(self.config.soundtrack_path.relative_to(self.config.workspace))
+                    if self.config.soundtrack_path is not None
+                    else None
+                ),
+                "content_hash": self.config.soundtrack_hash,
+                "gain_db": self.config.soundtrack_gain_db,
             },
             "youtube": {
                 "video_bitrate": self.config.youtube_video_bitrate,
@@ -873,6 +884,7 @@ class BuildOrchestrator:
         article_path: Path | str,
         *,
         creative_brief_path: Path | str | None = None,
+        retry_failed_planning: bool = False,
     ) -> dict[str, Any]:
         article = load_article(Path(article_path))
         architecture = architecture_artifacts()
@@ -889,6 +901,13 @@ class BuildOrchestrator:
         creative_brief_hash = (
             creative_brief.content_hash if creative_brief is not None else None
         )
+        creative_scenario = (
+            creative_brief.scenario if creative_brief is not None else None
+        )
+        if creative_scenario is not None and self.config.profile == "draft":
+            raise ValidationError(
+                "Authored Creative Scenario requires preview or final profile"
+            )
         persona_article_hash = StoryEngine.article_hash(article)
         source_hash = content_hash(
             {"title": article.title, "body": article.body, "metadata": article.metadata}
@@ -924,6 +943,31 @@ class BuildOrchestrator:
             config_snapshot,
         )
         state = BuildState(manifest["state"])
+        if state == BuildState.FAILED and retry_failed_planning:
+            last_transition = (manifest.get("transitions") or [{}])[-1]
+            if (
+                last_transition.get("previous_state") != BuildState.PLANNING.value
+                or last_transition.get("reason") != "planning_failure"
+            ):
+                raise StateConflictError(
+                    "Only a failed planning stage is eligible for explicit planning retry"
+                )
+            self.repository.verify_artifacts(manifest)
+            if persona_mode == "council":
+                if "persona-approval-binding" not in manifest.get("artifacts", {}):
+                    raise StateConflictError(
+                        "Planning retry requires the existing Persona approval binding"
+                    )
+                self._approved_persona_context(manifest)
+            self.repository.record_event(
+                manifest,
+                "planning_retry_authorized",
+                {"preserved_approvals": sorted(manifest.get("approvals", {}))},
+            )
+            manifest = self.repository.transition(
+                manifest, BuildState.PLANNING, "explicit_planning_retry"
+            )
+            state = BuildState.PLANNING
         if state == BuildState.AWAITING_PERSONA_APPROVAL:
             self.repository.verify_artifacts(manifest)
             if "persona-approval-binding" not in manifest.get("artifacts", {}):
@@ -998,7 +1042,11 @@ class BuildOrchestrator:
                     duration_seconds=(
                         story_settings.draft_duration_seconds
                         if self.config.profile == "draft"
-                        else story_settings.canonical_duration_seconds
+                        else (
+                            creative_scenario["duration_seconds"]
+                            if creative_scenario is not None
+                            else story_settings.canonical_duration_seconds
+                        )
                     ),
                     supporting_role_max=self.config.supporting_role_max,
                     concept_ratio_max=self.config.concept_ratio_max,
@@ -1010,7 +1058,11 @@ class BuildOrchestrator:
                     persona_mode=story_settings.persona_mode,
                 ),
                 cache=StoryCache(self.repository.root / "story-cache"),
-            ).generate(article, persona_context=persona_context)
+            ).generate(
+                article,
+                persona_context=persona_context,
+                creative_scenario=creative_scenario,
+            )
             story_input_types = ["structured_article"]
             if persona_context is not None:
                 story_input_types.extend(
@@ -1049,6 +1101,7 @@ class BuildOrchestrator:
                     "concept_placement",
                     "story_metrics",
                     "story_config",
+                    *(("creative_scenario",) if creative_scenario is not None else ()),
                 ),
             )
 
@@ -1083,6 +1136,7 @@ class BuildOrchestrator:
                     "dramatic_premise",
                     "character_bible",
                     "three_act_structure",
+                    *(("creative_scenario",) if creative_scenario is not None else ()),
                 ),
                 generator="screenplay-engine",
             )
@@ -1104,6 +1158,7 @@ class BuildOrchestrator:
                     "screenplay_config",
                     "screenplay_state",
                     "story_quality_report",
+                    *(("creative_scenario",) if creative_scenario is not None else ()),
                 ),
             )
 
@@ -2920,12 +2975,26 @@ class BuildOrchestrator:
                     duration_seconds=storyboard_duration,
                 )
             composition.update(narration_mix)
-            captions_path = output.parent / "captions.en.srt"
+            if self.config.soundtrack_path is not None:
+                if file_hash(self.config.soundtrack_path) != self.config.soundtrack_hash:
+                    raise ValidationError("Configured soundtrack changed after planning")
+                composition.update(
+                    SoundtrackMixer().mix(
+                        output,
+                        self.config.soundtrack_path,
+                        duration_seconds=storyboard_duration,
+                        gain_db=self.config.soundtrack_gain_db,
+                        expected_hash=self.config.soundtrack_hash or "",
+                    )
+                )
+            narration_language = str(narration_script.get("language", "en")).casefold()
+            captions_path = output.parent / f"captions.{narration_language}.srt"
             composition.update(
                 write_srt(
                     captions_path,
                     narration_timeline,
                     duration_seconds=storyboard_duration,
+                    language=narration_language,
                 )
             )
             if self.config.profile == "final":
@@ -2969,7 +3038,12 @@ class BuildOrchestrator:
                     input_hashes=tuple(
                         result["asset_hash"] for result in render_manifest["results"]
                     )
-                    + self._artifact_inputs(manifest, "narration_script"),
+                    + self._artifact_inputs(manifest, "narration_script")
+                    + (
+                        (self.config.soundtrack_hash,)
+                        if self.config.soundtrack_hash is not None
+                        else ()
+                    ),
                     generator="ffmpeg-composer",
                 ),
             )
@@ -3022,7 +3096,9 @@ class BuildOrchestrator:
                 "no_clipping": float(report["validation"]["audio_peak_dbfs"])
                 <= -0.1,
                 "no_dropouts": report["validation"]["audio_non_silent"] is True,
-                "language_correct": narration_script.get("language") == "en",
+                "language_correct": composition["caption_language"]
+                == narration_script.get("language")
+                and composition["caption_language"] in {"en", "ja"},
                 "audio_stream_present": report["validation"]["audio_stream_present"],
                 "audio_non_silent": report["validation"]["audio_non_silent"],
                 "production_voice": (

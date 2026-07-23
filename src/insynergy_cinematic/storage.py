@@ -148,7 +148,9 @@ class BuildRepository:
         },
         BuildState.PUBLISHED: set(),
         BuildState.CANCELLED: set(),
-        BuildState.FAILED: set(),
+        # FAILED remains closed by default. The orchestrator exposes one explicit,
+        # guarded retry path for a failure that occurred during deterministic planning.
+        BuildState.FAILED: {BuildState.PLANNING},
     }
 
     def __init__(self, workspace: Path) -> None:

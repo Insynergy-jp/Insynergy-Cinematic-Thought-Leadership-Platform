@@ -54,6 +54,11 @@ on:
         required: false
         default: ""
         type: string
+      config_path:
+        description: Optional repository-relative production configuration
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -75,12 +80,17 @@ jobs:
       - name: Validate article path
         env:
           ARTICLE_PATH: ${{ inputs.article_path }}
+          CONFIG_PATH: ${{ inputs.config_path }}
         run: |
           set -euo pipefail
           case "$ARTICLE_PATH" in
             /*|*..*) echo "article_path must be repository-relative and contain no .." >&2; exit 2 ;;
           esac
           test -f "$ARTICLE_PATH"
+          if test -n "$CONFIG_PATH"; then
+            case "$CONFIG_PATH" in /*|*..*) echo "config_path must be repository-relative and contain no .." >&2; exit 2 ;; esac
+            test -f "$CONFIG_PATH"
+          fi
       - name: Generate planning artifacts
         env:
           ARTICLE_PATH: ${{ inputs.article_path }}
@@ -90,9 +100,12 @@ jobs:
           NARRATION_PROVIDER: ${{ inputs.narration_provider }}
           AGENT_REVIEW_MODE: ${{ inputs.agent_review_mode }}
           PRE_RENDER_PREVIEW_MODE: ${{ inputs.pre_render_preview_mode }}
+          CONFIG_PATH: ${{ inputs.config_path }}
         run: |
           set -euo pipefail
-          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" --persona-mode off plan "$ARTICLE_PATH" > planning-result.json
+          CONFIG_ARGUMENTS=()
+          test -z "$CONFIG_PATH" || CONFIG_ARGUMENTS=(--config "$CONFIG_PATH")
+          PYTHONPATH=src python3 -m insynergy_cinematic "${CONFIG_ARGUMENTS[@]}" --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" --persona-mode off plan "$ARTICLE_PATH" > planning-result.json
           python3 -c 'import json, os; value=json.load(open("planning-result.json")); expected="PLANNED" if os.environ["AGENT_REVIEW_MODE"] == "review" or os.environ["PRE_RENDER_PREVIEW_MODE"] == "storyboard_animatic" else "AWAITING_EXECUTION_APPROVAL"; assert value["state"] == expected; print(value["build_id"])' | tee build-id.txt
       - name: Read planning build identity
         id: plan_meta
@@ -147,6 +160,7 @@ jobs:
         env:
           ARTICLE_PATH: ${{ inputs.article_path }}
           CREATIVE_BRIEF_PATH: ${{ inputs.creative_brief_path }}
+          CONFIG_PATH: ${{ inputs.config_path }}
         run: |
           set -euo pipefail
           for input_path in "$ARTICLE_PATH" "$CREATIVE_BRIEF_PATH"; do
@@ -155,6 +169,10 @@ jobs:
             esac
             test -f "$input_path"
           done
+          if test -n "$CONFIG_PATH"; then
+            case "$CONFIG_PATH" in /*|*..*) echo "config_path must be repository-relative and contain no .." >&2; exit 2 ;; esac
+            test -f "$CONFIG_PATH"
+          fi
       - name: Install Persona Council adapter
         run: |
           set -euo pipefail
@@ -170,9 +188,12 @@ jobs:
           AGENT_REVIEW_MODE: ${{ inputs.agent_review_mode }}
           PRE_RENDER_PREVIEW_MODE: ${{ inputs.pre_render_preview_mode }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CONFIG_PATH: ${{ inputs.config_path }}
         run: |
           set -euo pipefail
-          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" --persona-mode council plan "$ARTICLE_PATH" --creative-brief "$CREATIVE_BRIEF_PATH" > planning-result.json
+          CONFIG_ARGUMENTS=()
+          test -z "$CONFIG_PATH" || CONFIG_ARGUMENTS=(--config "$CONFIG_PATH")
+          PYTHONPATH=src python3 -m insynergy_cinematic "${CONFIG_ARGUMENTS[@]}" --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" --persona-mode council plan "$ARTICLE_PATH" --creative-brief "$CREATIVE_BRIEF_PATH" > planning-result.json
           python3 -c 'import json; value=json.load(open("planning-result.json")); assert value["state"] == "AWAITING_PERSONA_APPROVAL"; assert value["gates"]["persona_quality_gate"]["passed"] is True; print(value["build_id"])' | tee build-id.txt
       - name: Read Persona build identity
         id: persona_meta
@@ -350,17 +371,20 @@ jobs:
           ENVIRONMENT_REVIEWER: ${{ steps.persona_review.outputs.environment_reviewer }}
           ENVIRONMENT_REVIEW_HASH: ${{ steps.persona_review.outputs.environment_review_hash }}
           PREVENT_SELF_REVIEW: ${{ steps.persona_review.outputs.prevent_self_review }}
+          CONFIG_PATH: ${{ inputs.config_path }}
         run: |
           set -euo pipefail
           BUILD_ID="$(tr -d '\n' < build-id.txt)"
+          CONFIG_ARGUMENTS=()
+          test -z "$CONFIG_PATH" || CONFIG_ARGUMENTS=(--config "$CONFIG_PATH")
           SELF_REVIEW_ARGUMENTS=()
           case "$PREVENT_SELF_REVIEW" in
             true) SELF_REVIEW_ARGUMENTS=(--prevent-self-review) ;;
             false) ;;
             *) echo "invalid prevent_self_review policy" >&2; exit 7 ;;
           esac
-          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" --persona-mode council approve "$BUILD_ID" --gate persona --actor "$ENVIRONMENT_REVIEWER" --workflow-initiator "$WORKFLOW_INITIATOR" --environment-reviewer "$ENVIRONMENT_REVIEWER" "${SELF_REVIEW_ARGUMENTS[@]}" --environment-review-hash "$ENVIRONMENT_REVIEW_HASH" --comment "GitHub Environment persona-approval" > persona-approval-result.json
-          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" --persona-mode council plan "$ARTICLE_PATH" --creative-brief "$CREATIVE_BRIEF_PATH" > planning-result.json
+          PYTHONPATH=src python3 -m insynergy_cinematic "${CONFIG_ARGUMENTS[@]}" --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" --persona-mode council approve "$BUILD_ID" --gate persona --actor "$ENVIRONMENT_REVIEWER" --workflow-initiator "$WORKFLOW_INITIATOR" --environment-reviewer "$ENVIRONMENT_REVIEWER" "${SELF_REVIEW_ARGUMENTS[@]}" --environment-review-hash "$ENVIRONMENT_REVIEW_HASH" --comment "GitHub Environment persona-approval" > persona-approval-result.json
+          PYTHONPATH=src python3 -m insynergy_cinematic "${CONFIG_ARGUMENTS[@]}" --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --pre-render-preview-mode "$PRE_RENDER_PREVIEW_MODE" --persona-mode council plan "$ARTICLE_PATH" --creative-brief "$CREATIVE_BRIEF_PATH" > planning-result.json
           python3 -c 'import json, os; value=json.load(open("planning-result.json")); expected="PLANNED" if os.environ["AGENT_REVIEW_MODE"] == "review" or os.environ["PRE_RENDER_PREVIEW_MODE"] == "storyboard_animatic" else "AWAITING_EXECUTION_APPROVAL"; assert value["state"] == expected; assert "persona-approval-binding" in value["artifacts"]'
       - name: Seal approved planning handoff
         uses: ./.github/actions/workflow-evidence

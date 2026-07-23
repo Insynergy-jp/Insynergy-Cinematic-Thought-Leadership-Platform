@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .errors import ValidationError
+from .util import file_hash
 
 
 DEFAULT_CONFIG: dict[str, Any] = {
@@ -123,13 +124,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "model": "gpt-5.6-sol",
         "reasoning_effort": "medium",
         "trace_mode": "disabled",
-        "timeout_seconds": 180,
+        "timeout_seconds": 300,
         "max_input_bytes": 524288,
         "max_output_tokens": 20000,
         "preflight_estimated_cost_usd": 1.0,
         "max_cost_usd": 5.0,
-        "manager_agent_version": "persona-manager-v1",
-        "prompt_version": "persona-council-v1",
+        "manager_agent_version": "persona-manager-v2",
+        "prompt_version": "persona-council-v3",
         "policy_version": "persona-policy/1",
         "allowed_models": ["gpt-5.6-sol"],
     },
@@ -203,6 +204,9 @@ class PlatformConfig:
     narration_openai_model: str
     narration_openai_voice: str
     narration_openai_instructions: str
+    soundtrack_path: Path | None
+    soundtrack_hash: str | None
+    soundtrack_gain_db: float
     youtube_video_bitrate: str
     youtube_audio_bitrate: str
     youtube_audio_sample_rate: int
@@ -301,6 +305,7 @@ def load_config(
     pre_render_preview = values.get("pre_render_preview", {})
     persona_council = values.get("persona_council", {})
     narration = values.get("narration", {})
+    soundtrack = values.get("soundtrack", {})
     youtube = values.get("youtube", {})
     selected_profile = profile or values.get("profile", "preview")
     selected_provider = provider or environment.get(
@@ -358,6 +363,26 @@ def load_config(
     narration_instructions = str(narration.get("openai_instructions", "")).strip()
     if not narration_instructions or len(narration_instructions.encode("utf-8")) > 2048:
         raise ValidationError("narration.openai_instructions must be 1-2048 bytes")
+    soundtrack_value = str(
+        environment.get("INSYNERGY_SOUNDTRACK_PATH", soundtrack.get("path", ""))
+    ).strip()
+    soundtrack_path: Path | None = None
+    soundtrack_hash: str | None = None
+    if soundtrack_value:
+        candidate = Path(soundtrack_value)
+        soundtrack_path = (
+            candidate if candidate.is_absolute() else workspace / candidate
+        ).resolve()
+        try:
+            soundtrack_path.relative_to(workspace.resolve())
+        except ValueError as exc:
+            raise ValidationError("Soundtrack must remain inside the workspace") from exc
+        if not soundtrack_path.is_file():
+            raise ValidationError("Configured soundtrack does not exist")
+        soundtrack_hash = file_hash(soundtrack_path)
+    soundtrack_gain_db = float(soundtrack.get("gain_db", -20.0))
+    if not -36.0 <= soundtrack_gain_db <= -6.0:
+        raise ValidationError("soundtrack.gain_db is out of range")
     youtube_sample_rate = int(youtube.get("audio_sample_rate", 48000))
     if youtube_sample_rate != 48000:
         raise ValidationError("youtube.audio_sample_rate must be 48000")
@@ -610,7 +635,7 @@ def load_config(
     persona_timeout = int(
         environment.get(
             "PERSONA_COUNCIL_TIMEOUT_SECONDS",
-            persona_council.get("timeout_seconds", 180),
+            persona_council.get("timeout_seconds", 300),
         )
     )
     persona_input_limit = int(
@@ -654,10 +679,10 @@ def load_config(
     if not persona_model or persona_model not in persona_allowed_models:
         raise ValidationError("OPENAI_MODEL_PERSONA is not allow-listed")
     persona_manager_version = str(
-        persona_council.get("manager_agent_version", "persona-manager-v1")
+        persona_council.get("manager_agent_version", "persona-manager-v2")
     )
     persona_prompt_version = str(
-        persona_council.get("prompt_version", "persona-council-v1")
+        persona_council.get("prompt_version", "persona-council-v3")
     )
     persona_policy_version = str(
         persona_council.get("policy_version", "persona-policy/1")
@@ -692,6 +717,9 @@ def load_config(
         narration_openai_model=narration_model,
         narration_openai_voice=narration_voice,
         narration_openai_instructions=narration_instructions,
+        soundtrack_path=soundtrack_path,
+        soundtrack_hash=soundtrack_hash,
+        soundtrack_gain_db=soundtrack_gain_db,
         youtube_video_bitrate=str(youtube.get("video_bitrate", "8M")),
         youtube_audio_bitrate=str(youtube.get("audio_bitrate", "384k")),
         youtube_audio_sample_rate=youtube_sample_rate,

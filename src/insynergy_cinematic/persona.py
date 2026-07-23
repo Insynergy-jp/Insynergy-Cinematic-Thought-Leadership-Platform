@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
+from .creative_scenario import extract_creative_scenario
 from .errors import PersonaCouncilError, ValidationError
 from .schema_validation import COUNCIL_ROLES, PROPOSAL_ROLES, validate_schema_document
 from .util import DETERMINISTIC_TIME, atomic_write_json, content_hash, read_json
@@ -18,8 +19,8 @@ from .util import DETERMINISTIC_TIME, atomic_write_json, content_hash, read_json
 PERSONA_CONTRACT_VERSION = "persona-council/1"
 PERSONA_QUALITY_VERSION = "persona-quality/1"
 PERSONA_POLICY_VERSION = "persona-policy/1"
-PERSONA_PROMPT_VERSION = "persona-council-v1"
-PERSONA_MANAGER_VERSION = "persona-manager-v1"
+PERSONA_PROMPT_VERSION = "persona-council-v3"
+PERSONA_MANAGER_VERSION = "persona-manager-v2"
 PERSONA_PREAPPROVAL_ARTIFACTS = (
     "persona-proposals",
     "persona-red-team-report",
@@ -79,6 +80,12 @@ class CreativeBrief:
     def content_hash(self) -> str:
         return content_hash({"title": self.title, "body": self.body})
 
+    @property
+    def scenario(self) -> dict[str, Any] | None:
+        return extract_creative_scenario(
+            self.body, creative_brief_hash=self.content_hash
+        )
+
 
 def load_creative_brief(path: Path) -> CreativeBrief:
     try:
@@ -122,6 +129,20 @@ class PersonaCouncilRequest:
                     "creative_brief_hash": self.creative_brief_hash,
                     "deliberation_key": self.deliberation_key,
                     "untrusted_data": True,
+                },
+                "evidence_contract": {
+                    "SOURCE": {
+                        "artifact_hash": self.article_hash,
+                        "rule": "Every SOURCE field must reference only evidence carrying this exact artifact_hash.",
+                    },
+                    "CREATIVE_BRIEF": {
+                        "artifact_hash": self.creative_brief_hash,
+                        "rule": "Every CREATIVE_BRIEF field must reference only evidence carrying this exact artifact_hash.",
+                    },
+                    "ASSUMPTION": {
+                        "rule": "Every ASSUMPTION field must reference only a declared assumption_id, never an evidence_id.",
+                    },
+                    "identity_rule": "Use distinct evidence_id values when evidence comes from different artifacts.",
                 },
                 "article": self.article,
                 "creative_brief": self.creative_brief,
@@ -452,10 +473,23 @@ class PersonaCouncilService:
             artifacts = self._materialize(request, result)
             report = validate_persona_preapproval_bundle(artifacts)
             if not report["passed"]:
+                quality = artifacts["persona-quality-report"]
+                failed_checks = [
+                    check["check_id"]
+                    for check in quality["checks"]
+                    if check["passed"] is not True
+                ]
                 raise PersonaCouncilError(
                     "Persona Quality Gate did not pass",
                     error_class="QUALITY",
-                    details=report,
+                    details={
+                        **report,
+                        "failed_checks": failed_checks,
+                        "findings": quality["findings"],
+                        "non_waivable_failures": quality[
+                            "non_waivable_failures"
+                        ],
+                    },
                 )
             if not self.last_cache_hit:
                 self.cache.put(request.deliberation_key, result)
