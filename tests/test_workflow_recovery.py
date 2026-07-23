@@ -161,8 +161,10 @@ class WorkflowRecoveryTests(unittest.TestCase):
         self.assertIn("persona-approval-result.json", finalize)
         self.assertIn("tools/github_planning_source.py", execute)
         self.assertIn("tools/recover_planning_evidence.py", execute)
+        self.assertIn("tools/verify_runtime_compatibility.py", execute)
         self.assertIn("source-sha: ${{ steps.planning_source.outputs.source_sha }}", execute)
-        self.assertIn("clean: false", execute)
+        self.assertIn("fetch-depth: 0", execute)
+        self.assertNotIn("Checkout approved planning source", execute)
 
 
 if __name__ == "__main__":
