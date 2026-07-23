@@ -136,11 +136,18 @@ class RenderingPlatform:
         return "runway" if uses_runway(self.config, frame) else "local"
 
     def _request(self, frame: dict[str, Any], attempt: int = 1) -> RenderRequest:
-        assembled = self.assembler.assemble(frame)
+        provider = self._provider_name(frame)
+        assembled = self.assembler.assemble(
+            frame,
+            max_utf16_units=1000 if provider == "runway" else None,
+        )
         self.assembler.verify(assembled, frame)
         profile = self.config.render_profile()
-        provider = self._provider_name(frame)
-        provider_version = "local-ffmpeg-v2" if provider == "local" else "gen4.5"
+        provider_version = (
+            "local-ffmpeg-v2"
+            if provider == "local"
+            else "gen4.5-utf16-bounded-prompt-v1"
+        )
         cache_key = self.cache.key(
             shot_hash=content_hash(frame),
             prompt_hash=assembled["prompt_hash"],

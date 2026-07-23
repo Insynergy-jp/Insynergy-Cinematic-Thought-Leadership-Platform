@@ -73,6 +73,7 @@ jobs:
       - name: Checkout recovery workflow source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Resolve approved planning source
         id: planning_source
@@ -102,6 +103,13 @@ jobs:
             case "$CONFIG_PATH" in /*|*..*) echo "config_path must be repository-relative and contain no .." >&2; exit 2 ;; esac
             test -f "$CONFIG_PATH"
           fi
+      - name: Verify planning and execution runtime compatibility
+        env:
+          PLANNING_SOURCE_SHA: ${{ steps.planning_source.outputs.source_sha }}
+          EXECUTION_SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python3 tools/verify_runtime_compatibility.py --root "$GITHUB_WORKSPACE" --planning-source-sha "$PLANNING_SOURCE_SHA" --execution-source-sha "$EXECUTION_SOURCE_SHA" > runtime-compatibility-result.json
       - name: Download planning bundle
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
@@ -133,13 +141,7 @@ jobs:
         run: |
           set -euo pipefail
           PYTHONPATH=src python3 tools/recover_planning_evidence.py --root "$GITHUB_WORKSPACE" --evidence workflow-evidence.json recover --source-root planning-recovery > planning-recovery-result.json
-      - name: Checkout approved planning source
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          ref: ${{ steps.planning_source.outputs.source_sha }}
-          persist-credentials: false
-          clean: false
-      - name: Verify approved source inputs
+      - name: Verify execution source inputs
         env:
           CONFIG_PATH: ${{ inputs.config_path }}
         run: |
@@ -244,6 +246,7 @@ jobs:
             .insynergy
             execution-result.json
             verification-result.json
+            runtime-compatibility-result.json
             build-id.txt
       - name: Write safe execution summary
         run: |
@@ -257,6 +260,10 @@ jobs:
           path: |
             execution-result.json
             verification-result.json
+            runtime-compatibility-result.json
+            planning-source-result.json
+            planning-recovery-inspection.json
+            planning-recovery-result.json
             workflow-evidence-result.json
             .insynergy/builds/${{ inputs.build_id }}/manifest.json
             .insynergy/builds/${{ inputs.build_id }}/artifacts/render_manifest.json
@@ -273,6 +280,7 @@ jobs:
             .insynergy
             execution-result.json
             verification-result.json
+            runtime-compatibility-result.json
             build-id.txt
             workflow-evidence.json
           include-hidden-files: true
