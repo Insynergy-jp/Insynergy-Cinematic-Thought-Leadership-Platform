@@ -735,13 +735,13 @@ class YouTubeMastering:
     def __init__(self, ffmpeg_binary: str = "ffmpeg") -> None:
         self.ffmpeg_binary = ffmpeg_binary
 
-    def _loudnorm_filter(
+    def _loudness_report(
         self,
         source: Path,
         *,
         integrated_loudness_lufs: float,
         true_peak_db: float,
-    ) -> str:
+    ) -> dict[str, float]:
         completed = subprocess.run(
             [
                 self.ffmpeg_binary,
@@ -784,6 +784,20 @@ class YouTubeMastering:
             raise ValidationError("YouTube loudness analysis is invalid") from exc
         if not all(math.isfinite(value) for value in measured.values()):
             raise ValidationError("YouTube loudness analysis is non-finite")
+        return measured
+
+    def _loudnorm_filter(
+        self,
+        source: Path,
+        *,
+        integrated_loudness_lufs: float,
+        true_peak_db: float,
+    ) -> str:
+        measured = self._loudness_report(
+            source,
+            integrated_loudness_lufs=integrated_loudness_lufs,
+            true_peak_db=true_peak_db,
+        )
         return (
             f"loudnorm=I={integrated_loudness_lufs}:TP={true_peak_db}:LRA=7:"
             f"measured_I={measured['input_i']}:measured_TP={measured['input_tp']}:"
@@ -890,6 +904,90 @@ class YouTubeMastering:
             raise ValidationError(
                 "YouTube mastering failed", details={"stderr": completed.stderr[-2000:]}
             )
+        loudness = self._loudness_report(
+            destination,
+            integrated_loudness_lufs=integrated_loudness_lufs,
+            true_peak_db=true_peak_db,
+        )
+        correction_attempts = 0
+        while not (
+            -16.0 <= loudness["input_i"] <= -12.0
+            and loudness["input_tp"] <= -0.5
+        ) and correction_attempts < 2:
+            correction_attempts += 1
+            gain_db = integrated_loudness_lufs - loudness["input_i"]
+            limiter_level = 10 ** (true_peak_db / 20)
+            correction = source.with_suffix(
+                f".youtube-audio-correction-{correction_attempts}.mp4"
+            )
+            correction.unlink(missing_ok=True)
+            correction_filter = (
+                f"volume={gain_db:.4f}dB,"
+                f"alimiter=limit={limiter_level:.8f}:attack=5:release=50:"
+                "level=false:latency=true"
+            )
+            correction_command = [
+                self.ffmpeg_binary,
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-i",
+                str(destination),
+                "-map",
+                "0:v:0",
+                "-map",
+                "0:a:0",
+                "-c:v",
+                "copy",
+                "-af",
+                correction_filter,
+                "-c:a",
+                "aac",
+                "-b:a",
+                audio_bitrate,
+                "-ar",
+                str(audio_sample_rate),
+                "-ac",
+                "2",
+                "-map_metadata",
+                "0",
+                "-movflags",
+                "+faststart",
+                str(correction),
+            ]
+            corrected = subprocess.run(
+                correction_command,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if corrected.returncode:
+                correction.unlink(missing_ok=True)
+                destination.unlink(missing_ok=True)
+                raise ValidationError(
+                    "YouTube loudness correction failed",
+                    details={"stderr": corrected.stderr[-2000:]},
+                )
+            os.replace(correction, destination)
+            loudness = self._loudness_report(
+                destination,
+                integrated_loudness_lufs=integrated_loudness_lufs,
+                true_peak_db=true_peak_db,
+            )
+        if not (
+            -16.0 <= loudness["input_i"] <= -12.0
+            and loudness["input_tp"] <= -0.5
+        ):
+            destination.unlink(missing_ok=True)
+            raise ValidationError(
+                "YouTube mastering could not satisfy the loudness envelope",
+                details={
+                    "integrated_loudness_lufs": loudness["input_i"],
+                    "true_peak_db": loudness["input_tp"],
+                    "correction_attempts": correction_attempts,
+                },
+            )
         os.replace(destination, source)
         return {
             "asset_hash": file_hash(source),
@@ -902,6 +1000,9 @@ class YouTubeMastering:
             "audio_codec": "aac-lc",
             "audio_bitrate": audio_bitrate,
             "audio_sample_rate": audio_sample_rate,
+            "integrated_loudness_lufs": loudness["input_i"],
+            "true_peak_db": loudness["input_tp"],
+            "loudness_correction_attempts": correction_attempts,
             "faststart": True,
         }
 

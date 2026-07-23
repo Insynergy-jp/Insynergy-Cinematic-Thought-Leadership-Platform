@@ -215,6 +215,70 @@ class ProductionMediaTests(unittest.TestCase):
             self.assertTrue(validation["youtube_ready"])
             self.assertTrue(all(validation["youtube_checks"].values()))
 
+    def test_youtube_mastering_corrects_sparse_high_peak_program_audio(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            master = Path(temporary) / "sparse-master.mp4"
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-y",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "testsrc2=s=640x360:r=24:d=6",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "sine=frequency=110:sample_rate=48000:duration=6",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "sine=frequency=1000:sample_rate=48000:duration=0.2",
+                    "-filter_complex",
+                    (
+                        "[1:a]volume=0.01[bed];"
+                        "[2:a]volume=0.95,apad=pad_dur=5.8[spike];"
+                        "[bed][spike]amix=inputs=2:duration=first:normalize=0[a]"
+                    ),
+                    "-map",
+                    "0:v:0",
+                    "-map",
+                    "[a]",
+                    "-c:v",
+                    "libx264",
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-c:a",
+                    "aac",
+                    "-shortest",
+                    str(master),
+                ],
+                check=True,
+            )
+            result = YouTubeMastering().master(
+                master,
+                width=640,
+                height=360,
+                frame_rate=24,
+                video_bitrate="1M",
+                audio_bitrate="192k",
+            )
+            validation = AssetValidator().validate(
+                master,
+                width=640,
+                height=360,
+                frame_rate=24,
+                duration_seconds=6.0,
+                require_audio=True,
+                require_youtube_ready=True,
+            )
+            self.assertTrue(validation["youtube_ready"])
+            self.assertGreaterEqual(result["loudness_correction_attempts"], 1)
+            self.assertGreaterEqual(result["integrated_loudness_lufs"], -16.0)
+
     def test_srt_contains_timed_narration(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             destination = Path(temporary) / "captions.en.srt"
