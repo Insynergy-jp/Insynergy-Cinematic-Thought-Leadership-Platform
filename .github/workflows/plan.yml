@@ -456,6 +456,7 @@ jobs:
           path: |
             .insynergy
             planning-result.json
+            persona-approval-result.json
             build-id.txt
             workflow-evidence.json
           include-hidden-files: true
