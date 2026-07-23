@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import base64
 import math
+import os
+import re
+import shutil
+import subprocess
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -15,6 +20,7 @@ from .errors import (
     ProviderTimeoutError,
     RenderingError,
     StoryboardNotApprovedError,
+    ValidationError,
 )
 from .media import AssetValidator, RenderQualityGate
 from .models import RenderRequest, RenderResult, RenderState
@@ -22,11 +28,46 @@ from .prompt import PromptAssembler
 from .providers import VideoProvider
 from .runtime import DurableTaskQueue
 from .storage import ContentAddressableStore
-from .util import atomic_write_json, content_hash, file_hash, read_json, stable_id
+from .util import (
+    atomic_write_json,
+    atomic_write_text,
+    content_hash,
+    file_hash,
+    read_json,
+    stable_id,
+)
 
 
 RUNWAY_GEN45_CREDITS_PER_SECOND = 12
 RUNWAY_CREDIT_USD = 0.01
+RUNWAY_RECOVERY_SHOTS_ENV = "INSYNERGY_RUNWAY_RECOVERY_SHOTS"
+RUNWAY_RECOVERY_REASON_ENV = "INSYNERGY_RUNWAY_RECOVERY_REASON"
+RUNWAY_STORYBOARD_REFERENCES_ENV = "INSYNERGY_RUNWAY_STORYBOARD_REFERENCES"
+SHOT_ID = re.compile(r"scene-[0-9]{3}-shot-[0-9]{2}")
+FULL_AUTO_V11_REFERENCES = {
+    "scene-001-shot-01": "creative/full-auto-30s/storyboard-shot-01-identity-v11.png",
+    "scene-002-shot-01": "creative/full-auto-30s/storyboard-shot-02-desktop-v11.png",
+    "scene-004-shot-01": "creative/full-auto-30s/storyboard-shot-04-desktop-v11.png",
+    "scene-005-shot-01": "creative/full-auto-30s/storyboard-shot-05-desktop-v11.png",
+    "scene-007-shot-01": "creative/full-auto-30s/storyboard-shot-07-identity-v11.png",
+}
+
+
+def runway_recovery_shots(config: PlatformConfig) -> frozenset[str]:
+    raw = os.environ.get(RUNWAY_RECOVERY_SHOTS_ENV, "").strip()
+    if not raw:
+        return frozenset()
+    if config.provider != "runway" or config.runway_scope != "hybrid":
+        raise ValidationError(
+            "Runway fidelity recovery requires a planned hybrid Runway build"
+        )
+    reason = os.environ.get(RUNWAY_RECOVERY_REASON_ENV, "").strip()
+    if not reason or len(reason) > 500:
+        raise ValidationError("Runway fidelity recovery requires a bounded reason")
+    shots = frozenset(item.strip() for item in raw.split(",") if item.strip())
+    if not shots or len(shots) > 12 or any(SHOT_ID.fullmatch(item) is None for item in shots):
+        raise ValidationError("Runway fidelity recovery shot IDs are invalid")
+    return shots
 
 
 def uses_runway(config: PlatformConfig, frame: dict[str, Any]) -> bool:
@@ -35,6 +76,7 @@ def uses_runway(config: PlatformConfig, frame: dict[str, Any]) -> bool:
     return (
         config.runway_scope == "all_shots"
         or frame["render_strategy"]["asset_class"] == "runway_video"
+        or frame["shot_id"] in runway_recovery_shots(config)
     )
 
 
@@ -108,6 +150,339 @@ class RenderCache:
         return entry
 
 
+class StoryboardPostProcessor:
+    """Deterministically composite authored UI and exact motion-graphics beats."""
+
+    def __init__(self, ffmpeg_binary: str = "ffmpeg") -> None:
+        self.ffmpeg_binary = ffmpeg_binary
+
+    @staticmethod
+    def _font_file() -> str:
+        for candidate in (
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/System/Library/Fonts/Supplemental/Arial.ttf",
+        ):
+            if Path(candidate).is_file():
+                return candidate
+        if shutil.which("fc-match"):
+            matched = subprocess.run(
+                ["fc-match", "-f", "%{file}", "DejaVu Sans"],
+                capture_output=True,
+                text=True,
+                check=False,
+            ).stdout.strip()
+            if matched and Path(matched).is_file():
+                return matched
+        raise RenderingError("A TrueType font is required for storyboard post-production")
+
+    @staticmethod
+    def _symbol_font_file() -> str:
+        for candidate in (
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/System/Library/Fonts/Apple Symbols.ttf",
+        ):
+            if Path(candidate).is_file():
+                return candidate
+        return StoryboardPostProcessor._font_file()
+
+    @staticmethod
+    def _filter_path(value: Path | str) -> str:
+        return str(value).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+
+    def apply(
+        self,
+        asset: Path,
+        frame: dict[str, Any],
+        *,
+        width: int,
+        height: int,
+        frame_rate: int,
+        duration_seconds: float,
+    ) -> dict[str, Any]:
+        overlays = [str(item) for item in frame.get("ui_overlays", [])]
+        shot_id = str(frame["shot_id"])
+        if not overlays and shot_id not in {"scene-003-shot-01", "scene-008-shot-01"}:
+            return {"applied": False, "mode": "none", "exact_strings": []}
+        if not shutil.which(self.ffmpeg_binary):
+            raise RenderingError("FFmpeg is required for storyboard post-production")
+
+        temporary = asset.with_suffix(".post-production.mp4")
+        temporary.unlink(missing_ok=True)
+        text_paths: list[Path] = []
+        font_file = self._filter_path(self._font_file())
+        symbol_font_file = self._filter_path(self._symbol_font_file())
+        sx = width / 1920
+        sy = height / 1080
+
+        def px(value: int) -> int:
+            return max(1, round(value * sx))
+
+        def py(value: int) -> int:
+            return max(1, round(value * sy))
+
+        def text_path(value: str) -> str:
+            path = asset.with_suffix(f".post-{len(text_paths):03d}.txt")
+            atomic_write_text(path, value + "\n")
+            text_paths.append(path)
+            return self._filter_path(path)
+
+        filters: list[str] = []
+
+        def box(
+            x: int,
+            y: int,
+            w: int,
+            h: int,
+            color: str,
+            *,
+            thickness: str = "fill",
+            enable: str | None = None,
+        ) -> None:
+            value = (
+                f"drawbox=x={px(x)}:y={py(y)}:w={px(w)}:h={py(h)}:"
+                f"color={color}:t={thickness}"
+            )
+            if enable:
+                value += f":enable='{enable}'"
+            filters.append(value)
+
+        def label(
+            value: str,
+            x: int | str,
+            y: int | str,
+            size: int,
+            *,
+            color: str = "white",
+            enable: str | None = None,
+            align: str | None = None,
+            font: str | None = None,
+        ) -> None:
+            x_value = px(x) if isinstance(x, int) else x
+            y_value = py(y) if isinstance(y, int) else y
+            item = (
+                f"drawtext=fontfile='{font or font_file}':textfile='{text_path(value)}':reload=0:"
+                f"fontcolor={color}:fontsize={px(size)}:x={x_value}:y={y_value}"
+            )
+            if align:
+                item += f":text_align={align}"
+            if enable:
+                item += f":enable='{enable}'"
+            filters.append(item)
+
+        mode = "ui_overlay"
+        if shot_id == "scene-001-shot-01":
+            box(1010, 90, 820, 880, "0x07111d@0.88")
+            box(1010, 90, 820, 4, "0x58b7ff@0.90")
+            label("00:18", 1060, 125, 30, color="0xaedcff")
+            label("EXECUTION MODE", 1060, 190, 34)
+            for index, value in enumerate(
+                (
+                    "FULL AUTO",
+                    "PARALLEL RUNS",
+                    "AUTO RETRY",
+                    "CONTINUE UNTIL COMPLETE",
+                )
+            ):
+                y = 270 + index * 82
+                box(1080, y + 5, 30, 30, "0x9bd8ff@0.95", thickness="2")
+                label("X", 1086, y + 1, 23, color="0xdff4ff")
+                label(value, 1140, y, 31, color="0xeaf5ff")
+            box(1060, 620, 720, 1, "0x7ebde8@0.55")
+            label("SPENDING LIMIT", 1060, 660, 29)
+            label("OFF", 1660, 660, 31, color="0xff7d7d")
+            box(1410, 800, 270, 92, "0x183b58@0.96")
+            label("RUN", 1500, 822, 34)
+            label(
+                "▶",
+                "'max(0,min(w-40,w*0.88-(t/1.2)*w*0.08))'",
+                842,
+                38,
+                enable="between(t,0.25,1.25)",
+                font=symbol_font_file,
+            )
+            box(1410, 800, 270, 92, "0x5aaeff@0.28", enable="between(t,1.15,1.32)")
+        elif shot_id == "scene-002-shot-01":
+            box(715, 370, 500, 190, "0x06111d@0.82")
+            box(715, 370, 500, 3, "0x57b8ff@0.90")
+            label("RUN #001 STARTED", 785, 435, 34, color="0xeaf6ff")
+        elif shot_id == "scene-003-shot-01":
+            mode = "exact_agent_multiplication"
+            filters.clear()
+            box(0, 0, 1920, 1080, "0x02060b@1.0")
+            for row in range(10):
+                for column in range(16):
+                    index = row * 16 + column
+                    threshold = min(3.45, 0.18 + index * 0.0205)
+                    x = 18 + column * 119
+                    y = 18 + row * 105
+                    box(x, y, 104, 86, "0x14314a@0.72", enable=f"gte(t,{threshold:.3f})")
+                    box(x, y, 104, 86, "0x69c6ff@0.55", thickness="1", enable=f"gte(t,{threshold:.3f})")
+                    box(x + 14, y + 14, 10, 10, "0x8ed8ff@0.85", enable=f"gte(t,{threshold:.3f})")
+            timings = (
+                ("Creating Agent...", 0.00, 0.40),
+                ("Searching...", 0.40, 0.80),
+                ("Generating...", 0.80, 1.25),
+                ("Retry...", 1.25, 1.65),
+                ("Launching Parallel Worker...", 1.65, 2.15),
+                ("Expanding Context...", 2.15, 2.60),
+                ("Thinking...", 2.60, 3.35),
+            )
+            for value, start, end in timings:
+                label(value, 74, 70, 42, enable=f"between(t,{start:.2f},{end:.2f})")
+            for value, start, end in (
+                ("Run #18", 0.80, 1.25),
+                ("Run #37", 1.25, 2.15),
+                ("Run #96", 2.15, 3.35),
+                ("Run #184", 3.35, 4.00),
+            ):
+                label(value, 1600, 72, 38, color="0xdff4ff", enable=f"between(t,{start:.2f},{end:.2f})")
+            box(0, 0, 1920, 1080, "0xc8323c@0.13", enable="between(t,1.25,1.45)")
+        elif shot_id == "scene-004-shot-01":
+            box(1370, 805, 390, 160, "0x07111d@0.88")
+            box(1370, 805, 5, 160, "0xd9545d@0.92")
+            label("USAGE ALERT", 1410, 835, 26, color="0xd7e7f5")
+            label("$512.43", 1410, 885, 38, color="0xff8c91")
+        elif shot_id == "scene-005-shot-01":
+            box(110, 90, 1700, 900, "0x06101a@0.64")
+            box(110, 90, 1700, 3, "0x63bfff@0.75")
+            label("Completed", 190, 250, 40, color="0xcfe9fa")
+            label("184 Tasks", 190, 330, 68)
+            label("Current Usage", 1280, 170, 34, color="0xcfe9fa")
+            for value, start, end in (
+                ("$731.88", 0.95, 1.55),
+                ("$734", 1.55, 2.20),
+                ("$739", 2.20, 3.00),
+                ("$744", 3.00, 4.00),
+            ):
+                label(value, 1280, 245, 70, color="0xff8088", enable=f"between(t,{start:.2f},{end:.2f})")
+        elif shot_id == "scene-006-shot-01":
+            box(520, 90, 1290, 850, "0x06101a@0.76")
+            box(520, 90, 1290, 3, "0x63bfff@0.72")
+            box(630, 610, 260, 100, "0xa92531@0.96")
+            label("STOP", 705, 634, 38)
+            label(
+                "▶",
+                "'max(0,min(w-40,w*0.80-(t/0.30)*w*0.39))'",
+                648,
+                42,
+                enable="between(t,0.00,0.55)",
+                font=symbol_font_file,
+            )
+            box(630, 610, 260, 100, "white@0.18", enable="between(t,0.30,0.55)")
+            label("Stopping...", 650, 220, 40, enable="between(t,0.55,1.15)")
+            label("Waiting for active workers...", 650, 220, 38, enable="gte(t,1.15)")
+            label("12 Active Agents", 1120, 320, 34, color="0xff7b84", enable="gte(t,1.85)")
+            for index in range(12):
+                box(650 + index * 88, 430, 56, 56, "0xd9434e@0.88", enable=f"gte(t,{1.85 + (index % 3) * 0.05:.2f})")
+            label("$744", 1510, 150, 38, color="0xff8990", enable="between(t,0.00,2.45)")
+            label("$746", 1510, 150, 38, color="0xff8990", enable="between(t,2.45,3.15)")
+            label("$748", 1510, 150, 38, color="0xff8990", enable="gte(t,3.15)")
+        elif shot_id == "scene-007-shot-01":
+            box(925, 80, 900, 920, "0x05101a@0.52")
+            label("TASK EXECUTED AS CONFIGURED.", 1000, 125, 34, color="0xeaf5ff")
+            box(990, 245, 700, 3, "0x5dbbff@0.85")
+            label("APPROVAL", 990, 285, 28, color="0xbfe5ff")
+            label("ESCALATION", 1460, 285, 28, color="0xbfe5ff")
+            box(1050, 350, 3, 180, "0x5dbbff@0.75")
+            box(1580, 350, 3, 180, "0x5dbbff@0.75")
+            box(1050, 530, 180, 3, "0x5dbbff@0.75")
+            box(1400, 530, 180, 3, "0x5dbbff@0.75")
+            box(1230, 520, 170, 22, "0xff6c75@0.28")
+            label("[ MISSING ]", 1238, 475, 25, color="0xff969c")
+            label("SPENDING LIMIT", 1190, 575, 28, color="0xff969c")
+            box(990, 720, 700, 3, "0x5dbbff@0.85")
+            label("DECISION BOUNDARY", 1130, 760, 34, color="0xd7efff")
+        elif shot_id == "scene-008-shot-01":
+            mode = "exact_timed_title_card"
+            filters.clear()
+            box(0, 0, 1920, 1080, "black@1.0")
+            label("THE AI DID EXACTLY WHAT IT WAS TOLD.", "(w-text_w)/2", "(h-text_h)/2", 48, enable="between(t,0.00,1.00)")
+            label("NO ONE DESIGNED WHEN IT SHOULD STOP.", "(w-text_w)/2", "(h-text_h)/2", 48, enable="between(t,1.00,2.60)")
+            label("DECISION DESIGN", "(w-text_w)/2", 440, 66, enable="gte(t,2.60)")
+            box(710, 540, 500, 3, "0x58b9ff@0.90", enable="gte(t,2.60)")
+            label(
+                "DESIGN JUDGMENT BEFORE AUTOMATION.",
+                "(w-text_w)/2",
+                600,
+                30,
+                color="0xc9d8e3",
+                enable="gte(t,2.60)",
+            )
+        else:
+            for index, value in enumerate(overlays):
+                label(value, 100, 100 + index * 60, 30)
+
+        custom_background = shot_id in {"scene-003-shot-01", "scene-008-shot-01"}
+        if custom_background:
+            inputs = [
+                "-f",
+                "lavfi",
+                "-i",
+                f"color=c=black:s={width}x{height}:r={frame_rate}:d={duration_seconds}",
+            ]
+        else:
+            inputs = ["-i", str(asset)]
+        command = [
+            self.ffmpeg_binary,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            *inputs,
+            "-f",
+            "lavfi",
+            "-i",
+            f"anullsrc=r=48000:cl=stereo:d={duration_seconds}",
+            "-vf",
+            ",".join(filters),
+            "-map",
+            "0:v:0",
+            "-map",
+            "1:a:0",
+            "-map_metadata",
+            "-1",
+            "-metadata",
+            "creation_time=1970-01-01T00:00:00Z",
+            "-t",
+            str(duration_seconds),
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "18",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "128k",
+            "-movflags",
+            "+faststart",
+            str(temporary),
+        ]
+        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+        for path in text_paths:
+            path.unlink(missing_ok=True)
+        if completed.returncode:
+            temporary.unlink(missing_ok=True)
+            raise RenderingError(
+                "Storyboard post-production failed",
+                details={"shot_id": shot_id, "stderr": completed.stderr[-2000:]},
+            )
+        os.replace(temporary, asset)
+        result = {
+            "applied": True,
+            "mode": mode,
+            "exact_strings": overlays,
+            "overlay_count": len(overlays),
+            "asset_hash": file_hash(asset),
+        }
+        result["binding_hash"] = content_hash(
+            {"shot_id": shot_id, "mode": mode, "exact_strings": overlays}
+        )
+        return result
+
 class RenderingPlatform:
     contract_version = "5.7.2-v2"
 
@@ -131,12 +506,46 @@ class RenderingPlatform:
         self.assembler = assembler or PromptAssembler()
         self.validator = validator or AssetValidator()
         self.quality_gate = quality_gate or RenderQualityGate(config.quality_threshold)
+        self.postprocessor = StoryboardPostProcessor()
+        self._conditioning_cache: dict[str, tuple[str, str]] = {}
 
     def _provider_name(self, frame: dict[str, Any]) -> str:
         return "runway" if uses_runway(self.config, frame) else "local"
 
+    def _conditioning_reference(
+        self, frame: dict[str, Any], provider: str
+    ) -> tuple[str | None, str | None]:
+        reference_set = os.environ.get(RUNWAY_STORYBOARD_REFERENCES_ENV, "").strip()
+        if not reference_set or provider != "runway":
+            return None, None
+        if reference_set != "full-auto-v11":
+            raise ValidationError("Unsupported Runway storyboard reference set")
+        shot_id = str(frame["shot_id"])
+        relative = FULL_AUTO_V11_REFERENCES.get(shot_id)
+        if relative is None:
+            return None, None
+        recovery = runway_recovery_shots(self.config)
+        if shot_id not in recovery:
+            raise ValidationError(
+                "Storyboard conditioning is only permitted for authorized recovery shots"
+            )
+        if shot_id in self._conditioning_cache:
+            return self._conditioning_cache[shot_id]
+        workspace = self.build_root.parents[2]
+        source = workspace / relative
+        if source.is_symlink() or not source.is_file() or source.stat().st_size > 5_000_000:
+            raise ValidationError("Storyboard conditioning image is missing or unsafe")
+        raw = source.read_bytes()
+        reference = "data:image/png;base64," + base64.b64encode(raw).decode("ascii")
+        value = (reference, file_hash(source))
+        self._conditioning_cache[shot_id] = value
+        return value
+
     def _request(self, frame: dict[str, Any], attempt: int = 1) -> RenderRequest:
         provider = self._provider_name(frame)
+        conditioning_image_ref, conditioning_image_hash = self._conditioning_reference(
+            frame, provider
+        )
         assembled = self.assembler.assemble(
             frame,
             max_utf16_units=1000 if provider == "runway" else None,
@@ -149,7 +558,14 @@ class RenderingPlatform:
             else "gen4.5-utf16-bounded-prompt-v1"
         )
         cache_key = self.cache.key(
-            shot_hash=content_hash(frame),
+            shot_hash=content_hash(
+                {
+                    "frame": frame,
+                    "conditioning_image_hash": conditioning_image_hash,
+                }
+                if conditioning_image_hash
+                else frame
+            ),
             prompt_hash=assembled["prompt_hash"],
             provider=provider,
             provider_version=provider_version,
@@ -178,12 +594,17 @@ class RenderingPlatform:
             camera_parameters=frame["camera"],
             style_tokens=tuple(frame["style"]),
             negative_style_tokens=tuple(frame["forbidden_style"]),
+            conditioning_image_ref=conditioning_image_ref,
         )
 
     def render_shot(self, frame: dict[str, Any]) -> RenderResult:
         request = self._request(frame)
         cached = self.cache.lookup(request.cache_key)
-        if cached:
+        cached_post = (cached or {}).get("validation", {}).get(
+            "storyboard_postproduction", {}
+        )
+        expected_overlays = [str(item) for item in frame.get("ui_overlays", [])]
+        if cached and cached_post.get("exact_strings") == expected_overlays:
             return RenderResult(
                 render_task_id=request.render_task_id,
                 shot_id=request.shot_id,
@@ -243,7 +664,15 @@ class RenderingPlatform:
                     )
                     raise terminal_error
                 asset = self.build_root / "renders" / f"{request.shot_id}.mp4"
-                download = provider.download(job, asset)
+                provider.download(job, asset)
+                postproduction = self.postprocessor.apply(
+                    asset,
+                    frame,
+                    width=attempt_request.width,
+                    height=attempt_request.height,
+                    frame_rate=attempt_request.frame_rate,
+                    duration_seconds=attempt_request.duration_seconds,
+                )
                 validation = self.validator.validate(
                     asset,
                     width=attempt_request.width,
@@ -251,6 +680,7 @@ class RenderingPlatform:
                     frame_rate=attempt_request.frame_rate,
                     duration_seconds=attempt_request.duration_seconds,
                 )
+                validation["storyboard_postproduction"] = postproduction
                 quality = self.quality_gate.evaluate(validation, frame)
                 cached_entry = self.cache.store(
                     request.cache_key, asset, validation, quality
@@ -260,7 +690,7 @@ class RenderingPlatform:
                     shot_id=request.shot_id,
                     state=RenderState.COMPLETED,
                     asset_uri=cached_entry["asset_uri"],
-                    asset_hash=download["asset_hash"],
+                    asset_hash=cached_entry["asset_hash"],
                     cache_key=request.cache_key,
                     provider=request.provider,
                     from_cache=False,
@@ -303,6 +733,31 @@ class RenderingPlatform:
         frames = sorted(storyboard.get("frames", []), key=lambda frame: frame["shot_id"])
         if not frames:
             raise RenderingError("Storyboard contains no frames")
+        recovery_shots = runway_recovery_shots(self.config)
+        frame_by_id = {str(frame["shot_id"]): frame for frame in frames}
+        unknown_recovery_shots = sorted(recovery_shots.difference(frame_by_id))
+        if unknown_recovery_shots:
+            raise ValidationError(
+                "Runway fidelity recovery contains shots outside the approved storyboard",
+                details={"unknown_shots": unknown_recovery_shots},
+            )
+        invalid_recovery_shots = sorted(
+            shot_id
+            for shot_id in recovery_shots
+            if frame_by_id[shot_id]["render_strategy"]["asset_class"] == "title_card"
+        )
+        if invalid_recovery_shots:
+            raise ValidationError(
+                "Deterministic title cards cannot be expanded to Runway recovery",
+                details={"invalid_shots": invalid_recovery_shots},
+            )
+        reference_set = os.environ.get(RUNWAY_STORYBOARD_REFERENCES_ENV, "").strip()
+        if reference_set == "full-auto-v11" and recovery_shots != frozenset(
+            FULL_AUTO_V11_REFERENCES
+        ):
+            raise ValidationError(
+                "Full Auto v11 recovery must bind the complete approved reference set"
+            )
         estimated_runway_credits = runway_credit_estimate(self.config, frames)
         estimate = round(estimated_runway_credits * RUNWAY_CREDIT_USD, 2)
         if estimated_runway_credits > self.config.max_runway_credits:
@@ -456,6 +911,14 @@ class RenderingPlatform:
                 "estimated_provider_cost_usd": estimate,
                 "estimated_runway_credits": estimated_runway_credits,
                 "runway_credit_limit": self.config.max_runway_credits,
+                "planned_runway_scope": self.config.runway_scope,
+                "runway_recovery_shots": sorted(recovery_shots),
+                "runway_recovery_reason": (
+                    os.environ.get(RUNWAY_RECOVERY_REASON_ENV, "").strip()
+                    if recovery_shots
+                    else None
+                ),
+                "storyboard_reference_set": reference_set or None,
                 "runtime_worker_limit": worker_limit,
             },
         }

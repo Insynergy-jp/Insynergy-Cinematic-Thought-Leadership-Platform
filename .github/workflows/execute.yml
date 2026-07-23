@@ -12,10 +12,15 @@ on:
         required: true
         type: string
       runway_recovery_run_id:
-        description: Optional failed Execute run ID whose safe Runway task state should be reused
+        description: Optional trusted Execute run ID whose safe Runway task state should be reused
         required: false
         default: ""
         type: string
+      runway_fidelity_recovery:
+        description: Expand the approved Full Auto hybrid render to the five v11 live-action recovery shots
+        required: true
+        default: false
+        type: boolean
       config_path:
         description: Optional repository-relative production configuration used during planning
         required: false
@@ -99,6 +104,9 @@ jobs:
           AGENT_EXCEPTION_REASON: ${{ inputs.agent_exception_reason }}
           CONFIG_PATH: ${{ inputs.config_path }}
           RENDER_PROVIDER: ${{ inputs.provider }}
+          RUNWAY_SCOPE: ${{ inputs.runway_scope }}
+          RUNWAY_FIDELITY_RECOVERY: ${{ inputs.runway_fidelity_recovery }}
+          PLANNING_RUN_ID: ${{ inputs.planning_run_id }}
         run: |
           set -euo pipefail
           case "$SOURCE_RUN_ID" in *[!0-9]*|'') echo "planning_run_id must be numeric" >&2; exit 2 ;; esac
@@ -114,6 +122,14 @@ jobs:
             case "$CONFIG_PATH" in /*|*..*) echo "config_path must be repository-relative and contain no .." >&2; exit 2 ;; esac
             test -f "$CONFIG_PATH"
           fi
+          if [ "$RUNWAY_FIDELITY_RECOVERY" = "true" ]; then
+            test "$RENDER_PROVIDER" = "runway" || { echo "fidelity recovery requires provider=runway" >&2; exit 2; }
+            test "$RUNWAY_SCOPE" = "hybrid" || { echo "fidelity recovery preserves the approved hybrid scope" >&2; exit 2; }
+            test -n "$RUNWAY_RECOVERY_RUN_ID" || { echo "fidelity recovery requires a trusted Runway recovery run" >&2; exit 2; }
+            test "$CONFIG_PATH" = "creative/full-auto-30s/production-config.json" || { echo "fidelity recovery is bound to the Full Auto production config" >&2; exit 2; }
+            test "$BUILD_ID" = "20260723-001" || { echo "fidelity recovery is bound to the approved Full Auto build" >&2; exit 2; }
+            test "$PLANNING_RUN_ID" = "29975671551" || { echo "fidelity recovery is bound to the approved Full Auto planning run" >&2; exit 2; }
+          fi
       - name: Verify planning and execution runtime compatibility
         env:
           PLANNING_SOURCE_SHA: ${{ steps.planning_source.outputs.source_sha }}
@@ -121,7 +137,7 @@ jobs:
         run: |
           set -euo pipefail
           PYTHONPATH=src python3 tools/verify_runtime_compatibility.py --root "$GITHUB_WORKSPACE" --planning-source-sha "$PLANNING_SOURCE_SHA" --execution-source-sha "$EXECUTION_SOURCE_SHA" > runtime-compatibility-result.json
-      - name: Inspect trusted failed Execute run for Runway recovery
+      - name: Inspect trusted Execute run for Runway recovery
         if: ${{ inputs.runway_recovery_run_id != '' }}
         id: runway_recovery
         env:
@@ -255,6 +271,9 @@ jobs:
           AGENT_EXCEPTION_REASON: ${{ inputs.agent_exception_reason }}
           PRE_RENDER_PREVIEW_MODE: ${{ inputs.pre_render_preview_mode }}
           CONFIG_PATH: ${{ inputs.config_path }}
+          INSYNERGY_RUNWAY_RECOVERY_SHOTS: ${{ inputs.runway_fidelity_recovery && 'scene-001-shot-01,scene-002-shot-01,scene-004-shot-01,scene-005-shot-01,scene-007-shot-01' || '' }}
+          INSYNERGY_RUNWAY_RECOVERY_REASON: ${{ inputs.runway_fidelity_recovery && 'User-authorized Full Auto fidelity recovery: replace placeholder live-action shots, bind the approved v11 identity references, and preserve deterministic UI post-production.' || '' }}
+          INSYNERGY_RUNWAY_STORYBOARD_REFERENCES: ${{ inputs.runway_fidelity_recovery && 'full-auto-v11' || '' }}
         run: |
           set -euo pipefail
           CONFIG_ARGUMENTS=()

@@ -1,4 +1,4 @@
-"""Recover safe Runway idempotency state from one trusted failed Execute run."""
+"""Recover safe Runway idempotency state from one trusted Execute run."""
 
 from __future__ import annotations
 
@@ -101,7 +101,7 @@ def inspect_execution_recovery(
         "workflow_path": metadata.get("path") == WORKFLOW_PATH,
         "event": metadata.get("event") == "workflow_dispatch",
         "status": metadata.get("status") == "completed",
-        "conclusion": metadata.get("conclusion") == "failure",
+        "conclusion": metadata.get("conclusion") in {"failure", "success"},
         "branch": metadata.get("head_branch") == "main",
         "repository": isinstance(source_repository, dict)
         and source_repository.get("full_name") == repository,
@@ -111,12 +111,13 @@ def inspect_execution_recovery(
     failed = sorted(name for name, passed in checks.items() if not passed)
     if failed:
         raise ValidationError(
-            "Runway recovery source is not a trusted failed main-branch Execute run",
+            "Runway recovery source is not a trusted main-branch Execute run",
             details={"failed_checks": failed},
         )
     source_sha = metadata.get("head_sha")
     if not isinstance(source_sha, str) or not re.fullmatch(r"[0-9a-f]{40}", source_sha):
         raise ValidationError("Runway recovery source SHA is invalid")
+    conclusion = str(metadata["conclusion"])
     return {
         "passed": True,
         "repository": repository,
@@ -124,7 +125,12 @@ def inspect_execution_recovery(
         "workflow": WORKFLOW_NAME,
         "workflow_path": WORKFLOW_PATH,
         "source_sha": source_sha,
-        "artifact_name": f"execution-diagnostics-{numeric_run_id}",
+        "conclusion": conclusion,
+        "artifact_name": (
+            f"execution-diagnostics-{numeric_run_id}"
+            if conclusion == "failure"
+            else f"validated-{numeric_run_id}"
+        ),
     }
 
 

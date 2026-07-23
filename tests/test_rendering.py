@@ -1,24 +1,213 @@
 from pathlib import Path
 from copy import deepcopy
 import json
+import os
 import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from insynergy_cinematic.config import DEFAULT_CONFIG
-from insynergy_cinematic.errors import AssetValidationError, StateConflictError
+from insynergy_cinematic.errors import (
+    AssetValidationError,
+    StateConflictError,
+    ValidationError,
+)
 from insynergy_cinematic.media import AssetValidator
 from insynergy_cinematic.models import BuildState, RenderRequest
 from insynergy_cinematic.orchestrator import BuildOrchestrator
 from insynergy_cinematic.providers.runway import RunwayProvider
-from insynergy_cinematic.rendering import RenderCache
+from insynergy_cinematic.rendering import (
+    RenderCache,
+    RenderingPlatform,
+    StoryboardPostProcessor,
+    uses_runway,
+)
+from insynergy_cinematic.storage import ContentAddressableStore
 
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class RenderingTests(unittest.TestCase):
+    def test_v11_conditioning_image_is_hash_bound_to_the_runway_request(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            reference = (
+                workspace
+                / "creative"
+                / "full-auto-30s"
+                / "storyboard-shot-01-identity-v11.png"
+            )
+            reference.parent.mkdir(parents=True)
+            shutil.copyfile(
+                ROOT
+                / "creative"
+                / "full-auto-30s"
+                / "storyboard-shot-01-identity-v11.png",
+                reference,
+            )
+            config = BuildOrchestrator(
+                workspace,
+                profile="preview",
+                provider="runway",
+                runway_scope="hybrid",
+                environ={
+                    "RUNWAY_BASE_URL": "https://provider.invalid",
+                    "RUNWAY_API_KEY": "secret",
+                    "RUNWAY_MODEL_GEN45": "gen4.5",
+                },
+            ).config
+            cache = RenderCache(
+                workspace / ".insynergy" / "render-cache",
+                ContentAddressableStore(workspace / ".insynergy" / "cas"),
+            )
+            platform = RenderingPlatform(
+                config=config,
+                build_root=workspace / ".insynergy" / "builds" / "20260723-001",
+                provider_registry={"runway": object(), "local": object()},
+                cache=cache,
+            )
+            frame = {
+                "frame_id": "frame-001",
+                "shot_id": "scene-001-shot-01",
+                "duration_seconds": 3.5,
+                "composition": "over-shoulder desktop workstation",
+                "visible_action": "The developer clicks RUN.",
+                "camera": {
+                    "framing": "MEDIUM",
+                    "lens": "50mm",
+                    "movement": "slow_push",
+                    "angle": "eye_level",
+                },
+                "character_continuity": {"protagonist": "full-auto-v11"},
+                "location": "home office",
+                "lighting": "cool monitor blue",
+                "emotion": "quiet satisfaction",
+                "style": ["restrained live-action realism"],
+                "forbidden_style": ["logo", "trademark"],
+                "render_strategy": {
+                    "asset_class": "runway_video",
+                    "execution_capability": "generative_natural_motion",
+                },
+                "ui_overlays": ["EXECUTION MODE", "RUN"],
+            }
+            recovery = {
+                "INSYNERGY_RUNWAY_RECOVERY_SHOTS": "scene-001-shot-01",
+                "INSYNERGY_RUNWAY_RECOVERY_REASON": "Approved fidelity recovery.",
+            }
+            with patch.dict(os.environ, recovery, clear=False):
+                unconditioned = platform._request(frame)
+            with patch.dict(
+                os.environ,
+                {
+                    **recovery,
+                    "INSYNERGY_RUNWAY_STORYBOARD_REFERENCES": "full-auto-v11",
+                },
+                clear=False,
+            ):
+                conditioned = platform._request(frame)
+            self.assertTrue(conditioned.conditioning_image_ref.startswith("data:image/png;base64,"))
+            self.assertNotEqual(conditioned.cache_key, unconditioned.cache_key)
+
+    def test_authorized_recovery_expands_only_named_hybrid_shots(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            config = BuildOrchestrator(
+                Path(temporary),
+                profile="preview",
+                provider="runway",
+                runway_scope="hybrid",
+                environ={
+                    "RUNWAY_BASE_URL": "https://provider.invalid",
+                    "RUNWAY_API_KEY": "secret",
+                    "RUNWAY_MODEL_GEN45": "gen4.5",
+                },
+            ).config
+            frame = {
+                "shot_id": "scene-002-shot-01",
+                "render_strategy": {"asset_class": "animated_still"},
+            }
+            environment = {
+                "INSYNERGY_RUNWAY_RECOVERY_SHOTS": "scene-002-shot-01",
+                "INSYNERGY_RUNWAY_RECOVERY_REASON": "Approved fidelity recovery.",
+            }
+            with patch.dict(os.environ, environment, clear=False):
+                self.assertTrue(uses_runway(config, frame))
+                self.assertFalse(
+                    uses_runway(
+                        config,
+                        {
+                            "shot_id": "scene-003-shot-01",
+                            "render_strategy": {"asset_class": "motion_graphics"},
+                        },
+                    )
+                )
+            with patch.dict(
+                os.environ,
+                {"INSYNERGY_RUNWAY_RECOVERY_SHOTS": "scene-002-shot-01"},
+                clear=True,
+            ), self.assertRaises(ValidationError):
+                uses_runway(config, frame)
+
+    @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg required")
+    def test_exact_agent_multiplication_and_title_card_are_postproduced(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            processor = StoryboardPostProcessor()
+            validator = AssetValidator()
+            cases = (
+                (
+                    "scene-003-shot-01",
+                    [
+                        "Creating Agent...",
+                        "Searching...",
+                        "Generating...",
+                        "Retry...",
+                        "Launching Parallel Worker...",
+                        "Expanding Context...",
+                        "Thinking...",
+                        "Run #18",
+                        "Run #37",
+                        "Run #96",
+                        "Run #184",
+                    ],
+                    "exact_agent_multiplication",
+                ),
+                (
+                    "scene-008-shot-01",
+                    [
+                        "00:26.0 — THE AI DID EXACTLY WHAT IT WAS TOLD.",
+                        "00:27.0 — NO ONE DESIGNED WHEN IT SHOULD STOP.",
+                        "00:28.6 — DECISION DESIGN",
+                        "DESIGN JUDGMENT BEFORE AUTOMATION.",
+                    ],
+                    "exact_timed_title_card",
+                ),
+            )
+            for shot_id, overlays, mode in cases:
+                with self.subTest(shot_id=shot_id):
+                    asset = root / f"{shot_id}.mp4"
+                    result = processor.apply(
+                        asset,
+                        {"shot_id": shot_id, "ui_overlays": overlays},
+                        width=640,
+                        height=360,
+                        frame_rate=24,
+                        duration_seconds=4.0,
+                    )
+                    self.assertEqual(result["mode"], mode)
+                    self.assertEqual(result["exact_strings"], overlays)
+                    self.assertTrue(
+                        validator.validate(
+                            asset,
+                            width=640,
+                            height=360,
+                            frame_rate=24,
+                            duration_seconds=4.0,
+                        )["passed"]
+                    )
+
     @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg required")
     def test_content_gate_rejects_silent_solid_placeholder(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
