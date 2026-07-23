@@ -145,6 +145,22 @@ class RunwayProviderTests(unittest.TestCase):
         self.assertEqual(retried.idempotency_key, first.idempotency_key)
         self.assertEqual([item[0].get_method() for item in opener.requests], ["POST", "GET", "POST"])
 
+    def test_fractional_editorial_duration_uses_integer_provider_duration(self) -> None:
+        opener = RecordingOpener(FakeResponse(b'{"id":"task-fractional"}'))
+        with tempfile.TemporaryDirectory() as temporary:
+            state_path = Path(temporary) / "jobs.json"
+            provider = self.provider(opener, state_path)
+
+            provider.submit(
+                render_request(render_profile="final", duration_seconds=3.5)
+            )
+
+            payload = json.loads(opener.requests[0][0].data)
+            self.assertEqual(payload["duration"], 4)
+            record = next(iter(read_json(state_path)["jobs"].values()))
+            self.assertEqual(record["duration_seconds"], 3.5)
+            self.assertEqual(record["provider_duration_seconds"], 4)
+
     def test_image_conditioning_selects_image_to_video(self) -> None:
         opener = RecordingOpener(FakeResponse(b'{"id":"task-image"}'))
         provider = self.provider(opener)
@@ -294,7 +310,7 @@ class RunwayProviderTests(unittest.TestCase):
                     "-f",
                     "lavfi",
                     "-i",
-                    "color=c=black:s=160x90:r=12:d=0.5",
+                    "color=c=black:s=160x90:r=12:d=4",
                     "-an",
                     "-c:v",
                     "libx264",
@@ -312,7 +328,8 @@ class RunwayProviderTests(unittest.TestCase):
                     "target_width": 320,
                     "target_height": 180,
                     "target_frame_rate": 24,
-                    "duration_seconds": 1,
+                    "duration_seconds": 3.5,
+                    "provider_duration_seconds": 4,
                 },
             )
 
@@ -320,6 +337,7 @@ class RunwayProviderTests(unittest.TestCase):
             self.assertEqual(probe["width"], 320)
             self.assertEqual(probe["height"], 180)
             self.assertAlmostEqual(probe["frame_rate"], 24.0)
+            self.assertAlmostEqual(probe["duration_seconds"], 3.5, delta=0.05)
             self.assertTrue(probe["has_audio"])
 
 

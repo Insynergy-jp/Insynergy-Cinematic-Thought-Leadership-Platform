@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import json
 from pathlib import Path
 import shutil
 import tempfile
@@ -13,6 +14,10 @@ from insynergy_cinematic.github_actions import (
 )
 from tools.github_planning_source import resolve_planning_source
 from tools.recover_planning_evidence import inspect_recovery, recover
+from tools.recover_runway_execution import (
+    inspect_execution_recovery,
+    recover_runway_jobs,
+)
 
 
 RUN_ID = "29975671551"
@@ -149,6 +154,95 @@ class WorkflowRecoveryTests(unittest.TestCase):
             with self.assertRaises(ValidationError):
                 inspect_recovery(root, Path("workflow-evidence.json"))
 
+    def test_failed_main_execute_run_and_safe_runway_state_are_recoverable(self) -> None:
+        repository = {"full_name": REPOSITORY}
+        metadata = {
+            "id": 29978679129,
+            "name": "Execute Approved Plan",
+            "path": ".github/workflows/execute.yml",
+            "event": "workflow_dispatch",
+            "status": "completed",
+            "conclusion": "failure",
+            "head_branch": "main",
+            "head_sha": "b" * 40,
+            "repository": repository,
+            "head_repository": repository,
+        }
+        inspection = inspect_execution_recovery(
+            metadata,
+            repository=REPOSITORY,
+            run_id="29978679129",
+        )
+        self.assertEqual(
+            inspection["artifact_name"],
+            "execution-diagnostics-29978679129",
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "jobs.json"
+            target = root / "restored" / "jobs.json"
+            source.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "1.0",
+                        "jobs": {
+                            "sha256:" + "7" * 64: {
+                                "provider_task_id": "40fd6cd6-dffb-4000-ad26-07f487154f41",
+                                "payload_hash": "sha256:" + "f" * 64,
+                                "attempt": 1,
+                                "target_width": 1920,
+                                "target_height": 1080,
+                                "target_frame_rate": 24,
+                                "duration_seconds": 4,
+                                "native_width": 1280,
+                                "native_height": 720,
+                            }
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result = recover_runway_jobs(source, target)
+            self.assertTrue(result["passed"])
+            self.assertEqual(result["recovered_jobs"], 1)
+            self.assertTrue(target.is_file())
+
+    def test_runway_recovery_rejects_successful_run_or_unsafe_state(self) -> None:
+        repository = {"full_name": REPOSITORY}
+        metadata = {
+            "id": 1,
+            "name": "Execute Approved Plan",
+            "path": ".github/workflows/execute.yml",
+            "event": "workflow_dispatch",
+            "status": "completed",
+            "conclusion": "success",
+            "head_branch": "main",
+            "head_sha": "b" * 40,
+            "repository": repository,
+            "head_repository": repository,
+        }
+        with self.assertRaises(ValidationError):
+            inspect_execution_recovery(
+                metadata,
+                repository=REPOSITORY,
+                run_id="1",
+            )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "jobs.json"
+            source.write_text(
+                '{"schema_version":"1.0","jobs":{"sha256:'
+                + "a" * 64
+                + '":{"provider_task_id":"task","payload_hash":"sha256:'
+                + "b" * 64
+                + '","attempt":1,"target_width":1920,"target_height":1080,'
+                '"target_frame_rate":24,"duration_seconds":4,"native_width":1280,'
+                '"native_height":720,"prompt":"must-not-be-restored"}}}',
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValidationError):
+                recover_runway_jobs(source, root / "target.json")
+
     def test_workflows_preserve_persona_evidence_and_bind_recovery_to_source(self) -> None:
         repository_root = Path(__file__).resolve().parents[1]
         plan = (repository_root / ".github" / "workflows" / "plan.yml").read_text(
@@ -162,6 +256,8 @@ class WorkflowRecoveryTests(unittest.TestCase):
         self.assertIn("tools/github_planning_source.py", execute)
         self.assertIn("tools/recover_planning_evidence.py", execute)
         self.assertIn("tools/verify_runtime_compatibility.py", execute)
+        self.assertIn("tools/recover_runway_execution.py", execute)
+        self.assertIn("runway_recovery_run_id", execute)
         self.assertIn("source-sha: ${{ steps.planning_source.outputs.source_sha }}", execute)
         self.assertIn("fetch-depth: 0", execute)
         self.assertNotIn("Checkout approved planning source", execute)
