@@ -19,7 +19,7 @@ The sheet reads left-to-right across the top row, then the bottom row. It is an 
 
 ## Runtime decision
 
-The supplied durations totaled 30.5 seconds. Shot 02 is tightened from 3.5 to 3.0 seconds so the final timeline lands at exactly 30.0 seconds. The final cut uses exactly two spoken lines: `朝には終わってるだろ。` in Shot 01 and `なんて俺はクソなんだ！` in Shot 07. There is no other dialogue or voiceover.
+The supplied durations totaled 30.5 seconds. Shot 02 is tightened from 3.5 to 3.0 seconds so the final timeline lands at exactly 30.0 seconds. The final cut uses exactly two spoken lines: `It'll be done by morning.` in Shot 01 and `I'm such a fucking idiot!` in Shot 07. There is no other dialogue or voiceover.
 
 ## Continuity anchors
 
@@ -49,7 +49,7 @@ The supplied durations totaled 30.5 seconds. Shot 02 is tightened from 3.5 to 3.
 **Timecode:** 00:00.0–00:03.5
 **Purpose:** Establish competence, convenience, and the missing control without announcing danger.
 
-An over-shoulder medium close-up reveals the developer at 00:18 in a quiet home office. The desktop monitor shows a clean, generic execution settings panel with four checked modes and no spending limit. The cursor clicks `RUN`. With understated satisfaction, the developer says `朝には終わってるだろ。`, releases the mouse, pushes the chair back, and stands while the desktop monitor and run remain active.
+An over-shoulder medium close-up reveals the developer at 00:18 in a quiet home office. The desktop monitor shows a clean, generic execution settings panel with four checked modes and no spending limit. The cursor clicks `RUN`. With understated satisfaction, the developer says `It'll be done by morning.`, releases the mouse, pushes the chair back, and stands while the desktop monitor and run remain active.
 
 **Revised desktop/identity keyframe:**
 
@@ -73,7 +73,7 @@ OFF
 RUN
 ```
 
-**Dialogue:** `朝には終わってるだろ。`
+**Dialogue:** `It'll be done by morning.`
 **Sound:** One keyboard tap, four dry toggle ticks compressed into one rhythm, a precise RUN click, the quietly satisfied line, room tone, and one restrained chair movement.
 **Transition:** Hard cut as the developer clears the chair while the monitor remains active.
 
@@ -249,7 +249,7 @@ $744 → $746 → $748
 **Timecode:** 00:22.0–00:26.0
 **Purpose:** Make the protagonist recognize the missing human judgment structure as his own omission and let that recognition rupture the film's restraint.
 
-The developer watches the screen in a held medium close-up. The screen answers with neutral text: `TASK EXECUTED AS CONFIGURED.` A translucent blue control architecture resolves behind the interface. First, the audience sees one edge missing and execution pulses leaking through that opening. Then Approval, Spending Limit, Escalation, and Decision Boundary resolve as restrained labels, leaving the Spending Limit segment as an unmistakable gap. Recognition hits: anger, panic, and regret collide in his face. He pitches forward and shouts the film’s final spoken line: `なんて俺はクソなんだ！` The outburst is directed at his own failed judgment, never at the machine. The system remains neutral. Dead air follows the shout before the cut.
+The developer watches the screen in a held medium close-up. The screen answers with neutral text: `TASK EXECUTED AS CONFIGURED.` A translucent blue control architecture resolves behind the interface. First, the audience sees one edge missing and execution pulses leaking through that opening. Then Approval, Spending Limit, Escalation, and Decision Boundary resolve as restrained labels, leaving the Spending Limit segment as an unmistakable gap. Recognition hits: anger, panic, and regret collide in his face. He pitches forward and shouts the film’s final spoken line: `I'm such a fucking idiot!` The outburst is directed at his own failed judgment, never at the machine. The system remains neutral. Dead air follows the shout before the cut.
 
 **Revised keyframe:**
 

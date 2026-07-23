@@ -14,11 +14,11 @@ One developer working alone from a quiet home office. Use one continuous middle-
 
 ## Required narrative spine
 
-At 00:18 the developer enables a generic full-auto coding-agent run with parallel runs, automatic retry, continued execution, and no spending limit on a desktop workstation. The developer releases the physical mouse, stands, and leaves while the desktop monitor and run remain active. Overnight, that monitor becomes the only light as workers and runs multiply. In the morning a small, flat, visually subordinate phone delivers a $512.43 usage alert; returning to the same desktop dashboard reveals 184 completed tasks and a live total above $731.88. STOP cannot halt the already active workers immediately. The neutral system response is: `Task executed as configured.` As a translucent control structure appears with Approval, Spending Limit, Escalation, and Decision Boundary—and only Spending Limit missing—the developer realizes the omission was his and shouts, “なんて俺はクソなんだ！” The film ends on the proposition that no one designed when the AI should stop.
+At 00:18 the developer enables a generic full-auto coding-agent run with parallel runs, automatic retry, continued execution, and no spending limit on a desktop workstation. The developer releases the physical mouse, stands, and leaves while the desktop monitor and run remain active. Overnight, that monitor becomes the only light as workers and runs multiply. In the morning a small, flat, visually subordinate phone delivers a $512.43 usage alert; returning to the same desktop dashboard reveals 184 completed tasks and a live total above $731.88. STOP cannot halt the already active workers immediately. The neutral system response is: `Task executed as configured.` As a translucent control structure appears with Approval, Spending Limit, Escalation, and Decision Boundary—and only Spending Limit missing—the developer realizes the omission was his and shouts, “I'm such a fucking idiot!” The film ends on the proposition that no one designed when the AI should stop.
 
 ## Runtime and dialogue
 
-Exact runtime: 30.0 seconds. Eight shots. Preserve the supplied shot order. Use exactly two spoken lines in the final cut: `朝には終わってるだろ。` in Shot 01 and `なんて俺はクソなんだ！` in Shot 07. No other dialogue or voiceover is permitted.
+Exact runtime: 30.0 seconds. Eight shots. Preserve the supplied shot order. Use exactly two spoken lines in the final cut: `It'll be done by morning.` in Shot 01 and `I'm such a fucking idiot!` in Shot 07. No other dialogue or voiceover is permitted.
 
 ## Visual direction
 
@@ -43,7 +43,7 @@ The following block is the canonical machine-readable scenario. It is part of th
   "schema_version": "creative-scenario/1",
   "title": "Full Auto",
   "duration_seconds": 30.0,
-  "language": "ja",
+  "language": "en",
   "spoken_line_limit": 2,
   "scenes": [
     {
@@ -56,7 +56,7 @@ The following block is the canonical machine-readable scenario. It is part of th
       "heading": {"interior_exterior": "INT", "location": "Home Office", "time": "Night"},
       "action": "At 00:18, the developer enables autonomous execution, parallel runs, automatic retry, and continued execution on the desktop workstation, leaves the spending limit off, clicks RUN with the physical mouse, says with quiet satisfaction that it will be finished by morning, releases the mouse, pushes the chair back, and stands while the desktop monitor and run remain active.",
       "characters": ["protagonist"],
-      "dialogue": {"speaker": "protagonist", "text": "朝には終わってるだろ。", "category": "Decision", "silence": false},
+      "dialogue": {"speaker": "protagonist", "text": "It'll be done by morning.", "category": "Decision", "silence": false},
       "emotion_start": "control",
       "emotion_end": "confidence",
       "countdown_seconds": 7,
@@ -78,7 +78,7 @@ The following block is the canonical machine-readable scenario. It is part of th
         "performance_note": "Calm, practiced, slightly tired, and never careless; deliver the line with quiet satisfaction, release the physical mouse, push the chair back, and stand without looking back at the still-active desktop monitor."
       },
       "ui_overlays": ["00:18", "EXECUTION MODE", "☑ FULL AUTO", "☑ PARALLEL RUNS", "☑ AUTO RETRY", "☑ CONTINUE UNTIL COMPLETE", "SPENDING LIMIT", "OFF", "RUN"],
-      "sound": "Room tone, one keyboard tap, four compressed toggle ticks, one precise RUN click, the quietly satisfied Japanese line, and one restrained chair movement."
+      "sound": "Room tone, one keyboard tap, four compressed toggle ticks, one precise RUN click, the quietly satisfied English line, and one restrained chair movement."
     },
     {
       "scene_id": "scene-002",
@@ -260,7 +260,7 @@ The following block is the canonical machine-readable scenario. It is part of th
       "heading": {"interior_exterior": "INT", "location": "Home Office", "time": "Morning"},
       "action": "The developer watches the neutral system response as a translucent blue control structure resolves behind it with one unmistakable missing segment at Spending Limit; recognizing the omission as his own, he pitches forward and shouts in a burst of anger, panic, and regret.",
       "characters": ["protagonist"],
-      "dialogue": {"speaker": "protagonist", "text": "なんて俺はクソなんだ！", "category": "Revelation", "silence": false},
+      "dialogue": {"speaker": "protagonist", "text": "I'm such a fucking idiot!", "category": "Revelation", "silence": false},
       "emotion_start": "frustration",
       "emotion_end": "recognition",
       "countdown_seconds": 1,
@@ -282,7 +282,7 @@ The following block is the canonical machine-readable scenario. It is part of th
         "performance_note": "At the peak of the line, anger, panic, and regret collide: mouth open mid-shout, jaw and throat locked, brows compressed, shoulders pitched forward, and one hand clenched low in frame. Both eyes are widened and wet with remorse, but remain anatomically natural: the sclerae are predominantly warm white, with only two or three extremely fine, faint capillaries near the inner corners and lower outer edges; the eyelid rims are mildly pink, the irises remain natural blue-green with dark pupils, and a subtle moist sheen catches the light. There is no broad red tint across the eyes. Acute exertion raises anatomically plausible superficial veins across both temples and the upper forehead, with a pronounced right-temple vein and taut neck veins along the sternocleidomastoid; the forehead and neck are mildly flushed. The anger is directed at his own failed judgment, never at a malicious AI; keep the eyes natural and the vascular tension intense without bleeding, injury, infection, body horror, or theatrical caricature."
       },
       "ui_overlays": ["TASK EXECUTED AS CONFIGURED.", "APPROVAL", "SPENDING LIMIT", "ESCALATION", "DECISION BOUNDARY"],
-      "sound": "Fan tone and one faint electrical line as the incomplete structure appears; a caught breath, then the Japanese line as one dry, unprocessed shout, followed by immediate dead air."
+      "sound": "Fan tone and one faint electrical line as the incomplete structure appears; a caught breath, then the English line as one dry, unprocessed shout, followed by immediate dead air."
     },
     {
       "scene_id": "scene-008",
