@@ -31,6 +31,10 @@ jobs:
           set -euo pipefail
           ffmpeg -version
           espeak-ng --version
+      - name: Install Persona Council test dependencies
+        run: |
+          set -euo pipefail
+          python3 -m pip install -e '.[agent-review]'
       - name: Test platform
         uses: ./.github/actions/test-platform
       - name: Verify workflow supply-chain policy
