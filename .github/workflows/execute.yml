@@ -272,7 +272,7 @@ jobs:
           PRE_RENDER_PREVIEW_MODE: ${{ inputs.pre_render_preview_mode }}
           CONFIG_PATH: ${{ inputs.config_path }}
           INSYNERGY_RUNWAY_RECOVERY_SHOTS: ${{ inputs.runway_fidelity_recovery && 'scene-001-shot-01,scene-002-shot-01,scene-004-shot-01,scene-005-shot-01,scene-007-shot-01' || '' }}
-          INSYNERGY_RUNWAY_RECOVERY_REASON: ${{ inputs.runway_fidelity_recovery && 'User-authorized Full Auto fidelity recovery: replace placeholder live-action shots, bind the approved v11 identity references, and preserve deterministic UI post-production.' || '' }}
+          INSYNERGY_RUNWAY_RECOVERY_REASON: ${{ inputs.runway_fidelity_recovery && 'User-authorized Full Auto fidelity recovery - replace placeholder live-action shots, bind the approved v11 identity references, and preserve deterministic UI post-production.' || '' }}
           INSYNERGY_RUNWAY_STORYBOARD_REFERENCES: ${{ inputs.runway_fidelity_recovery && 'full-auto-v11' || '' }}
         run: |
           set -euo pipefail
