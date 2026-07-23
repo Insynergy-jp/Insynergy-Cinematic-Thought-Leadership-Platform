@@ -45,7 +45,7 @@ class CreativeScenarioTests(unittest.TestCase):
                 for scene in scenario["scenes"]
                 if not scene["dialogue"]["silence"]
             ],
-            ["朝には終わってるだろ。", "なんて俺はクソなんだ！"],
+            ["It'll be done by morning.", "I'm such a fucking idiot!"],
         )
         self.assertEqual(
             scenario["scenes"][2]["ui_overlays"],
@@ -145,7 +145,7 @@ class CreativeScenarioTests(unittest.TestCase):
                 for line in scene["dialogue"]
                 if not line["silence"]
             ],
-            ["朝には終わってるだろ。", "なんて俺はクソなんだ！"],
+            ["It'll be done by morning.", "I'm such a fucking idiot!"],
         )
         self.assertIn(
             "☑ FULL AUTO", screenplay["scenes"][0]["ui_overlays"]
@@ -194,8 +194,8 @@ class CreativeScenarioTests(unittest.TestCase):
         self.assertEqual(
             artifacts["narration_script"]["segments"],
             [
-                {"scene_id": "scene-001", "text": "朝には終わってるだろ。"},
-                {"scene_id": "scene-007", "text": "なんて俺はクソなんだ！"},
+                {"scene_id": "scene-001", "text": "It'll be done by morning."},
+                {"scene_id": "scene-007", "text": "I'm such a fucking idiot!"},
             ],
         )
 
