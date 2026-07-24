@@ -409,7 +409,7 @@ OPENAI_MODEL_PREVIEW = gpt-5.6-sol
 OPENAI_PREVIEW_REASONING_EFFORT = medium
 ```
 
-`Plan Article`で`pre_render_preview_mode=storyboard_animatic`を選び、完了後に`Storyboard Preview` workflowへPlanning Run IDとBuild IDを渡します。Workflowは最初にprotected Environmentを持たない`preflight` jobでPlanning hash、画像数、費用を検証し、成功時だけ`planning-ai` jobを開始します。Preview生成後、secretlessな`storyboard-preview-approval` Environmentが実ReviewerをDeployment review履歴から取得して完全なbundleへ結び付けます。次の`Execute Approved Plan`にはStoryboard Preview workflowのRun IDを渡します。`off`ではOpenAI Preview SDKもSecretも使いません。
+`Plan Article`で`pre_render_preview_mode=storyboard_animatic`を選び、完了後に`Storyboard Preview` workflowへPlanning Run ID、Build ID、Planningと同じrepository-relative `config_path`を渡します。Workflowは最初にprotected Environmentを持たない`preflight` jobでPlanning hash、設定パス、画像数、費用を検証し、成功時だけ`planning-ai` jobを開始します。Preview生成後、secretlessな`storyboard-preview-approval` Environmentが実ReviewerをDeployment review履歴から取得して完全なbundleへ結び付けます。次の`Execute Approved Plan`にはStoryboard Preview workflowのRun IDを渡します。`off`ではOpenAI Preview SDKもSecretも使いません。
 
 `storyboard-preview-approval` Environmentにはsecretを置かず、Required reviewerを`Insynergy-jp`、Deployment branchesをcustom policyの`main` 1件だけに限定します。Workflow initiatorも`Insynergy-jp`で同一ユーザー承認を許可する運用ではPrevent self-reviewを無効にします。有効にしたまま同一ユーザーが承認すると、review履歴取得後のapplication gateでもfail closedになります。Workflowは実行時にReviewer login/ID、Prevent self-review、`main`限定branch policyをGitHub APIから再検証し、review履歴hashとEnvironment policy hashを承認bindingへ封印します。
 
