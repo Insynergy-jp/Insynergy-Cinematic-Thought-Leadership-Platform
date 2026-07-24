@@ -278,6 +278,8 @@ class ProductionMediaTests(unittest.TestCase):
             self.assertTrue(validation["youtube_ready"])
             self.assertGreaterEqual(result["loudness_correction_attempts"], 1)
             self.assertGreaterEqual(result["integrated_loudness_lufs"], -16.0)
+            self.assertLessEqual(result["true_peak_db"], -0.5)
+            self.assertEqual(result["encoded_true_peak_safety_margin_db"], 1.0)
 
     def test_srt_contains_timed_narration(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

@@ -916,7 +916,11 @@ class YouTubeMastering:
         ) and correction_attempts < 2:
             correction_attempts += 1
             gain_db = integrated_loudness_lufs - loudness["input_i"]
-            limiter_level = 10 ** (true_peak_db / 20)
+            # AAC encoding can create inter-sample peaks above the filter's ceiling.
+            # Keep one additional decibel of headroom so the encoded measurement,
+            # rather than only the pre-encode PCM signal, remains inside the gate.
+            limiter_target_db = min(true_peak_db - 1.0, -1.5)
+            limiter_level = 10 ** (limiter_target_db / 20)
             correction = source.with_suffix(
                 f".youtube-audio-correction-{correction_attempts}.mp4"
             )
@@ -1003,6 +1007,7 @@ class YouTubeMastering:
             "integrated_loudness_lufs": loudness["input_i"],
             "true_peak_db": loudness["input_tp"],
             "loudness_correction_attempts": correction_attempts,
+            "encoded_true_peak_safety_margin_db": 1.0,
             "faststart": True,
         }
 
