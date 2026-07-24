@@ -43,7 +43,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--profile", choices=("draft", "preview", "final"))
     parser.add_argument("--provider", choices=("local", "runway"))
     parser.add_argument("--runway-scope", choices=("hybrid", "all_shots"))
-    parser.add_argument("--narration-provider", choices=("offline", "openai"))
+    parser.add_argument(
+        "--narration-provider", choices=("none", "offline", "openai")
+    )
     parser.add_argument("--agent-review-mode", choices=("off", "review"))
     parser.add_argument(
         "--pre-render-preview-mode", choices=("off", "storyboard_animatic")

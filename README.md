@@ -181,7 +181,7 @@ PYTHONPATH=src python3 -m insynergy_cinematic health
 PYTHONPATH=src python3 -m insynergy_cinematic plan examples/decision-boundary.md
 ```
 
-`plan` は `AWAITING_EXECUTION_APPROVAL` で停止し、JSONに `build_id` を返します。高コスト領域へ進むには、明示的な承認が必要です。本番ナレーションでは、計画と実行の両方で`--profile final --narration-provider openai`を指定します。全ショットをGen-4.5で生成する場合は`--provider runway --runway-scope all_shots`も指定します。
+`plan` は `AWAITING_EXECUTION_APPROVAL` で停止し、JSONに `build_id` を返します。高コスト領域へ進むには、明示的な承認が必要です。本番ナレーションでは、計画と実行の両方で`--profile final --narration-provider openai`を指定します。発話を禁止する映像では`--narration-provider none`を指定し、ナレーションセグメントと字幕をゼロに固定します。全ショットをGen-4.5で生成する場合は`--provider runway --runway-scope all_shots`も指定します。
 
 zero-Runway Storyboard Previewを有効にすると、`plan`は`PLANNED`で停止します。`previsualize`がGPT-5.6計画、GPT Image frame、FFmpeg Animatic、review HTML、Quality Reportを生成し、`AWAITING_STORYBOARD_PREVIEW_APPROVAL`へ進めます。Preview承認後もexecution承認は別に必要です。すべてのコマンドで同じmodeを指定してください。
 
@@ -313,7 +313,7 @@ serve                               /api/v2を起動
 export-schemas [DESTINATION]        Part 9 JSON Schemaを出力
 ```
 
-共通オプションは `--workspace`、`--config`、`--profile draft|preview|final`、`--provider local|runway`、`--runway-scope hybrid|all_shots`、`--narration-provider offline|openai`、`--agent-review-mode off|review`、`--pre-render-preview-mode off|storyboard_animatic`、`--persona-mode off|council`、`--compact` です。オプションはサブコマンドより前に置きます。
+共通オプションは `--workspace`、`--config`、`--profile draft|preview|final`、`--provider local|runway`、`--runway-scope hybrid|all_shots`、`--narration-provider none|offline|openai`、`--agent-review-mode off|review`、`--pre-render-preview-mode off|storyboard_animatic`、`--persona-mode off|council`、`--compact` です。オプションはサブコマンドより前に置きます。
 
 視聴者IDをshell履歴へ残さない場合は標準入力を使います。成功判定は既定で理解精度`0.80`、自由想起`0.70`、視聴後`168`時間以上、5件以上を要求します。`MEDIUM`または`MIXED` reaction、accuracy失敗、誤理解、長期想起失敗はいずれも決定的な失敗です。
 

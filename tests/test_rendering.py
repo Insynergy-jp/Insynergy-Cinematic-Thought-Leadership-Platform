@@ -25,12 +25,121 @@ from insynergy_cinematic.rendering import (
     uses_runway,
 )
 from insynergy_cinematic.storage import ContentAddressableStore
+from insynergy_cinematic.util import file_hash
 
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class RenderingTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("ffmpeg"), "FFmpeg required")
+    def test_v12_runway_reference_is_derived_from_approved_portrait_preview(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            config_value = deepcopy(DEFAULT_CONFIG)
+            config_value["render"]["runway_reference_set"] = "full-auto-v12"
+            config_path = workspace / "config.json"
+            config_path.write_text(json.dumps(config_value), encoding="utf-8")
+            config = BuildOrchestrator(
+                workspace,
+                config_path=config_path,
+                profile="preview",
+                provider="runway",
+                runway_scope="hybrid",
+                environ={
+                    "RUNWAY_BASE_URL": "https://provider.invalid",
+                    "RUNWAY_API_KEY": "secret",
+                    "RUNWAY_MODEL_GEN45": "gen4.5",
+                },
+            ).config
+            build_root = workspace / ".insynergy" / "builds" / "20260724-001"
+            frame_directory = build_root / "previsualization" / "frames"
+            frame_directory.mkdir(parents=True)
+            preview_frame = frame_directory / "001-preview-frame.png"
+            shutil.copyfile(
+                ROOT
+                / "creative"
+                / "full-auto-30s"
+                / "storyboard-shot-01-identity-v11.png",
+                preview_frame,
+            )
+            artifact_directory = build_root / "artifacts"
+            artifact_directory.mkdir(parents=True)
+            (artifact_directory / "storyboard_preview_manifest.json").write_text(
+                json.dumps(
+                    {
+                        "data": {
+                            "frames": [
+                                {
+                                    "shot_id": "scene-001-shot-01",
+                                    "asset_path": str(preview_frame),
+                                    "asset_hash": file_hash(preview_frame),
+                                }
+                            ]
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            platform = RenderingPlatform(
+                config=config,
+                build_root=build_root,
+                provider_registry={"runway": object(), "local": object()},
+                cache=RenderCache(
+                    workspace / ".insynergy" / "render-cache",
+                    ContentAddressableStore(workspace / ".insynergy" / "cas"),
+                ),
+            )
+            request = platform._request(
+                {
+                    "frame_id": "frame-001",
+                    "shot_id": "scene-001-shot-01",
+                    "duration_seconds": 3.0,
+                    "composition": "native portrait desktop workstation",
+                    "visible_action": "The developer clicks RUN within one second.",
+                    "camera": {
+                        "framing": "MEDIUM",
+                        "lens": "50mm",
+                        "movement": "slow_push",
+                        "angle": "eye_level",
+                    },
+                    "character_continuity": {"protagonist": "full-auto-v12"},
+                    "location": "home office",
+                    "lighting": "cool monitor blue",
+                    "emotion": "quiet confidence",
+                    "style": ["restrained live-action realism"],
+                    "forbidden_style": ["logo", "trademark"],
+                    "render_strategy": {
+                        "asset_class": "runway_video",
+                        "execution_capability": "generative_natural_motion",
+                    },
+                    "ui_overlays": ["SPENDING LIMIT", "OFF", "RUN"],
+                }
+            )
+            self.assertTrue(
+                request.conditioning_image_ref.startswith("data:image/png;base64,")
+            )
+            derived = build_root / "runway-references" / "scene-001-shot-01.png"
+            self.assertTrue(derived.is_file())
+            probe = subprocess.run(
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-select_streams",
+                    "v:0",
+                    "-show_entries",
+                    "stream=width,height",
+                    "-of",
+                    "csv=p=0:s=x",
+                    str(derived),
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            self.assertEqual(probe.stdout.strip(), "720x1280")
+
     def test_v11_conditioning_image_is_hash_bound_to_the_runway_request(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             workspace = Path(temporary)
@@ -208,6 +317,46 @@ class RenderingTests(unittest.TestCase):
                         )["passed"]
                     )
 
+    @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg required")
+    def test_portrait_title_card_records_shorts_layout_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            asset = Path(temporary) / "portrait-title-card.mp4"
+            result = StoryboardPostProcessor().apply(
+                asset,
+                {
+                    "shot_id": "scene-008-shot-01",
+                    "ui_overlays": [
+                        "00:24.0 — THE AI DID EXACTLY WHAT IT WAS TOLD.",
+                        "00:25.6 — NO ONE DESIGNED WHEN IT SHOULD STOP.",
+                        "00:27.8 — DECISION DESIGN",
+                        "WHERE DOES YOUR AI STOP?",
+                    ],
+                },
+                width=360,
+                height=640,
+                frame_rate=24,
+                duration_seconds=6.0,
+            )
+            self.assertTrue(result["native_portrait"])
+            self.assertFalse(result["destructive_crop"])
+            self.assertTrue(result["text_within_shorts_safe_zone"])
+            self.assertGreaterEqual(
+                result["minimum_text_size_px"],
+                result["minimum_required_text_size_px"],
+            )
+            self.assertEqual(
+                result["shorts_safe_zone"],
+                {"left": 18, "top": 64, "right": 324, "bottom": 480},
+            )
+            self.assertTrue(
+                AssetValidator().validate(
+                    asset,
+                    width=360,
+                    height=640,
+                    frame_rate=24,
+                    duration_seconds=6.0,
+                )["passed"]
+            )
     @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg required")
     def test_content_gate_rejects_silent_solid_placeholder(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

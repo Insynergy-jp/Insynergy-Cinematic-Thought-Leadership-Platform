@@ -6,6 +6,7 @@
   "render": {
     "provider": "runway",
     "runway_scope": "hybrid",
+    "runway_reference_set": "full-auto-v12",
     "max_runway_credits": 480,
     "max_parallel_shots": 2,
     "max_attempts": 3,
@@ -13,14 +14,14 @@
     "budget_usd": 20.0,
     "estimate_before_submission": true,
     "preview": {
-      "width": 1280,
-      "height": 720,
+      "width": 720,
+      "height": 1280,
       "frame_rate": 24,
       "max_duration_seconds": 5
     },
     "final": {
-      "width": 1920,
-      "height": 1080,
+      "width": 1080,
+      "height": 1920,
       "frame_rate": 24,
       "max_duration_seconds": 10
     }
@@ -46,14 +47,32 @@
     }
   },
   "narration": {
-    "provider": "openai",
+    "provider": "none",
     "openai_model": "gpt-4o-mini-tts",
     "openai_voice": "cedar",
-    "openai_instructions": "Speak in natural American English as the same middle-aged male developer. If the text is It'll be done by morning., deliver it quietly with ordinary confidence and slight satisfaction. If the text is I'm such a fucking idiot!, make it one brief, dry, self-directed shout in which anger, panic, and regret collide. Do not add words, narration, laughter, or vocal effects."
+    "openai_instructions": "Spoken audio is prohibited for this build. Do not synthesize dialogue, narration, shouts, gasps, grunts, or human breath."
+  },
+  "pre_render_preview": {
+    "mode": "storyboard_animatic",
+    "model": "gpt-5.6-sol",
+    "reasoning_effort": "medium",
+    "image_size": "1024x1536",
+    "image_quality": "medium",
+    "image_output_format": "png",
+    "timeout_seconds": 300,
+    "max_output_tokens": 24000,
+    "max_images": 12,
+    "preflight_estimated_cost_usd": 5.0,
+    "max_cost_usd": 10.0,
+    "prompt_version": "storyboard-preview-v1",
+    "allowed_models": [
+      "gpt-5.6-sol"
+    ]
   },
   "soundtrack": {
     "path": "creative/full-auto-30s/audio/full-auto-bgm-lyria-v3.mp3",
-    "gain_db": -20.0
+    "gain_db": -20.0,
+    "instrumental_only": true
   },
   "youtube": {
     "video_bitrate": "8M",

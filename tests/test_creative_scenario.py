@@ -3,6 +3,7 @@ from pathlib import Path
 import unittest
 
 from insynergy_cinematic.article import load_article
+from insynergy_cinematic.config import load_config
 from insynergy_cinematic.creative_scenario import validate_creative_scenario
 from insynergy_cinematic.errors import ValidationError
 from insynergy_cinematic.persona import load_creative_brief
@@ -26,7 +27,7 @@ def raw_scenario() -> tuple[dict, str]:
 
 
 class CreativeScenarioTests(unittest.TestCase):
-    def test_full_auto_brief_seals_exact_timing_and_spoken_line(self) -> None:
+    def test_full_auto_brief_seals_shorts_timing_and_zero_spoken_lines(self) -> None:
         brief = load_creative_brief(BRIEF)
         scenario = brief.scenario
 
@@ -37,7 +38,7 @@ class CreativeScenarioTests(unittest.TestCase):
         self.assertEqual(len(scenario["scenes"]), 8)
         self.assertEqual(
             [scene["duration_seconds"] for scene in scenario["scenes"]],
-            [3.5, 3.0, 4.0, 3.5, 4.0, 4.0, 4.0, 4.0],
+            [3.0, 2.0, 4.0, 3.0, 4.0, 4.0, 4.0, 6.0],
         )
         self.assertEqual(
             [
@@ -45,7 +46,7 @@ class CreativeScenarioTests(unittest.TestCase):
                 for scene in scenario["scenes"]
                 if not scene["dialogue"]["silence"]
             ],
-            ["It'll be done by morning.", "I'm such a fucking idiot!"],
+            [],
         )
         self.assertEqual(
             scenario["scenes"][2]["ui_overlays"],
@@ -86,24 +87,17 @@ class CreativeScenarioTests(unittest.TestCase):
             scenario["scenes"][4]["action"],
         )
         self.assertNotIn("laptop", scenario["scenes"][4]["action"].casefold())
+        self.assertIn("four-second silent progression", scenario["scenes"][6]["shot"]["performance_note"])
         self.assertIn(
-            "superficial veins across both temples and the upper forehead",
+            "predominantly warm-white sclerae",
             scenario["scenes"][6]["shot"]["performance_note"],
         )
         self.assertIn(
-            "taut neck veins along the sternocleidomastoid",
+            "no prominent veins",
             scenario["scenes"][6]["shot"]["performance_note"],
         )
         self.assertIn(
-            "the sclerae are predominantly warm white",
-            scenario["scenes"][6]["shot"]["performance_note"],
-        )
-        self.assertIn(
-            "only two or three extremely fine, faint capillaries",
-            scenario["scenes"][6]["shot"]["performance_note"],
-        )
-        self.assertIn(
-            "There is no broad red tint across the eyes",
+            "no speech-shaped movement",
             scenario["scenes"][6]["shot"]["performance_note"],
         )
         self.assertIn(
@@ -145,8 +139,9 @@ class CreativeScenarioTests(unittest.TestCase):
                 for line in scene["dialogue"]
                 if not line["silence"]
             ],
-            ["It'll be done by morning.", "I'm such a fucking idiot!"],
+            [],
         )
+
         self.assertIn(
             "☑ FULL AUTO", screenplay["scenes"][0]["ui_overlays"]
         )
@@ -171,6 +166,7 @@ class CreativeScenarioTests(unittest.TestCase):
             screenplay["scenes"][5]["actions"][0],
         )
         self.assertIn("NO ONE DESIGNED", screenplay["scenes"][7]["actions"][0])
+        self.assertIn("WHERE DOES YOUR AI STOP", screenplay["scenes"][7]["actions"][0])
         self.assertEqual(
             [
                 shot["render_strategy"]["asset_class"]
@@ -178,12 +174,12 @@ class CreativeScenarioTests(unittest.TestCase):
             ],
             [
                 "runway_video",
-                "animated_still",
-                "motion_graphics",
-                "animated_still",
-                "animated_still",
                 "runway_video",
-                "animated_still",
+                "motion_graphics",
+                "runway_video",
+                "runway_video",
+                "runway_video",
+                "runway_video",
                 "title_card",
             ],
         )
@@ -193,11 +189,27 @@ class CreativeScenarioTests(unittest.TestCase):
         )
         self.assertEqual(
             artifacts["narration_script"]["segments"],
-            [
-                {"scene_id": "scene-001", "text": "It'll be done by morning."},
-                {"scene_id": "scene-007", "text": "I'm such a fucking idiot!"},
-            ],
+            [],
         )
+
+    def test_v12_production_profile_is_native_portrait_and_voice_free(self) -> None:
+        config = load_config(
+            workspace=ROOT,
+            config_path=ROOT / "creative" / "full-auto-30s" / "production-config.json",
+            environ={},
+        )
+        self.assertEqual(config.narration_provider, "none")
+        self.assertEqual(config.runway_reference_set, "full-auto-v12")
+        self.assertTrue(config.soundtrack_instrumental_only)
+        self.assertEqual(
+            (config.final.width, config.final.height, config.final.frame_rate),
+            (1080, 1920, 24),
+        )
+        self.assertEqual(
+            (config.preview.width, config.preview.height),
+            (720, 1280),
+        )
+        self.assertEqual(config.preview_image_size, "1024x1536")
 
     def test_timing_drift_and_off_mode_story_input_fail_closed(self) -> None:
         raw, brief_hash = raw_scenario()

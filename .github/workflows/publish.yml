@@ -99,9 +99,10 @@ jobs:
           if [ "$BUILD_PROFILE" = "final" ]; then
             CAPTIONS_PATH=".insynergy/builds/${BUILD_ID}/output/captions.en.srt"
             DESCRIPTION_PATH=".insynergy/builds/${BUILD_ID}/output/youtube-description.txt"
-            test -s "$CAPTIONS_PATH"
             test -s "$DESCRIPTION_PATH"
-            install -m 0644 "$CAPTIONS_PATH" publication-delivery/captions.en.srt
+            if test -s "$CAPTIONS_PATH"; then
+              install -m 0644 "$CAPTIONS_PATH" publication-delivery/captions.en.srt
+            fi
             install -m 0644 "$DESCRIPTION_PATH" publication-delivery/youtube-description.txt
           fi
       - name: Verify published runtime and quality evidence
@@ -142,7 +143,7 @@ jobs:
             publication-delivery/verification-result.json
             publication-delivery/build-id.txt
             publication-delivery/workflow-evidence.json
-            publication-delivery/captions.en.srt
+            publication-delivery/captions.*.srt
             publication-delivery/youtube-description.txt
           if-no-files-found: error
           retention-days: 90

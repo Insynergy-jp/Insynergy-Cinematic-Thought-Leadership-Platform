@@ -212,8 +212,8 @@ class PreviewAnimaticComposer:
             label = f"v{index}"
             labels.append(f"[{label}]")
             filters.append(
-                f"[{index}:v]scale={width}:{height}:force_original_aspect_ratio=increase,"
-                f"crop={width}:{height},fps={frame_rate},"
+                f"[{index}:v]scale={width}:{height}:force_original_aspect_ratio=decrease,"
+                f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black,fps={frame_rate},"
                 "drawbox=x=0:y=0:w=iw:h=54:color=black@0.65:t=fill,"
                 "drawtext=text='STORYBOARD PREVIEW - NOT FINAL':"
                 "fontcolor=white:fontsize=24:x=(w-text_w)/2:y=15,format=yuv420p,"

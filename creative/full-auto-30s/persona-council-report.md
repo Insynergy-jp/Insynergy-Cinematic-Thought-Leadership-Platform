@@ -1,5 +1,9 @@
 # Full Auto — Persona Council Report
 
+## v12 implementation checkpoint — 2026-07-24
+
+The canonical v12 Brief, native 9:16 production configuration, voice-free narration contract, portrait UI layouts, Shorts quality gates, and revised storyboard are now implemented. The next valid record in this file must come from a fresh pipeline Persona Council run against the new Brief. The historical decision below remains evidence only and does not approve v12.
+
 ## YouTube Shorts v12 revision — 2026-07-24
 
 The operator has retired spoken audio because the synthesized Shot 07 performance could not match the protagonist's complex anger, regret, and shock. Research and the implementation target are recorded in `youtube-shorts-research-and-spec.md`. The next version is a native 9:16, 1080 × 1920 organic YouTube Short with zero spoken lines, a desktop-only Shot 04, a silent Shot 07 reaction, a mobile-safe UI system, and a six-second end card with a reflective CTA.

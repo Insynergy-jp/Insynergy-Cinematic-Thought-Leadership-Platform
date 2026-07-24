@@ -21,7 +21,7 @@ from .util import content_hash
 
 CREATIVE_SCENARIO_VERSION = "creative-scenario/1"
 CREATIVE_SCENARIO_EXTRACTION_CONTRACT = "markdown-fence/1"
-AUTHORED_SCENE_DURATION_MIN = 3.0
+AUTHORED_SCENE_DURATION_MIN = 2.0
 ALLOWED_PURPOSES = frozenset(
     {
         "Introduce protagonist",

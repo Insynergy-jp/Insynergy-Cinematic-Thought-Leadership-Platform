@@ -20,6 +20,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "render": {
         "provider": "local",
         "runway_scope": "hybrid",
+        "runway_reference_set": None,
         "max_runway_credits": 480,
         "max_parallel_shots": 4,
         "max_attempts": 3,
@@ -183,6 +184,7 @@ class PlatformConfig:
     deterministic: bool
     provider: str
     runway_scope: str
+    runway_reference_set: str | None
     max_runway_credits: int
     max_parallel_shots: int
     max_attempts: int
@@ -207,6 +209,7 @@ class PlatformConfig:
     soundtrack_path: Path | None
     soundtrack_hash: str | None
     soundtrack_gain_db: float
+    soundtrack_instrumental_only: bool
     youtube_video_bitrate: str
     youtube_audio_bitrate: str
     youtube_audio_sample_rate: int
@@ -314,6 +317,10 @@ def load_config(
     selected_runway_scope = runway_scope or environment.get(
         "INSYNERGY_RUNWAY_SCOPE", render.get("runway_scope", "hybrid")
     )
+    runway_reference_set_value = str(
+        render.get("runway_reference_set") or ""
+    ).strip()
+    selected_runway_reference_set = runway_reference_set_value or None
     selected_agent_review_mode = agent_review_mode or environment.get(
         "INSYNERGY_AGENT_REVIEW_MODE", agent_review.get("mode", "off")
     )
@@ -335,6 +342,10 @@ def load_config(
         raise ValidationError(f"Unsupported Runway scope: {selected_runway_scope}")
     if selected_runway_scope == "all_shots" and selected_provider != "runway":
         raise ValidationError("all_shots Runway scope requires provider=runway")
+    if selected_runway_reference_set not in {None, "full-auto-v12"}:
+        raise ValidationError("render.runway_reference_set is not allow-listed")
+    if selected_runway_reference_set is not None and selected_provider != "runway":
+        raise ValidationError("Runway reference sets require provider=runway")
     if selected_agent_review_mode not in {"off", "review"}:
         raise ValidationError(
             f"Unsupported Agent Review mode: {selected_agent_review_mode}"
@@ -347,7 +358,7 @@ def load_config(
         raise ValidationError(
             f"Unsupported Persona Council mode: {selected_persona_mode}"
         )
-    if selected_narration_provider not in {"offline", "openai"}:
+    if selected_narration_provider not in {"none", "offline", "openai"}:
         raise ValidationError(
             f"Unsupported narration provider: {selected_narration_provider}"
         )
@@ -383,6 +394,15 @@ def load_config(
     soundtrack_gain_db = float(soundtrack.get("gain_db", -20.0))
     if not -36.0 <= soundtrack_gain_db <= -6.0:
         raise ValidationError("soundtrack.gain_db is out of range")
+    soundtrack_instrumental_only = bool(
+        soundtrack.get("instrumental_only", False)
+    )
+    if selected_narration_provider == "none" and (
+        soundtrack_path is None or not soundtrack_instrumental_only
+    ):
+        raise ValidationError(
+            "narration_provider=none requires an approval-bound instrumental soundtrack"
+        )
     youtube_sample_rate = int(youtube.get("audio_sample_rate", 48000))
     if youtube_sample_rate != 48000:
         raise ValidationError("youtube.audio_sample_rate must be 48000")
@@ -694,6 +714,7 @@ def load_config(
         deterministic=bool(values.get("deterministic", True)),
         provider=selected_provider,
         runway_scope=selected_runway_scope,
+        runway_reference_set=selected_runway_reference_set,
         max_runway_credits=max_runway_credits,
         max_parallel_shots=parallelism,
         max_attempts=int(render.get("max_attempts", 3)),
@@ -720,6 +741,7 @@ def load_config(
         soundtrack_path=soundtrack_path,
         soundtrack_hash=soundtrack_hash,
         soundtrack_gain_db=soundtrack_gain_db,
+        soundtrack_instrumental_only=soundtrack_instrumental_only,
         youtube_video_bitrate=str(youtube.get("video_bitrate", "8M")),
         youtube_audio_bitrate=str(youtube.get("audio_bitrate", "384k")),
         youtube_audio_sample_rate=youtube_sample_rate,
