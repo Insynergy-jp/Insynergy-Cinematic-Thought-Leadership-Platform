@@ -21,6 +21,11 @@ on:
         required: true
         default: false
         type: boolean
+      audio_only_recovery:
+        description: Reuse a validated Full Auto picture when only approved dialogue and captions changed
+        required: true
+        default: false
+        type: boolean
       config_path:
         description: Optional repository-relative production configuration used during planning
         required: false
@@ -106,6 +111,7 @@ jobs:
           RENDER_PROVIDER: ${{ inputs.provider }}
           RUNWAY_SCOPE: ${{ inputs.runway_scope }}
           RUNWAY_FIDELITY_RECOVERY: ${{ inputs.runway_fidelity_recovery }}
+          AUDIO_ONLY_RECOVERY: ${{ inputs.audio_only_recovery }}
           PLANNING_RUN_ID: ${{ inputs.planning_run_id }}
         run: |
           set -euo pipefail
@@ -128,7 +134,15 @@ jobs:
             test -n "$RUNWAY_RECOVERY_RUN_ID" || { echo "fidelity recovery requires a trusted Runway recovery run" >&2; exit 2; }
             test "$CONFIG_PATH" = "creative/full-auto-30s/production-config.json" || { echo "fidelity recovery is bound to the Full Auto production config" >&2; exit 2; }
             test "$BUILD_ID" = "20260723-001" || { echo "fidelity recovery is bound to the approved Full Auto build" >&2; exit 2; }
-            test "$PLANNING_RUN_ID" = "29975671551" || { echo "fidelity recovery is bound to the approved Full Auto planning run" >&2; exit 2; }
+            if [ "$AUDIO_ONLY_RECOVERY" = "true" ]; then
+              test "$PLANNING_RUN_ID" = "29982665848" || { echo "audio-only recovery is bound to the approved English Full Auto planning run" >&2; exit 2; }
+              test "$RUNWAY_RECOVERY_RUN_ID" = "29981824842" || { echo "audio-only recovery is bound to the validated Full Auto picture" >&2; exit 2; }
+            else
+              test "$PLANNING_RUN_ID" = "29975671551" || { echo "fidelity recovery is bound to the approved Full Auto planning run" >&2; exit 2; }
+            fi
+          elif [ "$AUDIO_ONLY_RECOVERY" = "true" ]; then
+            echo "audio_only_recovery requires runway_fidelity_recovery" >&2
+            exit 2
           fi
       - name: Verify planning and execution runtime compatibility
         env:
@@ -191,6 +205,32 @@ jobs:
         run: |
           set -euo pipefail
           PYTHONPATH=src python3 tools/recover_runway_execution.py recover --source execution-recovery/.insynergy/providers/runway/jobs.json --target .insynergy/providers/runway/jobs.json > runway-recovery-result.json
+      - name: Restore validated picture for approved audio-only revision
+        if: ${{ inputs.audio_only_recovery }}
+        env:
+          BUILD_ID: ${{ inputs.build_id }}
+          BUILD_PROFILE: ${{ inputs.profile }}
+          RENDER_PROVIDER: ${{ inputs.provider }}
+          RUNWAY_SCOPE: ${{ inputs.runway_scope }}
+          CONFIG_PATH: ${{ inputs.config_path }}
+          INSYNERGY_RUNWAY_RECOVERY_SHOTS: scene-001-shot-01,scene-002-shot-01,scene-004-shot-01,scene-005-shot-01,scene-007-shot-01
+          INSYNERGY_RUNWAY_RECOVERY_REASON: User-approved audio-only Full Auto revision; visual prompts and overlays must remain byte-for-byte equivalent.
+          INSYNERGY_RUNWAY_STORYBOARD_REFERENCES: full-auto-v11
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python3 tools/recover_audio_only_cache.py --source-root execution-recovery --target-root "$GITHUB_WORKSPACE" --build-id "$BUILD_ID" --config "$CONFIG_PATH" --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --output audio-only-recovery-result.json
+      - name: Record skipped audio-only recovery
+        if: ${{ inputs.audio_only_recovery == false }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+
+          value = {"passed": True, "recovery_required": False, "recovered_shot_count": 0}
+          with open("audio-only-recovery-result.json", "w", encoding="utf-8") as output:
+              json.dump(value, output, sort_keys=True, separators=(",", ":"))
+              output.write("\n")
+          PY
       - name: Record skipped Runway task recovery
         if: ${{ inputs.runway_recovery_run_id == '' }}
         run: |
@@ -315,6 +355,7 @@ jobs:
             runtime-compatibility-result.json
             runway-recovery-inspection.json
             runway-recovery-result.json
+            audio-only-recovery-result.json
             build-id.txt
       - name: Write safe execution summary
         run: |
@@ -334,6 +375,7 @@ jobs:
             planning-recovery-result.json
             runway-recovery-inspection.json
             runway-recovery-result.json
+            audio-only-recovery-result.json
             workflow-evidence-result.json
             .insynergy/builds/${{ inputs.build_id }}/manifest.json
             .insynergy/builds/${{ inputs.build_id }}/artifacts/render_manifest.json

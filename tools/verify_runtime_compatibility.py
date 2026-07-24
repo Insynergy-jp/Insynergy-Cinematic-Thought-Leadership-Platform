@@ -23,12 +23,14 @@ ALLOWED_RUNTIME_CHANGES = frozenset(
         "src/insynergy_cinematic/rendering.py",
         "tests/test_prompt_transport.py",
         "tests/test_media.py",
+        "tests/test_audio_only_recovery.py",
         "tests/test_rendering.py",
         "tests/test_runtime_compatibility.py",
         "tests/test_runway_provider.py",
         "tests/test_workflow_recovery.py",
         "tools/github_planning_source.py",
         "tools/recover_planning_evidence.py",
+        "tools/recover_audio_only_cache.py",
         "tools/recover_runway_execution.py",
         "tools/verify_runtime_compatibility.py",
     }
@@ -40,6 +42,7 @@ REQUIRED_RUNTIME_CHANGES = {
     "src/insynergy_cinematic/providers/runway.py": "M",
     "src/insynergy_cinematic/rendering.py": "M",
 }
+RECOVERY_RUNTIME_BASELINE_SHA = "b52f5f477f9471fde43a97d54f7d752c626f954b"
 
 
 def parser() -> argparse.ArgumentParser:
@@ -151,8 +154,16 @@ def verify_runtime_compatibility(
             "Execution source contains changes outside the approved recovery runtime",
             details={"invalid_changes": invalid},
         )
+    baseline_present = _git(
+        root,
+        "merge-base",
+        "--is-ancestor",
+        RECOVERY_RUNTIME_BASELINE_SHA,
+        planning_sha,
+        check=False,
+    ).returncode == 0
     observed = {change["path"]: change["status"] for change in changes}
-    missing_required = [
+    missing_required = [] if baseline_present else [
         {"status": status, "path": path}
         for path, status in sorted(REQUIRED_RUNTIME_CHANGES.items())
         if observed.get(path) != status
