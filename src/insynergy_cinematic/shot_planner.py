@@ -193,7 +193,14 @@ class ShotPlanner:
             shot["render_strategy"]["asset_class"] == "runway_video" for shot in shots
         )
         runway_ratio = runway_count / len(shots)
-        report = self._quality(shots, storyboard_frames, runway_ratio)
+        report = self._quality(
+            shots,
+            storyboard_frames,
+            runway_ratio,
+            runway_ratio_max=(
+                0.75 if screenplay.get("creative_scenario_hash") else 0.30
+            ),
+        )
         if not report["passed"]:
             raise QualityGateError("Shot/Storyboard Quality Gate failed", details=report)
         return {
@@ -263,7 +270,11 @@ class ShotPlanner:
 
     @staticmethod
     def _quality(
-        shots: list[dict[str, Any]], frames: list[dict[str, Any]], runway_ratio: float
+        shots: list[dict[str, Any]],
+        frames: list[dict[str, Any]],
+        runway_ratio: float,
+        *,
+        runway_ratio_max: float = 0.30,
     ) -> dict[str, Any]:
         shot_checks = {
             "purpose_exists": all(bool(shot["cinematic_purpose"]) for shot in shots),
@@ -322,7 +333,7 @@ class ShotPlanner:
                 for frame in frames
             ),
             "pacing": all(float(frame["duration_seconds"]) > 0 for frame in frames),
-            "render_balance": 0 < runway_ratio <= 0.30,
+            "render_balance": 0 < runway_ratio <= runway_ratio_max,
             "concept_ratio": concept_ratio <= 0.20,
             "emotional_rhythm": len({frame["emotion"] for frame in frames}) >= 3,
         }

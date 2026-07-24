@@ -56,8 +56,8 @@ def full_auto_frame(shot: int) -> dict:
                 "At 00:18, the developer enables autonomous execution, parallel "
                 "runs, automatic retry, and continued execution on the desktop "
                 "workstation, leaves the spending limit off, clicks RUN with the "
-                "physical mouse, says with quiet satisfaction that it will be "
-                "finished by morning, releases the mouse, pushes the chair back, "
+                "physical mouse within the first second, remains silent with "
+                "closed-mouth confidence, releases the mouse, pushes the chair back, "
                 "and stands while the desktop monitor and run remain active."
             ),
         }

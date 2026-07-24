@@ -1,4 +1,4 @@
-# Full Auto — Creative Brief
+# Full Auto — Creative Brief v12 (YouTube Shorts)
 
 ## Objective
 
@@ -10,21 +10,23 @@ Executives, engineering leaders, product leaders, and hands-on builders who auth
 
 ## Protagonist boundary
 
-One developer working alone from a quiet home office. Use one continuous middle-aged visual identity across every human shot, anchored to the approved Shot 07 v11 face: short dark wavy hair with subtle gray, blue-green eyes, light brown stubble, a charcoal-navy knit hoodie, and no glasses. Do not invent family, medical, trauma, or demographic backstory. The character is competent, optimistic, and recognizably human; the failure is a plausible judgment-design omission, not carelessness or stupidity. The Shot 07 outburst is the character's momentary self-reproach, not the film's judgment of the character.
+One developer working alone from a quiet home office. Use one continuous middle-aged visual identity across every human shot, anchored to the approved Shot 07 v11 face: short dark wavy hair with subtle gray, blue-green eyes, light brown stubble, a charcoal-navy knit hoodie, and no glasses. Do not invent family, medical, trauma, or demographic backstory. The character is competent, optimistic, and recognizably human; the failure is a plausible judgment-design omission, not carelessness or stupidity. Shot 07 communicates shock, inward anger, regret, and recognition without shouting, lip-synced speech, prominent veins, or theatrical rage.
 
 ## Required narrative spine
 
-At 00:18 the developer enables a generic full-auto coding-agent run with parallel runs, automatic retry, continued execution, and no spending limit on a desktop workstation. The developer releases the physical mouse, stands, and leaves while the desktop monitor and run remain active. Overnight, that monitor becomes the only light as workers and runs multiply. In the morning a small, flat, visually subordinate phone delivers a $512.43 usage alert; returning to the same desktop dashboard reveals 184 completed tasks and a live total above $731.88. STOP cannot halt the already active workers immediately. The neutral system response is: `Task executed as configured.` As a translucent control structure appears with Approval, Spending Limit, Escalation, and Decision Boundary—and only Spending Limit missing—the developer realizes the omission was his and shouts, “I'm such a fucking idiot!” The film ends on the proposition that no one designed when the AI should stop.
+At 00:18 the developer enables a generic full-auto coding-agent run with parallel runs, automatic retry, continued execution, and no spending limit on a desktop workstation. `SPENDING LIMIT / OFF` is the first-frame hook; the cursor clicks `RUN` within the first second. The developer silently releases the physical mouse, stands, and leaves while the desktop monitor and run remain active. Overnight, that monitor becomes the only light as workers and runs multiply. In the morning the same desktop monitor delivers a restrained `$512.43` usage alert; no phone or portable computer appears. The dashboard reveals 184 completed tasks and a live total above $731.88. STOP cannot halt the already active workers immediately. The neutral system response is: `Task executed as configured.` As a translucent control structure appears with Approval, Spending Limit, Escalation, and Decision Boundary—and only Spending Limit missing—the developer recognizes his omission in silence. The film ends by asking where the viewer's AI stops.
 
-## Runtime and dialogue
+## Runtime and spoken-audio boundary
 
-Exact runtime: 30.0 seconds. Eight shots. Preserve the supplied shot order. Use exactly two spoken lines in the final cut: `It'll be done by morning.` in Shot 01 and `I'm such a fucking idiot!` in Shot 07. No other dialogue or voiceover is permitted.
+Exact runtime: 30.0 seconds. Eight shots. Preserve the supplied shot order. Spoken-line limit: zero. No dialogue, voiceover, shout, gasp, grunt, or audible human breath is permitted. The protagonist's mouth remains closed or neutrally parted without speech-shaped movement.
 
 ## Visual direction
 
-Original premium technology launch-film language: quiet precision, restrained live-action realism, near-black negative space, cool blue monitor light, crisp white interface overlays, and one limited warning red accent. Avoid imitation of any named company’s trade dress. Show no service names, logos, mascots, branded typefaces, or product-identifying controls.
+Native organic YouTube Short in 9:16 portrait, using original premium technology launch-film language: quiet precision, restrained live-action realism, near-black negative space, cool blue monitor light, crisp white interface overlays, and one limited warning red accent. Avoid imitation of any named company’s trade dress. Show no service names, logos, mascots, branded typefaces, or product-identifying controls.
 
-Use the same slim matte-black desktop monitor, keyboard, physical mouse, pale wood desk, and desktop computer throughout the office scenes. No laptop or portable computer may appear. The Shot 04 phone lies screen-up near the lower-right desk edge, occupies less than seven percent of frame, and remains a subtle notification source rather than a hero object.
+Use the same slim matte-black desktop monitor, keyboard, physical mouse, pale wood desk, and desktop computer throughout the office scenes. No phone, laptop, or portable computer may appear. Shot 04 keeps the alert on the desktop monitor so the prop language remains continuous.
+
+Author for a 1080×1920 master. Keep essential text inside x=54–972 and y=192–1440. Reserve the top 192 pixels, rightmost 108 pixels, and bottom 480 pixels from essential copy. At final resolution, hook type is at least 84 pixels, primary copy at least 64 pixels, and secondary copy at least 44 pixels.
 
 Shot 03 is the controlled tonal exception: neutral, orderly execution becomes uncanny and frightening through recursive repetition, accelerating density, and the loss of empty screen space. The fear comes from unbounded scale and the absence of a stopping boundary, never from a sentient or malicious AI.
 
@@ -32,7 +34,7 @@ The interface is captured as clean practical screen light and composited in post
 
 ## Sound direction
 
-Music is minimal. Use room tone, one keyboard/click sound at launch, a distant accumulation of restrained process ticks overnight, one dry notification sound in the morning, one hard STOP click, then silence. In Shot 03, the process ticks multiply into an almost insect-like mechanical swarm without becoming music. The Shot 07 line must break out of near-silence as one brief, dry, unprocessed shout, followed immediately by dead air. No trailer booms, sentimental piano swell, comic rage, supernatural horror, or jump-scare treatment.
+Music is minimal. Use the approval-bound instrumental bed plus non-vocal room tone, one keyboard/click sound at launch, a distant accumulation of restrained process ticks overnight, one dry desktop notification sound in the morning, one hard STOP click, then near-silence. In Shot 03, the process ticks multiply into an almost insect-like mechanical swarm without becoming music. Shot 07 contains no human vocalization or breath. No trailer booms, sentimental piano swell, comic rage, supernatural horror, or jump-scare treatment.
 
 ## Structured scenario contract
 
@@ -44,19 +46,19 @@ The following block is the canonical machine-readable scenario. It is part of th
   "title": "Full Auto",
   "duration_seconds": 30.0,
   "language": "en",
-  "spoken_line_limit": 2,
+  "spoken_line_limit": 0,
   "scenes": [
     {
       "scene_id": "scene-001",
       "title": "Enable Full Auto",
-      "duration_seconds": 3.5,
+      "duration_seconds": 3.0,
       "act": 1,
       "purpose": "Introduce protagonist",
       "conflict": "Human vs Machine",
       "heading": {"interior_exterior": "INT", "location": "Home Office", "time": "Night"},
-      "action": "At 00:18, the developer enables autonomous execution, parallel runs, automatic retry, and continued execution on the desktop workstation, leaves the spending limit off, clicks RUN with the physical mouse, says with quiet satisfaction that it will be finished by morning, releases the mouse, pushes the chair back, and stands while the desktop monitor and run remain active.",
+      "action": "At 00:18, the portrait frame opens on SPENDING LIMIT and OFF. The developer enables autonomous execution, parallel runs, automatic retry, and continued execution on the desktop workstation; the physical-mouse cursor clicks RUN within the first second. He remains silent, releases the mouse, pushes the chair back, and stands while the desktop monitor and run remain active.",
       "characters": ["protagonist"],
-      "dialogue": {"speaker": "protagonist", "text": "It'll be done by morning.", "category": "Decision", "silence": false},
+      "dialogue": {"speaker": "protagonist", "text": "", "category": "Decision", "silence": true},
       "emotion_start": "control",
       "emotion_end": "confidence",
       "countdown_seconds": 7,
@@ -69,21 +71,21 @@ The following block is the canonical machine-readable scenario. It is part of th
         "movement": "slow_push",
         "speed": "nearly_imperceptible",
         "angle": "eye_level",
-        "composition": "Developer on the left third, monitor on the right two-thirds, dark hallway held in negative space behind.",
+        "composition": "Native 9:16 over-shoulder frame: developer in the upper-left visual field, desktop monitor dominant through the middle, SPENDING LIMIT and OFF legible inside the Shorts safe zone, and the dark hallway held above the bottom UI reserve.",
         "lighting": "Near-black room with cool monitor blue on face and hands and one soft practical edge.",
         "style": ["original premium technology film", "restrained live-action realism", "natural human performance", "subtle film grain"],
         "forbidden_style": ["logo", "trademark", "branded interface", "cyberpunk", "hologram", "robot", "cartoon", "anime", "readable generated text"],
         "render_strategy": "runway_video",
         "screen_direction": "left_to_right",
-        "performance_note": "Calm, practiced, slightly tired, and never careless; deliver the line with quiet satisfaction, release the physical mouse, push the chair back, and stand without looking back at the still-active desktop monitor."
+        "performance_note": "Calm, practiced, slightly tired, and never careless. Express quiet confidence with closed-mouth satisfaction; no speech or speech-shaped lip movement. Release the physical mouse, push the chair back, and stand without looking back at the still-active desktop monitor."
       },
       "ui_overlays": ["00:18", "EXECUTION MODE", "☑ FULL AUTO", "☑ PARALLEL RUNS", "☑ AUTO RETRY", "☑ CONTINUE UNTIL COMPLETE", "SPENDING LIMIT", "OFF", "RUN"],
-      "sound": "Room tone, one keyboard tap, four compressed toggle ticks, one precise RUN click, the quietly satisfied English line, and one restrained chair movement."
+      "sound": "Instrumental bed, non-vocal room tone, one keyboard tap, four compressed toggle ticks, one precise RUN click, and one restrained chair movement; no voice or human breath."
     },
     {
       "scene_id": "scene-002",
       "title": "Forget",
-      "duration_seconds": 3.0,
+      "duration_seconds": 2.0,
       "act": 1,
       "purpose": "Reveal hidden risk",
       "conflict": "Human vs Time",
@@ -100,14 +102,14 @@ The following block is the canonical machine-readable scenario. It is part of th
       "shot": {
         "framing": "wide",
         "lens": "35mm",
-        "movement": "static",
+        "movement": "subtle_live_action_hold",
         "speed": "none",
         "angle": "eye_level",
         "composition": "Empty chair centered low, monitor slightly off-center, and doorway forming a black vertical boundary.",
         "lighting": "The practical dies on the switch click; the monitor becomes the sole cool-blue source.",
         "style": ["original premium technology film", "restrained live-action realism", "near-black negative space", "subtle film grain"],
         "forbidden_style": ["logo", "trademark", "branded interface", "cyberpunk", "hologram", "robot", "cartoon", "anime", "readable generated text"],
-        "render_strategy": "animated_still",
+        "render_strategy": "runway_video",
         "screen_direction": "left_to_right",
         "performance_note": "One clean exit without a backward glance."
       },
@@ -151,36 +153,36 @@ The following block is the canonical machine-readable scenario. It is part of th
     {
       "scene_id": "scene-004",
       "title": "Morning",
-      "duration_seconds": 3.5,
+      "duration_seconds": 3.0,
       "act": 2,
       "purpose": "Create reversal",
       "conflict": "Human vs Time",
       "heading": {"interior_exterior": "INT", "location": "Home Office", "time": "Morning"},
-      "action": "The developer pours coffee as one small unbranded phone lying screen-up near the lower-right desk edge vibrates once; the phone remains visually subordinate, the pour continues for half a beat, then the hand and face become still while the same desktop monitor, keyboard, and mouse remain behind.",
+      "action": "The developer pours coffee beside the same desktop workstation. A restrained notification appears on the desktop monitor: USAGE ALERT and $512.43. The pour continues for half a beat, then the hand and face become still. No phone, laptop, or portable computer appears.",
       "characters": ["protagonist"],
       "dialogue": {"speaker": "protagonist", "text": "", "category": "Warning", "silence": true},
       "emotion_start": "dread",
       "emotion_end": "alarm",
       "countdown_seconds": 4,
-      "props": ["coffee cup", "small flat unbranded phone", "desktop monitor", "keyboard", "physical mouse", "pale wood desk"],
+      "props": ["coffee cup", "desktop monitor", "keyboard", "physical mouse", "pale wood desk"],
       "transition": "Match Cut",
       "concepts": [],
       "shot": {
         "framing": "medium_close_up",
         "lens": "75mm",
-        "movement": "static",
+        "movement": "subtle_push",
         "speed": "none",
         "angle": "eye_level",
-        "composition": "The protagonist and coffee action dominate the left two-thirds; the desktop monitor remains an unreadable blue field behind; one small flat phone occupies less than seven percent of frame near the lower-right desk edge.",
+        "composition": "Native 9:16 frame: the protagonist and coffee action occupy the upper half; the same desktop monitor and its compact usage alert remain legible in the central Shorts safe zone; the bottom interaction reserve stays free of essential copy.",
         "lighting": "Soft neutral daylight from camera-left with residual monitor blue from camera-right.",
         "style": ["original premium technology film", "restrained live-action realism", "natural human performance", "shallow focus", "subtle film grain"],
-        "forbidden_style": ["logo", "trademark", "branded phone", "melodrama", "horror", "cartoon", "anime", "readable generated text"],
-        "render_strategy": "animated_still",
+        "forbidden_style": ["logo", "trademark", "phone", "laptop", "portable computer", "melodrama", "horror", "cartoon", "anime", "readable generated text"],
+        "render_strategy": "runway_video",
         "screen_direction": "right_to_left_focus",
         "performance_note": "No gasp; the eyes stop, the jaw softens, and the hand freezes mid-pour."
       },
       "ui_overlays": ["USAGE ALERT", "$512.43"],
-      "sound": "Coffee pour, one dry phone vibration against wood, then all overnight process ticks cut to silence."
+      "sound": "Coffee pour and one dry desktop notification tick, then all overnight process ticks cut to near-silence; no gasp or breath."
     },
     {
       "scene_id": "scene-005",
@@ -190,7 +192,7 @@ The following block is the canonical machine-readable scenario. It is part of th
       "purpose": "Reveal hidden risk",
       "conflict": "Institution vs Reality",
       "heading": {"interior_exterior": "INT", "location": "Home Office", "time": "Morning"},
-      "action": "The developer rushes back to the same desktop workstation and wakes the execution dashboard with one urgent keyboard tap and mouse movement. The large desktop monitor shows Completed and 184 Tasks; at the upper right, Current Usage begins at $731.88 and continues increasing through $734, $739, and $744 while the developer's alarmed reflection remains between the completion field and the rising total.",
+      "action": "The developer rushes back to the same desktop workstation and wakes the execution dashboard with one urgent keyboard tap and mouse movement. The large desktop monitor shows Completed and 184 Tasks as the first portrait block; Current Usage begins at $731.88 in the second block and continues increasing through $734, $739, and $744 while the developer's alarmed reflection remains between technical completion and the rising total.",
       "characters": ["protagonist"],
       "dialogue": {"speaker": "protagonist", "text": "", "category": "Revelation", "silence": true},
       "emotion_start": "alarm",
@@ -202,19 +204,19 @@ The following block is the canonical machine-readable scenario. It is part of th
       "shot": {
         "framing": "frontal_close_up_through_reflection",
         "lens": "85mm",
-        "movement": "static",
+        "movement": "locked_live_action_hold",
         "speed": "urgent_return_and_dashboard_wake_then_locked_hold",
         "angle": "eye_level",
-        "composition": "Completed and 184 Tasks on the left, Current Usage and its changing amount in the upper right, and the developer's reflection held centrally between them inside a slim desktop-monitor bezel; no hand touches the display.",
+        "composition": "Native 9:16 hierarchy: Completed and 184 Tasks read as the first large block, Current Usage and its changing amount as the second large block below it, and the developer's reflection held between them inside the slim desktop-monitor bezel; all essential copy remains inside the Shorts safe zone and no hand touches the display.",
         "lighting": "Cold screen source with morning daylight reduced one stop.",
         "style": ["original premium technology film", "restrained live-action realism", "realistic screen reflection", "subtle film grain"],
         "forbidden_style": ["logo", "trademark", "branded interface", "cyberpunk", "hologram", "robot", "cartoon", "anime", "readable generated text"],
-        "render_strategy": "animated_still",
+        "render_strategy": "runway_video",
         "screen_direction": "left_to_right_read",
-        "performance_note": "Return urgently to the desktop workstation and wake the dashboard with one keyboard tap and mouse movement, then become still. The eyes move from Completed and 184 Tasks to Current Usage in the upper right as the amount rises; one involuntary swallow."
+        "performance_note": "Return urgently to the desktop workstation and wake the dashboard with one keyboard tap and mouse movement, then become still. The eyes move from Completed and 184 Tasks to the Current Usage block as the amount rises; one involuntary swallow."
       },
       "ui_overlays": ["Completed", "184 Tasks", "Current Usage", "$731.88", "$734", "$739", "$744"],
-      "sound": "A fast chair movement, one dry keyboard tap, a short mouse movement, one sharp inhale, then four low non-musical counter ticks as the amount rises."
+      "sound": "A fast chair movement, one dry keyboard tap, a short mouse movement, then four low non-musical counter ticks as the amount rises; no inhale, voice, or human breath."
     },
     {
       "scene_id": "scene-006",
@@ -239,7 +241,7 @@ The following block is the canonical machine-readable scenario. It is part of th
         "movement": "locked_macro",
         "speed": "urgent_mouse_move_then_single_left_click_then_hold",
         "angle": "eye_level_insert",
-        "composition": "The physical mouse and the developer's mouse hand occupy the lower foreground; STOP sits lower-left beneath one white arrow cursor, stopping and waiting status is center-left, exactly twelve active-agent indicators sit immediately beside it, and the still-rising usage field remains in the upper right; keep all consequences in one focal plane with the developer's profile at far left.",
+        "composition": "Native 9:16 hierarchy: stopping status and exactly twelve active-agent indicators occupy the middle safe region, the live usage field sits below them, and STOP plus the moving white cursor remain above the bottom interaction reserve; keep the physical mouse hand visible without covering essential copy.",
         "lighting": "Muted red confined to STOP and worker count; all remaining light is cool white and blue.",
         "style": ["original premium technology film", "restrained live-action realism", "precise macro detail", "natural human performance", "subtle film grain"],
         "forbidden_style": ["logo", "trademark", "branded interface", "theatrical panic", "repeated clicking", "multiple cursors", "touchscreen gesture", "finger touching the display", "trackpad interaction", "horror", "hologram", "cartoon", "anime", "readable generated text"],
@@ -248,7 +250,7 @@ The following block is the canonical machine-readable scenario. It is part of th
         "performance_note": "The hand grips the physical mouse with tense knuckles and moves it decisively until the white arrow cursor reaches STOP. After the cursor visibly settles on the control, the index finger depresses the left mouse button exactly once and STOP responds. The hand then becomes motionless on the mouse as the twelve active indicators and rising amount prove that repeated clicking would change nothing."
       },
       "ui_overlays": ["STOP", "Stopping...", "Waiting for active workers...", "12 Active Agents", "$744", "$746", "$748"],
-      "sound": "One short mouse glide across the desk, one hard physical mouse click as STOP depresses, a shortened breath, twelve faint worker pulses continuing, and two low counter ticks as the amount rises; fan tone remains until sound drains before picture."
+      "sound": "One short mouse glide across the desk, one hard physical mouse click as STOP depresses, twelve faint worker pulses continuing, and two low counter ticks as the amount rises; fan tone remains until sound drains before picture, with no voice or human breath."
     },
     {
       "scene_id": "scene-007",
@@ -258,9 +260,9 @@ The following block is the canonical machine-readable scenario. It is part of th
       "purpose": "Create reversal",
       "conflict": "Human vs Self",
       "heading": {"interior_exterior": "INT", "location": "Home Office", "time": "Morning"},
-      "action": "The developer watches the neutral system response as a translucent blue control structure resolves behind it with one unmistakable missing segment at Spending Limit; recognizing the omission as his own, he pitches forward and shouts in a burst of anger, panic, and regret.",
+      "action": "The developer watches the neutral system response as a translucent blue control structure resolves behind it with one unmistakable missing segment at Spending Limit. In silence, his expression passes through shock, inward anger, regret, and recognition. He does not shout, lunge, or form words.",
       "characters": ["protagonist"],
-      "dialogue": {"speaker": "protagonist", "text": "I'm such a fucking idiot!", "category": "Revelation", "silence": false},
+      "dialogue": {"speaker": "protagonist", "text": "", "category": "Revelation", "silence": true},
       "emotion_start": "frustration",
       "emotion_end": "recognition",
       "countdown_seconds": 1,
@@ -270,29 +272,29 @@ The following block is the canonical machine-readable scenario. It is part of th
       "shot": {
         "framing": "held_medium_close_up",
         "lens": "75mm",
-        "movement": "static",
+        "movement": "subtle_push",
         "speed": "none",
         "angle": "eye_level",
-        "composition": "Human face left, neutral answer right, and the missing blue structural segment placed precisely between them.",
+        "composition": "Native 9:16 held close-up with the same canonical face dominant in the upper portrait field, the neutral answer and missing blue segment stacked through the central safe zone, and essential copy clear of the right and bottom Shorts controls.",
         "lighting": "Softened screen blue with no remaining warning red.",
         "style": ["original premium technology film", "restrained live-action realism", "minimal translucent line graphics", "natural human performance", "subtle film grain"],
-        "forbidden_style": ["logo", "trademark", "branded interface", "threatening AI", "hologram spectacle", "robot", "gore", "blood tears", "prominently bloodshot eyes", "diffuse scleral redness", "red irises", "red pupils", "fully red eyes", "glowing eyes", "eye injury", "body horror", "diseased skin", "monster transformation", "cartoon", "anime", "readable generated text"],
-        "render_strategy": "animated_still",
+        "forbidden_style": ["logo", "trademark", "branded interface", "threatening AI", "hologram spectacle", "robot", "shout", "open shouting mouth", "lip-synced speech", "lunge", "prominent forehead veins", "prominent temple veins", "neck veins", "exertion flush", "gore", "blood tears", "bloodshot eyes", "diffuse scleral redness", "red irises", "red pupils", "fully red eyes", "glowing eyes", "eye injury", "body horror", "diseased skin", "monster transformation", "cartoon", "anime", "readable generated text"],
+        "render_strategy": "runway_video",
         "screen_direction": "face_to_missing_boundary",
-        "performance_note": "At the peak of the line, anger, panic, and regret collide: mouth open mid-shout, jaw and throat locked, brows compressed, shoulders pitched forward, and one hand clenched low in frame. Both eyes are widened and wet with remorse, but remain anatomically natural: the sclerae are predominantly warm white, with only two or three extremely fine, faint capillaries near the inner corners and lower outer edges; the eyelid rims are mildly pink, the irises remain natural blue-green with dark pupils, and a subtle moist sheen catches the light. There is no broad red tint across the eyes. Acute exertion raises anatomically plausible superficial veins across both temples and the upper forehead, with a pronounced right-temple vein and taut neck veins along the sternocleidomastoid; the forehead and neck are mildly flushed. The anger is directed at his own failed judgment, never at a malicious AI; keep the eyes natural and the vascular tension intense without bleeding, injury, infection, body horror, or theatrical caricature."
+        "performance_note": "Stage the four-second silent progression precisely: shock registers first in a fixed gaze; inward anger tightens the brow and jaw without a lunge; regret softens the eyes; recognition settles into stillness. The mouth stays closed or neutrally parted with no speech-shaped movement. Eyes remain anatomically natural blue-green with predominantly warm-white sclerae, subtle moisture, and no conspicuous redness. Keep forehead, temples, and neck natural: no prominent veins, exertion flush, gore, or theatrical rage. The emotion is directed at his own failed judgment, never at a malicious AI."
       },
       "ui_overlays": ["TASK EXECUTED AS CONFIGURED.", "APPROVAL", "SPENDING LIMIT", "ESCALATION", "DECISION BOUNDARY"],
-      "sound": "Fan tone and one faint electrical line as the incomplete structure appears; a caught breath, then the English line as one dry, unprocessed shout, followed by immediate dead air."
+      "sound": "Fan tone and one faint electrical line as the incomplete structure appears, followed by near-silence; no voice, shout, gasp, grunt, or human breath."
     },
     {
       "scene_id": "scene-008",
       "title": "Decision Design",
-      "duration_seconds": 4.0,
+      "duration_seconds": 6.0,
       "act": 3,
       "purpose": "Resolve conflict",
       "conflict": "Institution vs Reality",
       "heading": {"interior_exterior": "INT", "location": "Black Field", "time": "Timeless"},
-      "action": "A title card reads: THE AI DID EXACTLY WHAT IT WAS TOLD. NO ONE DESIGNED WHEN IT SHOULD STOP. DECISION DESIGN — DESIGN JUDGMENT BEFORE AUTOMATION.",
+      "action": "A portrait title card reads: THE AI DID EXACTLY WHAT IT WAS TOLD. from 24.0 to 25.6; NO ONE DESIGNED WHEN IT SHOULD STOP. from 25.6 to 27.8; then DECISION DESIGN and WHERE DOES YOUR AI STOP? from 27.8 to 30.0. Each state replaces the previous one.",
       "characters": ["protagonist"],
       "dialogue": {"speaker": "protagonist", "text": "", "category": "Revelation", "silence": true},
       "emotion_start": "recognition",
@@ -307,7 +309,7 @@ The following block is the canonical machine-readable scenario. It is part of th
         "movement": "static",
         "speed": "none",
         "angle": "front_on",
-        "composition": "Centered white typography in three timed states with generous negative space and one thin cool-blue rule under the final lockup.",
+        "composition": "Centered white portrait typography in three exclusive timed states, all essential copy inside x=54–972 and y=192–1440, with generous negative space and one thin cool-blue rule under the final lockup.",
         "lighting": "True black field with clean white typography and one cool-blue rule.",
         "style": ["deterministic premium typography", "original restrained brand system", "black white and cool blue", "generous negative space"],
         "forbidden_style": ["logo", "trademark", "brand imitation", "gradient spectacle", "glow", "cartoon", "anime"],
@@ -315,8 +317,8 @@ The following block is the canonical machine-readable scenario. It is part of th
         "screen_direction": "centered",
         "performance_note": "No human performance; typography appears in three exact timed states."
       },
-      "ui_overlays": ["00:26.0 — THE AI DID EXACTLY WHAT IT WAS TOLD.", "00:27.0 — NO ONE DESIGNED WHEN IT SHOULD STOP.", "00:28.6 — DECISION DESIGN", "DESIGN JUDGMENT BEFORE AUTOMATION."],
-      "sound": "First card in silence, one low resolved tone at 00:27.0, and the final 0.4 seconds silent."
+      "ui_overlays": ["00:24.0 — THE AI DID EXACTLY WHAT IT WAS TOLD.", "00:25.6 — NO ONE DESIGNED WHEN IT SHOULD STOP.", "00:27.8 — DECISION DESIGN", "WHERE DOES YOUR AI STOP?"],
+      "sound": "First card in near-silence, one low resolved non-vocal tone at 00:25.6, and the final 0.4 seconds silent."
     }
   ]
 }
@@ -338,7 +340,9 @@ Final lockup:
 
 `Decision Design`
 
-`Design judgment before automation.`
+`Where does your AI stop?`
+
+Move `Design judgment before automation.` to the YouTube description rather than the visible end card.
 
 ## Safety and brand constraints
 

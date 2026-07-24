@@ -59,7 +59,7 @@ on:
         required: true
         default: offline
         type: choice
-        options: [offline, openai]
+        options: [none, offline, openai]
       pre_render_preview_mode:
         description: Must match the planning preview mode
         required: true

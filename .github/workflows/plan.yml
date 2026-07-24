@@ -30,7 +30,7 @@ on:
         required: true
         default: offline
         type: choice
-        options: [offline, openai]
+        options: [none, offline, openai]
       agent_review_mode:
         description: Optional OpenAI Agents SDK planning review
         required: true

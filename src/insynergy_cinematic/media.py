@@ -859,6 +859,7 @@ class YouTubeMastering:
         audio_sample_rate: int = 48000,
         integrated_loudness_lufs: float = -14.0,
         true_peak_db: float = -1.0,
+        ai_generated_voice: bool = True,
     ) -> dict[str, Any]:
         if not shutil.which(self.ffmpeg_binary):
             raise ValidationError("ffmpeg is required for YouTube mastering")
@@ -893,8 +894,6 @@ class YouTubeMastering:
             "-1",
             "-metadata",
             "creation_time=1970-01-01T00:00:00Z",
-            "-metadata",
-            "comment=This video contains an AI-generated narration voice.",
             "-c:v",
             "libx264",
             "-profile:v",
@@ -939,6 +938,12 @@ class YouTubeMastering:
             "+faststart",
             str(destination),
         ]
+        if ai_generated_voice:
+            output_index = command.index(str(destination))
+            command[output_index:output_index] = [
+                "-metadata",
+                "comment=This video contains an AI-generated narration voice.",
+            ]
         completed = subprocess.run(command, capture_output=True, text=True, check=False)
         if completed.returncode:
             destination.unlink(missing_ok=True)
@@ -1036,7 +1041,7 @@ class YouTubeMastering:
         os.replace(destination, source)
         return {
             "asset_hash": file_hash(source),
-            "delivery_profile": "youtube-1080p-sdr-v1",
+            "delivery_profile": f"youtube-{width}x{height}-sdr-v1",
             "container": "mp4",
             "video_codec": "h264-high",
             "video_bitrate": video_bitrate,
@@ -1050,6 +1055,7 @@ class YouTubeMastering:
             "loudness_correction_attempts": correction_attempts,
             "encoded_true_peak_safety_margin_db": 1.0,
             "faststart": True,
+            "ai_generated_voice": ai_generated_voice,
         }
 
 

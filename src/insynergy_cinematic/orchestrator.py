@@ -206,6 +206,7 @@ class BuildOrchestrator:
             "render": {
                 "provider": self.config.provider,
                 "runway_scope": self.config.runway_scope,
+                "runway_reference_set": self.config.runway_reference_set,
                 "max_runway_credits": self.config.max_runway_credits,
                 "max_parallel_shots": self.config.max_parallel_shots,
                 "max_attempts": self.config.max_attempts,
@@ -271,6 +272,7 @@ class BuildOrchestrator:
                 ),
                 "content_hash": self.config.soundtrack_hash,
                 "gain_db": self.config.soundtrack_gain_db,
+                "instrumental_only": self.config.soundtrack_instrumental_only,
             },
             "youtube": {
                 "video_bitrate": self.config.youtube_video_bitrate,
@@ -2932,9 +2934,14 @@ class BuildOrchestrator:
             output = self.repository.build_dir(build_id) / "output" / "master.mp4"
             composition = FFmpegComposer().compose(ordered_assets, output)
             narration_script = self.repository.load_artifact(manifest, "narration_script")["data"]
+            narration_segments = narration_script.get("segments", [])
+            if self.config.narration_provider == "none" and narration_segments:
+                raise ValidationError(
+                    "narration_provider=none requires an empty narration script"
+                )
             narration_by_scene = {
                 str(segment["scene_id"]): str(segment["text"])
-                for segment in narration_script.get("segments", [])
+                for segment in narration_segments
             }
             narration_timeline: list[dict[str, Any]] = []
             scene_start = 0.0
@@ -2972,12 +2979,29 @@ class BuildOrchestrator:
                     true_peak_db=self.config.youtube_true_peak_db,
                     audio_bitrate=self.config.youtube_audio_bitrate,
                 )
-            else:
+            elif self.config.narration_provider == "offline":
                 narration_mix = OfflineNarrator().mix(
                     output,
                     narration_timeline,
                     duration_seconds=storyboard_duration,
                 )
+            else:
+                provider_audio_discarded = all(
+                    result.get("validation", {})
+                    .get("storyboard_postproduction", {})
+                    .get("applied")
+                    is True
+                    for result in render_manifest["results"]
+                )
+                narration_mix = {
+                    "asset_hash": file_hash(output),
+                    "narration_engine": "none",
+                    "narration_segment_count": 0,
+                    "narration_billing": "none",
+                    "ai_generated_voice": False,
+                    "spoken_audio_policy": "prohibited",
+                    "provider_audio_discarded": provider_audio_discarded,
+                }
             composition.update(narration_mix)
             if self.config.soundtrack_path is not None:
                 if file_hash(self.config.soundtrack_path) != self.config.soundtrack_hash:
@@ -2992,15 +3016,26 @@ class BuildOrchestrator:
                     )
                 )
             narration_language = str(narration_script.get("language", "en")).casefold()
-            captions_path = output.parent / f"captions.{narration_language}.srt"
-            composition.update(
-                write_srt(
-                    captions_path,
-                    narration_timeline,
-                    duration_seconds=storyboard_duration,
-                    language=narration_language,
+            if self.config.narration_provider == "none":
+                composition.update(
+                    {
+                        "caption_uri": None,
+                        "caption_hash": None,
+                        "caption_format": None,
+                        "caption_language": None,
+                        "caption_segment_count": 0,
+                    }
                 )
-            )
+            else:
+                captions_path = output.parent / f"captions.{narration_language}.srt"
+                composition.update(
+                    write_srt(
+                        captions_path,
+                        narration_timeline,
+                        duration_seconds=storyboard_duration,
+                        language=narration_language,
+                    )
+                )
             if self.config.profile == "final":
                 composition.update(
                     YouTubeMastering().master(
@@ -3015,6 +3050,7 @@ class BuildOrchestrator:
                             self.config.youtube_integrated_loudness_lufs
                         ),
                         true_peak_db=self.config.youtube_true_peak_db,
+                        ai_generated_voice=bool(composition["ai_generated_voice"]),
                     )
                 )
                 article_data = self.repository.load_artifact(
@@ -3024,15 +3060,67 @@ class BuildOrchestrator:
                 atomic_write_text(
                     disclosure_path,
                     f"{article_data['title']}\n\n"
-                    "Disclosure: This video contains an AI-generated narration voice.\n",
+                    "Design judgment before automation.\n\n"
+                    + (
+                        "Disclosure: This video contains an AI-generated narration voice.\n"
+                        if composition["ai_generated_voice"]
+                        else "Disclosure: This video contains AI-generated visuals.\n"
+                    ),
                 )
                 composition.update(
                     {
                         "youtube_description_uri": str(disclosure_path.resolve()),
                         "youtube_description_hash": file_hash(disclosure_path),
-                        "ai_voice_disclosure_required": True,
+                        "ai_voice_disclosure_required": bool(
+                            composition["ai_generated_voice"]
+                        ),
+                        "altered_content_disclosure_required": True,
                     }
                 )
+            shorts_mode = profile.height > profile.width
+            shorts_checks: dict[str, bool] = {}
+            if shorts_mode:
+                postproduction_records = [
+                    result.get("validation", {}).get(
+                        "storyboard_postproduction", {}
+                    )
+                    for result in render_manifest["results"]
+                ]
+                shorts_checks = {
+                    "native_vertical_9_16": profile.width * 16
+                    == profile.height * 9,
+                    "native_portrait_assets": all(
+                        item.get("native_portrait") is True
+                        for item in postproduction_records
+                    ),
+                    "shorts_safe_zone": all(
+                        item.get("text_within_shorts_safe_zone") is True
+                        for item in postproduction_records
+                    ),
+                    "shorts_minimum_type": all(
+                        int(item.get("minimum_text_size_px") or 0)
+                        >= int(item.get("minimum_required_text_size_px") or 1)
+                        for item in postproduction_records
+                    ),
+                    "no_destructive_crop": all(
+                        item.get("destructive_crop") is False
+                        for item in postproduction_records
+                    ),
+                    "shorts_runtime": abs(storyboard_duration - 30.0) <= 0.001,
+                }
+                composition["shorts_delivery"] = {
+                    "canvas": {
+                        "width": profile.width,
+                        "height": profile.height,
+                        "aspect_ratio": "9:16",
+                    },
+                    "safe_zone": postproduction_records[0]["shorts_safe_zone"],
+                    "minimum_type_px": min(
+                        int(item["minimum_text_size_px"])
+                        for item in postproduction_records
+                    ),
+                    "checks": shorts_checks,
+                }
             self.repository.store_artifact(
                 manifest,
                 ArtifactEnvelope(
@@ -3081,18 +3169,21 @@ class BuildOrchestrator:
                 "resolution_uniform": report["checks"]["resolution"],
                 **report["checks"],
             }
+            if shorts_mode:
+                composition_checks.update(shorts_checks)
             report["checks"] = composition_checks
             report["passed"] = all(composition_checks.values())
             report["score"] = sum(composition_checks.values()) / len(
                 composition_checks
             )
+            no_spoken_audio = self.config.narration_provider == "none"
             narration_checks = {
                 "all_narration_present": len(narration_timeline)
-                == len(narration_script.get("segments", [])),
+                == len(narration_segments),
                 "narration_timing_matches": [
                     item["scene_id"] for item in narration_timeline
                 ]
-                == [item["scene_id"] for item in narration_script.get("segments", [])],
+                == [item["scene_id"] for item in narration_segments],
                 "audio_video_sync": report["validation"]["checks"]["duration"]
                 is True,
                 "levels_within_spec": report["validation"]["audio_non_silent"]
@@ -3100,14 +3191,48 @@ class BuildOrchestrator:
                 "no_clipping": float(report["validation"]["audio_peak_dbfs"])
                 <= -0.1,
                 "no_dropouts": report["validation"]["audio_non_silent"] is True,
-                "language_correct": composition["caption_language"]
-                == narration_script.get("language")
-                and composition["caption_language"] in {"en", "ja"},
+                "language_correct": (
+                    composition["caption_language"] is None
+                    and composition["caption_segment_count"] == 0
+                    if no_spoken_audio
+                    else composition["caption_language"]
+                    == narration_script.get("language")
+                    and composition["caption_language"] in {"en", "ja"}
+                ),
                 "audio_stream_present": report["validation"]["audio_stream_present"],
                 "audio_non_silent": report["validation"]["audio_non_silent"],
                 "production_voice": (
                     composition["narration_engine"] == "openai-speech-api"
                     if self.config.narration_provider == "openai"
+                    else composition["narration_engine"] == "none"
+                    if no_spoken_audio
+                    else True
+                ),
+                "zero_spoken_segments": (
+                    len(narration_segments) == 0
+                    and len(narration_timeline) == 0
+                    and composition["narration_segment_count"] == 0
+                    if no_spoken_audio
+                    else True
+                ),
+                "dialogue_captions_absent": (
+                    composition["caption_uri"] is None
+                    and composition["caption_hash"] is None
+                    and not any(output.parent.glob("captions.*.srt"))
+                    if no_spoken_audio
+                    else True
+                ),
+                "provider_audio_removed": (
+                    composition.get("provider_audio_discarded") is True
+                    if no_spoken_audio
+                    else True
+                ),
+                "approved_instrumental_soundtrack": (
+                    self.config.soundtrack_instrumental_only
+                    and self.config.soundtrack_hash is not None
+                    and composition.get("soundtrack_hash")
+                    == self.config.soundtrack_hash
+                    if no_spoken_audio
                     else True
                 ),
             }
@@ -3212,10 +3337,22 @@ class BuildOrchestrator:
                     approval_ref=approval["approval_id"],
                 ),
             )
-            captions_uri = Path(composition["caption_uri"])
+            caption_value = composition.get("caption_uri")
+            captions_uri = Path(caption_value) if caption_value else None
+            captions_valid = (
+                captions_uri is None
+                and not any(output.parent.glob("captions.*.srt"))
+                if self.config.narration_provider == "none"
+                else captions_uri is not None and captions_uri.is_file()
+            )
+            caption_checksum_valid = (
+                composition.get("caption_hash") is None
+                if captions_uri is None
+                else file_hash(captions_uri) == composition["caption_hash"]
+            )
             metadata_checks = {
                 "all_artifacts_present": output.is_file()
-                and captions_uri.is_file()
+                and captions_valid
                 and Path(thumbnail["thumbnail_uri"]).is_file(),
                 "metadata_complete": bool(metadata["input_lineage"])
                 and bool(metadata["provider_versions"])
@@ -3234,7 +3371,7 @@ class BuildOrchestrator:
                 )
                 == thumbnail["thumbnail_hash"],
                 "checksums_valid": file_hash(output) == composition["asset_hash"]
-                and file_hash(captions_uri) == composition["caption_hash"],
+                and caption_checksum_valid,
                 "manifest_consistent": all(
                     manifest["artifacts"].get(name)
                     for name in (
@@ -3555,7 +3692,13 @@ class BuildOrchestrator:
                 "credential_available": key_available,
                 "model": self.config.persona_model,
             }
-        if self.config.narration_provider == "openai":
+        if self.config.narration_provider == "none":
+            narration_health = {
+                "status": "HEALTHY",
+                "provider": "none",
+                "spoken_audio_policy": "prohibited",
+            }
+        elif self.config.narration_provider == "openai":
             narration_health = {
                 "status": "HEALTHY" if self.config.openai_tts_api_key else "DEGRADED",
                 "provider": "openai",

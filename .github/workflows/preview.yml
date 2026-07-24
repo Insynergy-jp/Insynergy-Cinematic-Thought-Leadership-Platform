@@ -39,7 +39,7 @@ on:
         required: true
         default: offline
         type: choice
-        options: [offline, openai]
+        options: [none, offline, openai]
       agent_review_mode:
         description: Must match the planning Agent Review mode
         required: true

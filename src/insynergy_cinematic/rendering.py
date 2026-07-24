@@ -47,10 +47,30 @@ SHOT_ID = re.compile(r"scene-[0-9]{3}-shot-[0-9]{2}")
 FULL_AUTO_V11_REFERENCES = {
     "scene-001-shot-01": "creative/full-auto-30s/storyboard-shot-01-identity-v11.png",
     "scene-002-shot-01": "creative/full-auto-30s/storyboard-shot-02-desktop-v11.png",
-    "scene-004-shot-01": "creative/full-auto-30s/storyboard-shot-04-desktop-v11.png",
+    "scene-004-shot-01": "creative/full-auto-30s/storyboard-shot-01-identity-v11.png",
     "scene-005-shot-01": "creative/full-auto-30s/storyboard-shot-05-desktop-v11.png",
     "scene-007-shot-01": "creative/full-auto-30s/storyboard-shot-07-identity-v11.png",
 }
+FULL_AUTO_V12_REFERENCES = {
+    "scene-001-shot-01": "creative/full-auto-30s/storyboard-shot-01-identity-v11.png",
+    "scene-002-shot-01": "creative/full-auto-30s/storyboard-shot-02-desktop-v11.png",
+    "scene-004-shot-01": "creative/full-auto-30s/storyboard-shot-04-desktop-v11.png",
+    "scene-005-shot-01": "creative/full-auto-30s/storyboard-shot-05-desktop-v11.png",
+    "scene-006-shot-01": "creative/full-auto-30s/storyboard-shot-06-desktop-v11.png",
+    "scene-007-shot-01": "creative/full-auto-30s/storyboard-shot-07-identity-v11.png",
+}
+
+
+def runway_reference_set(config: PlatformConfig) -> str:
+    environment_value = os.environ.get(
+        RUNWAY_STORYBOARD_REFERENCES_ENV, ""
+    ).strip()
+    configured_value = config.runway_reference_set or ""
+    if environment_value and configured_value and environment_value != configured_value:
+        raise ValidationError(
+            "Runway storyboard reference set conflicts with the approved configuration"
+        )
+    return environment_value or configured_value
 
 
 def runway_recovery_shots(config: PlatformConfig) -> frozenset[str]:
@@ -211,14 +231,24 @@ class StoryboardPostProcessor:
         text_paths: list[Path] = []
         font_file = self._filter_path(self._font_file())
         symbol_font_file = self._filter_path(self._symbol_font_file())
-        sx = width / 1920
-        sy = height / 1080
+        portrait = height > width
+        logical_width = 1080 if portrait else 1920
+        logical_height = 1920 if portrait else 1080
+        sx = width / logical_width
+        sy = height / logical_height
+        text_sizes: list[int] = []
+        text_safe_zone_results: list[bool] = []
 
         def px(value: int) -> int:
             return max(1, round(value * sx))
 
         def py(value: int) -> int:
             return max(1, round(value * sy))
+
+        def font_size(value: int) -> int:
+            result = max(1, round(value * sx))
+            text_sizes.append(result)
+            return result
 
         def text_path(value: str) -> str:
             path = asset.with_suffix(f".post-{len(text_paths):03d}.txt")
@@ -259,9 +289,24 @@ class StoryboardPostProcessor:
         ) -> None:
             x_value = px(x) if isinstance(x, int) else x
             y_value = py(y) if isinstance(y, int) else y
+            if portrait:
+                lines = value.splitlines() or [value]
+                estimated_width = max(len(line) for line in lines) * size * 0.65
+                estimated_height = len(lines) * size * 1.25
+                horizontal_safe = (
+                    54 <= x and x + estimated_width <= 972
+                    if isinstance(x, int)
+                    else estimated_width <= 918
+                )
+                vertical_safe = (
+                    192 <= y and y + estimated_height <= 1440
+                    if isinstance(y, int)
+                    else True
+                )
+                text_safe_zone_results.append(horizontal_safe and vertical_safe)
             item = (
                 f"drawtext=fontfile='{font or font_file}':textfile='{text_path(value)}':reload=0:"
-                f"fontcolor={color}:fontsize={px(size)}:x={x_value}:y={y_value}"
+                f"fontcolor={color}:fontsize={font_size(size)}:x={x_value}:y={y_value}"
             )
             if align:
                 item += f":text_align={align}"
@@ -270,7 +315,153 @@ class StoryboardPostProcessor:
             filters.append(item)
 
         mode = "ui_overlay"
-        if shot_id == "scene-001-shot-01":
+        if portrait:
+            if shot_id == "scene-001-shot-01":
+                box(54, 192, 918, 1248, "0x07111d@0.90")
+                box(54, 192, 918, 5, "0x58b7ff@0.90")
+                label("SPENDING LIMIT", 94, 235, 64)
+                label("OFF", 804, 225, 84, color="0xff7d7d")
+                box(94, 350, 838, 2, "0x7ebde8@0.55")
+                label("00:18", 94, 390, 44, color="0xaedcff", enable="gte(t,0.55)")
+                label("EXECUTION MODE", 94, 470, 52, enable="gte(t,0.55)")
+                for index, value in enumerate(
+                    (
+                        "FULL AUTO",
+                        "PARALLEL RUNS",
+                        "AUTO RETRY",
+                        "CONTINUE UNTIL COMPLETE",
+                    )
+                ):
+                    y = 570 + index * 125
+                    label(
+                        "☑",
+                        104,
+                        y,
+                        48,
+                        color="0xdff4ff",
+                        enable="gte(t,0.55)",
+                        font=symbol_font_file,
+                    )
+                    label(value, 180, y, 46, color="0xeaf5ff", enable="gte(t,0.55)")
+                box(610, 1190, 280, 120, "0x183b58@0.96", enable="gte(t,0.55)")
+                label("RUN", 690, 1212, 64, enable="gte(t,0.55)")
+                label(
+                    "▶",
+                    "'max(54,min(w-54,w*0.82-((t-0.55)/0.40)*w*0.30))'",
+                    1230,
+                    52,
+                    enable="between(t,0.55,1.00)",
+                    font=symbol_font_file,
+                )
+                box(610, 1190, 280, 120, "0x5aaeff@0.30", enable="between(t,0.94,1.05)")
+            elif shot_id == "scene-002-shot-01":
+                box(100, 700, 880, 220, "0x06111d@0.86")
+                box(100, 700, 880, 5, "0x57b8ff@0.90")
+                label("RUN #001 STARTED", 170, 775, 60, color="0xeaf6ff")
+            elif shot_id == "scene-003-shot-01":
+                mode = "exact_agent_multiplication"
+                filters.clear()
+                box(0, 0, 1080, 1920, "0x02060b@1.0")
+                for row in range(16):
+                    for column in range(8):
+                        index = row * 8 + column
+                        threshold = min(3.45, 0.15 + index * 0.026)
+                        x = 18 + column * 132
+                        y = 20 + row * 117
+                        box(x, y, 112, 96, "0x14314a@0.72", enable=f"gte(t,{threshold:.3f})")
+                        box(x, y, 112, 96, "0x69c6ff@0.55", thickness="1", enable=f"gte(t,{threshold:.3f})")
+                        box(x + 15, y + 15, 12, 12, "0x8ed8ff@0.85", enable=f"gte(t,{threshold:.3f})")
+                timings = (
+                    ("Creating Agent...", 0.00, 0.40),
+                    ("Searching...", 0.40, 0.80),
+                    ("Generating...", 0.80, 1.25),
+                    ("Retry...", 1.25, 1.65),
+                    ("Launching Parallel\nWorker...", 1.65, 2.15),
+                    ("Expanding Context...", 2.15, 2.60),
+                    ("Thinking...", 2.60, 3.35),
+                )
+                for value, start, end in timings:
+                    label(value, 74, 230, 64, enable=f"between(t,{start:.2f},{end:.2f})")
+                for value, start, end in (
+                    ("Run #18", 0.80, 1.25),
+                    ("Run #37", 1.25, 2.15),
+                    ("Run #96", 2.15, 3.35),
+                    ("Run #184", 3.35, 4.00),
+                ):
+                    label(value, 600, 390, 64, color="0xdff4ff", enable=f"between(t,{start:.2f},{end:.2f})")
+                box(0, 0, 1080, 1920, "0xc8323c@0.13", enable="between(t,1.25,1.45)")
+            elif shot_id == "scene-004-shot-01":
+                box(100, 1030, 880, 300, "0x07111d@0.90")
+                box(100, 1030, 7, 300, "0xd9545d@0.92")
+                label("USAGE ALERT", 160, 1085, 52, color="0xd7e7f5")
+                label("$512.43", 160, 1170, 84, color="0xff8c91")
+            elif shot_id == "scene-005-shot-01":
+                box(54, 192, 918, 1248, "0x06101a@0.76")
+                box(54, 192, 918, 5, "0x63bfff@0.75")
+                label("Completed", 110, 330, 52, color="0xcfe9fa")
+                label("184 Tasks", 110, 415, 84)
+                box(110, 585, 808, 2, "0x7ebde8@0.42")
+                label("Current Usage", 110, 720, 52, color="0xcfe9fa")
+                for value, start, end in (
+                    ("$731.88", 0.95, 1.55),
+                    ("$734", 1.55, 2.20),
+                    ("$739", 2.20, 3.00),
+                    ("$744", 3.00, 4.00),
+                ):
+                    label(value, 110, 825, 96, color="0xff8088", enable=f"between(t,{start:.2f},{end:.2f})")
+            elif shot_id == "scene-006-shot-01":
+                box(54, 192, 918, 1248, "0x06101a@0.82")
+                box(54, 192, 918, 5, "0x63bfff@0.72")
+                label("Stopping...", 110, 300, 64, enable="between(t,0.55,1.15)")
+                label("Waiting for active\nworkers...", 100, 300, 48, enable="gte(t,1.15)")
+                label("12 Active\nAgents", 680, 300, 44, color="0xff7b84", enable="gte(t,1.85)")
+                for index in range(12):
+                    box(680 + (index % 3) * 90, 460 + (index // 3) * 82, 54, 54, "0xd9434e@0.88", enable=f"gte(t,{1.85 + (index % 3) * 0.05:.2f})")
+                for value, start, end in (
+                    ("$744", 0.00, 2.45),
+                    ("$746", 2.45, 3.15),
+                    ("$748", 3.15, 4.00),
+                ):
+                    label(value, 670, 850, 72, color="0xff8990", enable=f"between(t,{start:.2f},{end:.2f})")
+                box(110, 1080, 330, 130, "0xa92531@0.96")
+                label("STOP", 195, 1105, 72)
+                label(
+                    "▶",
+                    "'max(54,min(w-54,w*0.82-(t/0.30)*w*0.50))'",
+                    1120,
+                    52,
+                    enable="between(t,0.00,0.55)",
+                    font=symbol_font_file,
+                )
+                box(110, 1080, 330, 130, "white@0.18", enable="between(t,0.30,0.55)")
+            elif shot_id == "scene-007-shot-01":
+                box(54, 620, 918, 820, "0x05101a@0.62")
+                label("TASK EXECUTED\nAS CONFIGURED.", 100, 650, 52, color="0xeaf5ff")
+                box(100, 825, 820, 4, "0x5dbbff@0.85")
+                label("APPROVAL", 100, 865, 44, color="0xbfe5ff")
+                label("ESCALATION", 610, 865, 44, color="0xbfe5ff")
+                box(160, 980, 4, 130, "0x5dbbff@0.75")
+                box(820, 980, 4, 130, "0x5dbbff@0.75")
+                box(160, 1110, 230, 4, "0x5dbbff@0.75")
+                box(590, 1110, 230, 4, "0x5dbbff@0.75")
+                box(390, 1098, 200, 28, "0xff6c75@0.28")
+                label("[ MISSING ]", 400, 1035, 44, color="0xff969c")
+                label("SPENDING LIMIT", 285, 1150, 52, color="0xff969c")
+                box(100, 1270, 820, 4, "0x5dbbff@0.85")
+                label("DECISION BOUNDARY", 210, 1310, 58, color="0xd7efff")
+            elif shot_id == "scene-008-shot-01":
+                mode = "exact_timed_title_card"
+                filters.clear()
+                box(0, 0, 1080, 1920, "black@1.0")
+                label("THE AI DID EXACTLY\nWHAT IT WAS TOLD.", "(w-text_w)/2", 650, 64, enable="between(t,0.00,1.60)", align="center")
+                label("NO ONE DESIGNED\nWHEN IT SHOULD STOP.", "(w-text_w)/2", 650, 64, enable="between(t,1.60,3.80)", align="center")
+                label("DECISION DESIGN", "(w-text_w)/2", 630, 84, enable="gte(t,3.80)")
+                box(250, 760, 580, 5, "0x58b9ff@0.90", enable="gte(t,3.80)")
+                label("WHERE DOES YOUR AI STOP?", "(w-text_w)/2", 820, 50, color="0xc9d8e3", enable="gte(t,3.80)")
+            else:
+                for index, value in enumerate(overlays):
+                    label(value, 80, 220 + index * 76, 44)
+        elif shot_id == "scene-001-shot-01":
             box(1010, 90, 820, 880, "0x07111d@0.88")
             box(1010, 90, 820, 4, "0x58b7ff@0.90")
             label("00:18", 1060, 125, 30, color="0xaedcff")
@@ -477,7 +668,25 @@ class StoryboardPostProcessor:
             "exact_strings": overlays,
             "overlay_count": len(overlays),
             "asset_hash": file_hash(asset),
+            "native_portrait": portrait and width * 16 == height * 9,
+            "destructive_crop": False,
         }
+        if portrait:
+            result.update(
+                {
+                    "shorts_safe_zone": {
+                        "left": round(54 * sx),
+                        "top": round(192 * sy),
+                        "right": round(972 * sx),
+                        "bottom": round(1440 * sy),
+                    },
+                    "text_within_shorts_safe_zone": all(
+                        text_safe_zone_results
+                    ),
+                    "minimum_text_size_px": min(text_sizes) if text_sizes else None,
+                    "minimum_required_text_size_px": round(44 * sx),
+                }
+            )
         result["binding_hash"] = content_hash(
             {"shot_id": shot_id, "mode": mode, "exact_strings": overlays}
         )
@@ -515,29 +724,119 @@ class RenderingPlatform:
     def _conditioning_reference(
         self, frame: dict[str, Any], provider: str
     ) -> tuple[str | None, str | None]:
-        reference_set = os.environ.get(RUNWAY_STORYBOARD_REFERENCES_ENV, "").strip()
+        reference_set = runway_reference_set(self.config)
         if not reference_set or provider != "runway":
             return None, None
-        if reference_set != "full-auto-v11":
+        if reference_set == "full-auto-v11":
+            references = FULL_AUTO_V11_REFERENCES
+        elif reference_set == "full-auto-v12":
+            references = FULL_AUTO_V12_REFERENCES
+        else:
             raise ValidationError("Unsupported Runway storyboard reference set")
         shot_id = str(frame["shot_id"])
-        relative = FULL_AUTO_V11_REFERENCES.get(shot_id)
-        if relative is None:
+        if shot_id not in references:
             return None, None
         recovery = runway_recovery_shots(self.config)
-        if shot_id not in recovery:
+        if reference_set == "full-auto-v11" and shot_id not in recovery:
             raise ValidationError(
                 "Storyboard conditioning is only permitted for authorized recovery shots"
             )
         if shot_id in self._conditioning_cache:
             return self._conditioning_cache[shot_id]
         workspace = self.build_root.parents[2]
-        source = workspace / relative
+        expected_source_hash: str | None = None
+        if reference_set == "full-auto-v12":
+            preview_artifact = (
+                self.build_root
+                / "artifacts"
+                / "storyboard_preview_manifest.json"
+            )
+            if not preview_artifact.is_file():
+                raise ValidationError(
+                    "Full Auto v12 rendering requires the approved Storyboard Preview"
+                )
+            preview_envelope = read_json(preview_artifact)
+            preview_manifest = preview_envelope.get("data", {})
+            preview_frames = preview_manifest.get("frames", [])
+            matches = [
+                item
+                for item in preview_frames
+                if item.get("shot_id") == shot_id
+            ]
+            if len(matches) != 1:
+                raise ValidationError(
+                    "Approved Storyboard Preview does not contain the live-action shot"
+                )
+            source = Path(str(matches[0].get("asset_path", "")))
+            expected_source_hash = str(matches[0].get("asset_hash", ""))
+            try:
+                source.resolve().relative_to(workspace.resolve())
+            except ValueError as exc:
+                raise ValidationError(
+                    "Storyboard Preview reference must remain inside the workspace"
+                ) from exc
+            if (
+                source.is_symlink()
+                or not source.is_file()
+                or file_hash(source) != expected_source_hash
+            ):
+                raise ValidationError(
+                    "Approved Storyboard Preview reference is missing or changed"
+                )
+            reference_directory = self.build_root / "runway-references"
+            reference_directory.mkdir(parents=True, exist_ok=True)
+            portrait_source = reference_directory / f"{shot_id}.png"
+            temporary_source = portrait_source.with_suffix(".partial.png")
+            completed = subprocess.run(
+                [
+                    "ffmpeg",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-y",
+                    "-i",
+                    str(source),
+                    "-vf",
+                    (
+                        "scale=720:1280:force_original_aspect_ratio=decrease,"
+                        "pad=720:1280:(ow-iw)/2:(oh-ih)/2:black"
+                    ),
+                    "-frames:v",
+                    "1",
+                    "-map_metadata",
+                    "-1",
+                    str(temporary_source),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if completed.returncode or not temporary_source.is_file():
+                temporary_source.unlink(missing_ok=True)
+                raise RenderingError(
+                    "Unable to derive the native portrait Runway reference",
+                    details={"shot_id": shot_id, "stderr": completed.stderr[-1000:]},
+                )
+            os.replace(temporary_source, portrait_source)
+            source = portrait_source
+        else:
+            source = workspace / references[shot_id]
         if source.is_symlink() or not source.is_file() or source.stat().st_size > 5_000_000:
             raise ValidationError("Storyboard conditioning image is missing or unsafe")
         raw = source.read_bytes()
         reference = "data:image/png;base64," + base64.b64encode(raw).decode("ascii")
-        value = (reference, file_hash(source))
+        derivative_hash = file_hash(source)
+        value = (
+            reference,
+            content_hash(
+                {
+                    "approved_preview_hash": expected_source_hash,
+                    "portrait_reference_hash": derivative_hash,
+                }
+            )
+            if expected_source_hash is not None
+            else derivative_hash,
+        )
         self._conditioning_cache[shot_id] = value
         return value
 
@@ -751,13 +1050,31 @@ class RenderingPlatform:
                 "Deterministic title cards cannot be expanded to Runway recovery",
                 details={"invalid_shots": invalid_recovery_shots},
             )
-        reference_set = os.environ.get(RUNWAY_STORYBOARD_REFERENCES_ENV, "").strip()
+        reference_set = runway_reference_set(self.config)
         if reference_set == "full-auto-v11" and recovery_shots != frozenset(
             FULL_AUTO_V11_REFERENCES
         ):
             raise ValidationError(
                 "Full Auto v11 recovery must bind the complete approved reference set"
             )
+        if reference_set == "full-auto-v12":
+            missing_reference_shots = sorted(
+                frozenset(FULL_AUTO_V12_REFERENCES).difference(frame_by_id)
+            )
+            non_runway_reference_shots = sorted(
+                shot_id
+                for shot_id in FULL_AUTO_V12_REFERENCES
+                if shot_id in frame_by_id
+                and not uses_runway(self.config, frame_by_id[shot_id])
+            )
+            if missing_reference_shots or non_runway_reference_shots:
+                raise ValidationError(
+                    "Full Auto v12 references must bind all approved live-action shots",
+                    details={
+                        "missing_shots": missing_reference_shots,
+                        "non_runway_shots": non_runway_reference_shots,
+                    },
+                )
         estimated_runway_credits = runway_credit_estimate(self.config, frames)
         estimate = round(estimated_runway_credits * RUNWAY_CREDIT_USD, 2)
         if estimated_runway_credits > self.config.max_runway_credits:
