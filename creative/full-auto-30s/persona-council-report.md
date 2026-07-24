@@ -1,5 +1,11 @@
 # Full Auto — Persona Council Report
 
+## YouTube Shorts v12 revision — 2026-07-24
+
+The operator has retired spoken audio because the synthesized Shot 07 performance could not match the protagonist's complex anger, regret, and shock. Research and the implementation target are recorded in `youtube-shorts-research-and-spec.md`. The next version is a native 9:16, 1080 × 1920 organic YouTube Short with zero spoken lines, a desktop-only Shot 04, a silent Shot 07 reaction, a mobile-safe UI system, and a six-second end card with a reflective CTA.
+
+This is a material change to the format, runtime allocation, sound contract, and protagonist performance. The historical Persona approval recorded below cannot authorize it. A new canonical Brief, Persona Council execution, and human approval are required before a new Storyboard Preview or paid render. No Persona provider, OpenAI speech, Runway, or publication call was made for this research/specification revision.
+
 Status: Completed for creative development
 Council topology: three bounded proposals → one Red-Team review → one Manager synthesis
 Proposal roles: Audience Researcher, Empathy & Narrative Analyst, Brand Strategist
