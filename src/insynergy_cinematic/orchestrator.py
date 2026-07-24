@@ -2959,15 +2959,17 @@ class BuildOrchestrator:
                         }
                     )
                 scene_start += scene_durations[scene_id]
+            soundtrack_duck_intervals: list[dict[str, float]] = []
             if self.config.narration_provider == "openai":
+                performance_recovery = (
+                    os.environ.get("INSYNERGY_TTS_PERFORMANCE_RECOVERY") or None
+                )
                 narrator = OpenAITTSNarrator(
                     api_key=self.config.openai_tts_api_key or "",
                     model=self.config.narration_openai_model,
                     voice=self.config.narration_openai_voice,
                     instructions=self.config.narration_openai_instructions,
-                    performance_recovery=(
-                        os.environ.get("INSYNERGY_TTS_PERFORMANCE_RECOVERY") or None
-                    ),
+                    performance_recovery=performance_recovery,
                 )
                 narration_mix = narrator.mix(
                     output,
@@ -2978,6 +2980,12 @@ class BuildOrchestrator:
                     ),
                     true_peak_db=self.config.youtube_true_peak_db,
                     audio_bitrate=self.config.youtube_audio_bitrate,
+                )
+                narration_timeline = narration_mix.pop(
+                    "effective_narration_timeline", narration_timeline
+                )
+                soundtrack_duck_intervals = narration_mix.pop(
+                    "soundtrack_duck_intervals", []
                 )
             elif self.config.narration_provider == "offline":
                 narration_mix = OfflineNarrator().mix(
@@ -3002,6 +3010,7 @@ class BuildOrchestrator:
                     "spoken_audio_policy": "prohibited",
                     "provider_audio_discarded": provider_audio_discarded,
                 }
+                soundtrack_duck_intervals = []
             composition.update(narration_mix)
             if self.config.soundtrack_path is not None:
                 if file_hash(self.config.soundtrack_path) != self.config.soundtrack_hash:
@@ -3013,6 +3022,7 @@ class BuildOrchestrator:
                         duration_seconds=storyboard_duration,
                         gain_db=self.config.soundtrack_gain_db,
                         expected_hash=self.config.soundtrack_hash or "",
+                        duck_intervals=soundtrack_duck_intervals,
                     )
                 )
             narration_language = str(narration_script.get("language", "en")).casefold()

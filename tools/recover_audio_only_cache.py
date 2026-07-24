@@ -16,16 +16,36 @@ from insynergy_cinematic.storage import ContentAddressableStore
 from insynergy_cinematic.util import atomic_write_json, content_hash
 
 
-EXPECTED_SOURCE_LANGUAGE = "ja"
-EXPECTED_TARGET_LANGUAGE = "en"
-EXPECTED_SOURCE_LINES = (
-    "朝には終わってるだろ。",
-    "なんて俺はクソなんだ！",
-)
-EXPECTED_TARGET_LINES = (
-    "It'll be done by morning.",
-    "I'm such a fucking idiot!",
-)
+FULL_AUTO_EN_TRANSLATION = "full-auto-v11-en-translation-v1"
+FULL_AUTO_V13_JA_RAGE = "full-auto-v13-ja-rage-v1"
+RECOVERY_PROFILES = {
+    FULL_AUTO_EN_TRANSLATION: {
+        "source_language": "ja",
+        "target_language": "en",
+        "source_lines": (
+            "朝には終わってるだろ。",
+            "なんて俺はクソなんだ！",
+        ),
+        "target_lines": (
+            "It'll be done by morning.",
+            "I'm such a fucking idiot!",
+        ),
+    },
+    FULL_AUTO_V13_JA_RAGE: {
+        "source_language": "ja",
+        "target_language": "ja",
+        "source_lines": (
+            "全部任せよう。",
+            "……全部？",
+            "誰が承認した？",
+        ),
+        "target_lines": (
+            "全部任せよう。",
+            "……全部？",
+            "誰が承認した？",
+        ),
+    },
+}
 
 
 def parser() -> argparse.ArgumentParser:
@@ -37,6 +57,11 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--profile", required=True)
     value.add_argument("--provider", required=True)
     value.add_argument("--runway-scope", required=True)
+    value.add_argument(
+        "--revision",
+        choices=tuple(RECOVERY_PROFILES),
+        default=FULL_AUTO_EN_TRANSLATION,
+    )
     value.add_argument("--output", type=Path)
     return value
 
@@ -94,6 +119,7 @@ def recover_audio_only_cache(
     profile: str,
     provider: str,
     runway_scope: str,
+    revision: str = FULL_AUTO_EN_TRANSLATION,
 ) -> dict[str, Any]:
     source_root = source_root.resolve()
     target_root = target_root.resolve()
@@ -104,11 +130,14 @@ def recover_audio_only_cache(
     target_storyboard = _artifact(target_root, build_id, "storyboard")
     source_narration = _artifact(source_root, build_id, "narration_script")
     target_narration = _artifact(target_root, build_id, "narration_script")
+    recovery_profile = RECOVERY_PROFILES.get(revision)
+    if recovery_profile is None:
+        raise ValidationError("Audio-only recovery revision is not allow-listed")
     if (
-        source_narration.get("language") != EXPECTED_SOURCE_LANGUAGE
-        or target_narration.get("language") != EXPECTED_TARGET_LANGUAGE
-        or _lines(source_narration) != EXPECTED_SOURCE_LINES
-        or _lines(target_narration) != EXPECTED_TARGET_LINES
+        source_narration.get("language") != recovery_profile["source_language"]
+        or target_narration.get("language") != recovery_profile["target_language"]
+        or _lines(source_narration) != recovery_profile["source_lines"]
+        or _lines(target_narration) != recovery_profile["target_lines"]
     ):
         raise ValidationError("Audio-only recovery narration boundary does not match Full Auto")
 
@@ -225,8 +254,9 @@ def recover_audio_only_cache(
         "contract_version": "audio-only-render-recovery/1",
         "passed": True,
         "build_id": build_id,
-        "source_language": EXPECTED_SOURCE_LANGUAGE,
-        "target_language": EXPECTED_TARGET_LANGUAGE,
+        "revision": revision,
+        "source_language": recovery_profile["source_language"],
+        "target_language": recovery_profile["target_language"],
         "visual_projection_identical": True,
         "provider_submission_required": False,
         "recovered_shot_count": len(recovered),
@@ -247,6 +277,7 @@ def main(argv: list[str] | None = None) -> int:
             profile=args.profile,
             provider=args.provider,
             runway_scope=args.runway_scope,
+            revision=args.revision,
         )
         if args.output is not None:
             atomic_write_json(args.output, result)

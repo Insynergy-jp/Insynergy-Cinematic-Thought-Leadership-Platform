@@ -31,6 +31,11 @@ on:
         required: true
         default: false
         type: boolean
+      full_auto_v13_rage_recovery:
+        description: Regenerate only the approved Japanese v13 dialogue with an explosive Shot 07 vocal performance
+        required: true
+        default: false
+        type: boolean
       config_path:
         description: Optional repository-relative production configuration used during planning
         required: false
@@ -118,6 +123,7 @@ jobs:
           RUNWAY_FIDELITY_RECOVERY: ${{ inputs.runway_fidelity_recovery }}
           AUDIO_ONLY_RECOVERY: ${{ inputs.audio_only_recovery }}
           FULL_AUTO_SHOUT_RECOVERY: ${{ inputs.full_auto_shout_recovery }}
+          FULL_AUTO_V13_RAGE_RECOVERY: ${{ inputs.full_auto_v13_rage_recovery }}
           PLANNING_RUN_ID: ${{ inputs.planning_run_id }}
         run: |
           set -euo pipefail
@@ -147,8 +153,10 @@ jobs:
               test "$PLANNING_RUN_ID" = "29975671551" || { echo "fidelity recovery is bound to the approved Full Auto planning run" >&2; exit 2; }
             fi
           elif [ "$AUDIO_ONLY_RECOVERY" = "true" ]; then
-            echo "audio_only_recovery requires runway_fidelity_recovery" >&2
-            exit 2
+            test "$FULL_AUTO_V13_RAGE_RECOVERY" = "true" || { echo "audio_only_recovery requires an allow-listed Full Auto recovery profile" >&2; exit 2; }
+            test "$RENDER_PROVIDER" = "runway" || { echo "v13 rage recovery requires provider=runway" >&2; exit 2; }
+            test "$RUNWAY_SCOPE" = "hybrid" || { echo "v13 rage recovery preserves the approved hybrid scope" >&2; exit 2; }
+            test -n "$RUNWAY_RECOVERY_RUN_ID" || { echo "v13 rage recovery requires a trusted Runway recovery run" >&2; exit 2; }
           fi
           if [ "$FULL_AUTO_SHOUT_RECOVERY" = "true" ]; then
             test "$AUDIO_ONLY_RECOVERY" = "true" || { echo "full_auto_shout_recovery requires audio_only_recovery" >&2; exit 2; }
@@ -156,6 +164,15 @@ jobs:
             test "$RUNWAY_RECOVERY_RUN_ID" = "29981824842" || { echo "full_auto_shout_recovery is bound to the validated Full Auto picture" >&2; exit 2; }
             test "$CONFIG_PATH" = "creative/full-auto-30s/production-config.json" || { echo "full_auto_shout_recovery is bound to the Full Auto production config" >&2; exit 2; }
             test "$BUILD_ID" = "20260723-001" || { echo "full_auto_shout_recovery is bound to the approved Full Auto build" >&2; exit 2; }
+          fi
+          if [ "$FULL_AUTO_V13_RAGE_RECOVERY" = "true" ]; then
+            test "$AUDIO_ONLY_RECOVERY" = "true" || { echo "full_auto_v13_rage_recovery requires audio_only_recovery" >&2; exit 2; }
+            test "$RUNWAY_FIDELITY_RECOVERY" = "false" || { echo "v13 rage recovery does not permit fidelity recovery" >&2; exit 2; }
+            test "$FULL_AUTO_SHOUT_RECOVERY" = "false" || { echo "v13 rage recovery cannot be combined with the English shout recovery" >&2; exit 2; }
+            test "$PLANNING_RUN_ID" = "30071579101" || { echo "v13 rage recovery is bound to the approved Japanese Full Auto planning run" >&2; exit 2; }
+            test "$RUNWAY_RECOVERY_RUN_ID" = "30072914399" || { echo "v13 rage recovery is bound to the validated corrected Full Auto v13 picture" >&2; exit 2; }
+            test "$CONFIG_PATH" = "creative/full-auto-30s/production-config-v13.json" || { echo "v13 rage recovery is bound to the Full Auto v13 production config" >&2; exit 2; }
+            test "$BUILD_ID" = "20260724-001" || { echo "v13 rage recovery is bound to the approved Full Auto v13 build" >&2; exit 2; }
           fi
       - name: Verify planning and execution runtime compatibility
         env:
@@ -226,12 +243,13 @@ jobs:
           RENDER_PROVIDER: ${{ inputs.provider }}
           RUNWAY_SCOPE: ${{ inputs.runway_scope }}
           CONFIG_PATH: ${{ inputs.config_path }}
-          INSYNERGY_RUNWAY_RECOVERY_SHOTS: scene-001-shot-01,scene-002-shot-01,scene-004-shot-01,scene-005-shot-01,scene-007-shot-01
-          INSYNERGY_RUNWAY_RECOVERY_REASON: User-approved audio-only Full Auto revision; visual prompts and overlays must remain byte-for-byte equivalent.
-          INSYNERGY_RUNWAY_STORYBOARD_REFERENCES: full-auto-v11
+          INSYNERGY_RUNWAY_RECOVERY_SHOTS: ${{ inputs.full_auto_v13_rage_recovery && 'scene-001-shot-01,scene-002-shot-01,scene-004-shot-01,scene-005-shot-01,scene-006-shot-01,scene-007-shot-01' || 'scene-001-shot-01,scene-002-shot-01,scene-004-shot-01,scene-005-shot-01,scene-007-shot-01' }}
+          INSYNERGY_RUNWAY_RECOVERY_REASON: ${{ inputs.full_auto_v13_rage_recovery && 'User-approved Japanese v13 rage performance; visual prompts and overlays must remain byte-for-byte equivalent.' || 'User-approved audio-only Full Auto revision; visual prompts and overlays must remain byte-for-byte equivalent.' }}
+          INSYNERGY_RUNWAY_STORYBOARD_REFERENCES: ${{ inputs.full_auto_v13_rage_recovery && 'full-auto-v13' || 'full-auto-v11' }}
+          AUDIO_ONLY_REVISION: ${{ inputs.full_auto_v13_rage_recovery && 'full-auto-v13-ja-rage-v1' || 'full-auto-v11-en-translation-v1' }}
         run: |
           set -euo pipefail
-          PYTHONPATH=src python3 tools/recover_audio_only_cache.py --source-root execution-recovery --target-root "$GITHUB_WORKSPACE" --build-id "$BUILD_ID" --config "$CONFIG_PATH" --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --output audio-only-recovery-result.json
+          PYTHONPATH=src python3 tools/recover_audio_only_cache.py --source-root execution-recovery --target-root "$GITHUB_WORKSPACE" --build-id "$BUILD_ID" --config "$CONFIG_PATH" --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --revision "$AUDIO_ONLY_REVISION" --output audio-only-recovery-result.json
       - name: Record skipped audio-only recovery
         if: ${{ inputs.audio_only_recovery == false }}
         run: |
@@ -324,10 +342,10 @@ jobs:
           AGENT_EXCEPTION_REASON: ${{ inputs.agent_exception_reason }}
           PRE_RENDER_PREVIEW_MODE: ${{ inputs.pre_render_preview_mode }}
           CONFIG_PATH: ${{ inputs.config_path }}
-          INSYNERGY_RUNWAY_RECOVERY_SHOTS: ${{ inputs.runway_fidelity_recovery && 'scene-001-shot-01,scene-002-shot-01,scene-004-shot-01,scene-005-shot-01,scene-007-shot-01' || '' }}
-          INSYNERGY_RUNWAY_RECOVERY_REASON: ${{ inputs.runway_fidelity_recovery && 'User-authorized Full Auto fidelity recovery - replace placeholder live-action shots, bind the approved v11 identity references, and preserve deterministic UI post-production.' || '' }}
-          INSYNERGY_RUNWAY_STORYBOARD_REFERENCES: ${{ inputs.runway_fidelity_recovery && 'full-auto-v11' || '' }}
-          INSYNERGY_TTS_PERFORMANCE_RECOVERY: ${{ inputs.full_auto_shout_recovery && 'full-auto-shot7-shout-v1' || '' }}
+          INSYNERGY_RUNWAY_RECOVERY_SHOTS: ${{ inputs.full_auto_v13_rage_recovery && 'scene-001-shot-01,scene-002-shot-01,scene-004-shot-01,scene-005-shot-01,scene-006-shot-01,scene-007-shot-01' || inputs.runway_fidelity_recovery && 'scene-001-shot-01,scene-002-shot-01,scene-004-shot-01,scene-005-shot-01,scene-007-shot-01' || '' }}
+          INSYNERGY_RUNWAY_RECOVERY_REASON: ${{ inputs.full_auto_v13_rage_recovery && 'User-authorized Full Auto v13 audio-only rage performance; preserve the validated corrected picture and deterministic UI.' || inputs.runway_fidelity_recovery && 'User-authorized Full Auto fidelity recovery - replace placeholder live-action shots, bind the approved v11 identity references, and preserve deterministic UI post-production.' || '' }}
+          INSYNERGY_RUNWAY_STORYBOARD_REFERENCES: ${{ inputs.full_auto_v13_rage_recovery && 'full-auto-v13' || inputs.runway_fidelity_recovery && 'full-auto-v11' || '' }}
+          INSYNERGY_TTS_PERFORMANCE_RECOVERY: ${{ inputs.full_auto_v13_rage_recovery && 'full-auto-v13-shot7-rage-v1' || inputs.full_auto_shout_recovery && 'full-auto-shot7-shout-v1' || '' }}
         run: |
           set -euo pipefail
           CONFIG_ARGUMENTS=()

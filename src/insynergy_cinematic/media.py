@@ -422,6 +422,9 @@ class _NarrationMixer:
             start = max(0.0, float(segment["start_seconds"]))
             end = min(duration_seconds, float(segment.get("end_seconds", duration_seconds)))
             available = max(0.25, end - start)
+            gain_db = float(segment.get("gain_db", 0.0))
+            if not -12.0 <= gain_db <= 6.0:
+                raise ValidationError("Narration segment gain is out of range")
             fade_start = max(0.0, available - 0.12)
             delay_ms = round(start * 1000)
             label = f"narration{index}"
@@ -429,7 +432,7 @@ class _NarrationMixer:
             filters.append(
                 f"[{index}:a]aresample=48000,aformat=channel_layouts=stereo,"
                 f"atrim=duration={available},afade=t=out:st={fade_start}:d=0.12,"
-                f"adelay={delay_ms}:all=1,volume=1.0[{label}]"
+                f"adelay={delay_ms}:all=1,volume={gain_db:.2f}dB[{label}]"
             )
         filters.append(
             "".join(labels)
@@ -548,6 +551,7 @@ class OpenAITTSNarrator(_NarrationMixer):
 
     API_URL = "https://api.openai.com/v1/audio/speech"
     FULL_AUTO_SHOUT_RECOVERY = "full-auto-shot7-shout-v1"
+    FULL_AUTO_V13_RAGE_RECOVERY = "full-auto-v13-shot7-rage-v1"
     FULL_AUTO_MORNING_LINE = "It'll be done by morning."
     FULL_AUTO_SHOUT_LINE = "I'm such a fucking idiot!"
     FULL_AUTO_MORNING_INSTRUCTIONS = (
@@ -566,6 +570,34 @@ class OpenAITTSNarrator(_NarrationMixer):
         "a whisper. Do not add words, a separate scream, growls, laughter, effects, or "
         "trailing speech. End abruptly into dead air."
     )
+    FULL_AUTO_V13_FIRST_LINE = "全部任せよう。"
+    FULL_AUTO_V13_SECOND_LINE = "……全部？"
+    FULL_AUTO_V13_RAGE_LINE = "誰が承認した？"
+    FULL_AUTO_V13_FIRST_INSTRUCTIONS = (
+        "Perform only the supplied Japanese line as the same middle-aged Japanese "
+        "executive. Speak quietly with tired, ordinary confidence and a faint private "
+        "smile, as an offhand decision made late at night. Keep the delivery natural, "
+        "restrained, and conversational. Do not shout, add words, narration, laughter, "
+        "a separate breath, vocal effects, or trailing speech."
+    )
+    FULL_AUTO_V13_SECOND_INSTRUCTIONS = (
+        "Perform only the supplied Japanese line as the same middle-aged Japanese "
+        "executive. Speak in stunned disbelief, almost under the breath, as he realizes "
+        "the full scope of the purchases. Let the final rising question sound hollow and "
+        "shaken, not angry yet. Do not shout, add words, narration, laughter, a separate "
+        "breath, vocal effects, or trailing speech."
+    )
+    FULL_AUTO_V13_RAGE_INSTRUCTIONS = (
+        "Perform only the supplied Japanese line as an explosive accusation by the same "
+        "middle-aged Japanese executive. His restrained facade suddenly breaks, as if a "
+        "hidden, almost feral aggression has erupted to the surface. Begin '誰が' with "
+        "compressed disbelief, then explode into a full chest-driven shout on '承認した'. "
+        "Use a clenched jaw, rough vocal edge, sharply rising intensity, and a slight "
+        "natural voice crack. This is uncontrolled human fury, not narration, a calm read, "
+        "sarcasm, a villain voice, or theatrical horror. Keep every word intelligible. Do "
+        "not add words, a separate scream, growling, laughter, a separate breath, effects, "
+        "or trailing speech. End abruptly within 1.6 seconds."
+    )
 
     def __init__(
         self,
@@ -583,7 +615,11 @@ class OpenAITTSNarrator(_NarrationMixer):
             raise ValidationError("OPENAI_TTS_API_KEY is required for OpenAI narration")
         if model != "gpt-4o-mini-tts":
             raise ValidationError("OpenAI narration model is not allow-listed")
-        if performance_recovery not in {None, self.FULL_AUTO_SHOUT_RECOVERY}:
+        if performance_recovery not in {
+            None,
+            self.FULL_AUTO_SHOUT_RECOVERY,
+            self.FULL_AUTO_V13_RAGE_RECOVERY,
+        }:
             raise ValidationError("OpenAI narration performance recovery is not allow-listed")
         self.api_key = api_key
         self.model = model
@@ -593,16 +629,40 @@ class OpenAITTSNarrator(_NarrationMixer):
         self.timeout_seconds = timeout_seconds
 
     def _instructions_for(self, text: str) -> str:
-        if self.performance_recovery != self.FULL_AUTO_SHOUT_RECOVERY:
+        if self.performance_recovery is None:
             return self.instructions
-        if text == self.FULL_AUTO_MORNING_LINE:
-            return self.FULL_AUTO_MORNING_INSTRUCTIONS
-        if text == self.FULL_AUTO_SHOUT_LINE:
-            return self.FULL_AUTO_SHOUT_INSTRUCTIONS
+        if self.performance_recovery == self.FULL_AUTO_SHOUT_RECOVERY:
+            if text == self.FULL_AUTO_MORNING_LINE:
+                return self.FULL_AUTO_MORNING_INSTRUCTIONS
+            if text == self.FULL_AUTO_SHOUT_LINE:
+                return self.FULL_AUTO_SHOUT_INSTRUCTIONS
+        if self.performance_recovery == self.FULL_AUTO_V13_RAGE_RECOVERY:
+            instructions = {
+                self.FULL_AUTO_V13_FIRST_LINE: self.FULL_AUTO_V13_FIRST_INSTRUCTIONS,
+                self.FULL_AUTO_V13_SECOND_LINE: self.FULL_AUTO_V13_SECOND_INSTRUCTIONS,
+                self.FULL_AUTO_V13_RAGE_LINE: self.FULL_AUTO_V13_RAGE_INSTRUCTIONS,
+            }
+            if text in instructions:
+                return instructions[text]
         raise ValidationError(
             "Full Auto narration performance recovery received unexpected dialogue",
             details={"dialogue": text},
         )
+
+    def _performance_timeline(
+        self, timeline: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        adjusted = [dict(segment) for segment in timeline]
+        if self.performance_recovery != self.FULL_AUTO_V13_RAGE_RECOVERY:
+            return adjusted
+        for segment in adjusted:
+            if str(segment.get("text", "")) != self.FULL_AUTO_V13_RAGE_LINE:
+                continue
+            start = max(0.0, float(segment["start_seconds"]) - 0.40)
+            segment["start_seconds"] = start
+            segment["end_seconds"] = start + 1.65
+            segment["gain_db"] = 3.0
+        return adjusted
 
     def _synthesize(self, text: str, destination: Path, *, instructions: str) -> None:
         payload = json.dumps(
@@ -652,10 +712,38 @@ class OpenAITTSNarrator(_NarrationMixer):
             raise ValidationError("Narration timeline must contain at least one segment")
         if not shutil.which(self.ffmpeg_binary):
             raise ValidationError("ffmpeg is required for narration mixing")
+        effective_timeline = self._performance_timeline(timeline)
+        soundtrack_duck_intervals: list[dict[str, float]] = []
+        if self.performance_recovery == self.FULL_AUTO_V13_RAGE_RECOVERY:
+            rage_segment = next(
+                (
+                    segment
+                    for segment in effective_timeline
+                    if str(segment.get("text", "")) == self.FULL_AUTO_V13_RAGE_LINE
+                ),
+                None,
+            )
+            if rage_segment is None:
+                raise ValidationError("Full Auto v13 rage line is missing from narration")
+            soundtrack_duck_intervals.append(
+                {
+                    "start_seconds": round(
+                        max(0.0, float(rage_segment["start_seconds"]) - 0.10), 3
+                    ),
+                    "end_seconds": round(
+                        min(
+                            duration_seconds,
+                            float(rage_segment["end_seconds"]) + 0.15,
+                        ),
+                        3,
+                    ),
+                    "gain_db": -6.0,
+                }
+            )
         with tempfile.TemporaryDirectory(prefix="insynergy-openai-narration-") as temporary:
             root = Path(temporary)
             wav_paths: list[Path] = []
-            for index, segment in enumerate(timeline, start=1):
+            for index, segment in enumerate(effective_timeline, start=1):
                 wav_path = root / f"segment-{index:02d}.wav"
                 text = str(segment["text"])
                 self._synthesize(
@@ -666,7 +754,7 @@ class OpenAITTSNarrator(_NarrationMixer):
                 wav_paths.append(wav_path)
             self._mix_wavs(
                 master,
-                timeline,
+                effective_timeline,
                 wav_paths,
                 duration_seconds=duration_seconds,
                 integrated_loudness_lufs=integrated_loudness_lufs,
@@ -678,10 +766,12 @@ class OpenAITTSNarrator(_NarrationMixer):
             "narration_engine": "openai-speech-api",
             "narration_model": self.model,
             "narration_voice": self.voice,
-            "narration_segment_count": len(timeline),
+            "narration_segment_count": len(effective_timeline),
             "narration_billing": "metered",
             "ai_generated_voice": True,
             "narration_performance_recovery": self.performance_recovery,
+            "effective_narration_timeline": effective_timeline,
+            "soundtrack_duck_intervals": soundtrack_duck_intervals,
         }
 
 
@@ -699,6 +789,7 @@ class SoundtrackMixer:
         duration_seconds: float,
         gain_db: float,
         expected_hash: str,
+        duck_intervals: list[dict[str, float]] | None = None,
     ) -> dict[str, Any]:
         if not shutil.which(self.ffmpeg_binary):
             raise ValidationError("ffmpeg is required for soundtrack mixing")
@@ -706,6 +797,18 @@ class SoundtrackMixer:
             raise ValidationError("Soundtrack integrity check failed")
         if not -36.0 <= gain_db <= -6.0:
             raise ValidationError("Soundtrack gain is out of range")
+        duck_filters: list[str] = []
+        for interval in duck_intervals or []:
+            start = float(interval["start_seconds"])
+            end = float(interval["end_seconds"])
+            duck_gain = float(interval["gain_db"])
+            if not 0.0 <= start < end <= duration_seconds:
+                raise ValidationError("Soundtrack duck interval is out of range")
+            if not -18.0 <= duck_gain <= 0.0:
+                raise ValidationError("Soundtrack duck gain is out of range")
+            duck_filters.append(
+                f",volume={duck_gain:.2f}dB:enable='between(t,{start:.3f},{end:.3f})'"
+            )
         fade_duration = min(0.4, max(0.1, duration_seconds / 10))
         fade_start = max(0.0, duration_seconds - 0.8)
         soundtrack_end = max(fade_start + fade_duration, duration_seconds - 0.4)
@@ -713,7 +816,9 @@ class SoundtrackMixer:
         temporary_master.unlink(missing_ok=True)
         filters = (
             f"[1:a]aresample=48000,aformat=channel_layouts=stereo,"
-            f"atrim=duration={soundtrack_end},volume={gain_db}dB,"
+            f"atrim=duration={soundtrack_end},volume={gain_db}dB"
+            + "".join(duck_filters)
+            + ","
             f"afade=t=out:st={fade_start}:d={fade_duration},"
             f"apad,atrim=duration={duration_seconds}[soundtrack];"
             f"[0:a][soundtrack]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,"
@@ -767,6 +872,7 @@ class SoundtrackMixer:
             "soundtrack_gain_db": gain_db,
             "soundtrack_duration_seconds": duration_seconds,
             "soundtrack_final_silence_seconds": 0.4,
+            "soundtrack_duck_intervals": duck_intervals or [],
         }
 
 

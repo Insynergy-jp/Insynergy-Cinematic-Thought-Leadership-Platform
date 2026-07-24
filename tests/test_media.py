@@ -200,6 +200,73 @@ class ProductionMediaTests(unittest.TestCase):
                 "full-auto-shot7-shout-v1",
             )
 
+    def test_openai_narrator_applies_v13_japanese_rage_performance(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            master = Path(temporary) / "master.mp4"
+            self._source(master)
+            payloads = []
+
+            def fake_urlopen(request, timeout):
+                del timeout
+                payloads.append(json.loads(request.data))
+                return _FakeResponse(_wav_bytes(duration=0.5))
+
+            narrator = OpenAITTSNarrator(
+                api_key="tts-secret-not-for-artifacts",
+                model="gpt-4o-mini-tts",
+                voice="cedar",
+                instructions="Approved general narration direction.",
+                performance_recovery="full-auto-v13-shot7-rage-v1",
+            )
+            with patch(
+                "insynergy_cinematic.media.urllib.request.urlopen",
+                side_effect=fake_urlopen,
+            ):
+                result = narrator.mix(
+                    master,
+                    [
+                        {
+                            "start_seconds": 0.05,
+                            "end_seconds": 0.60,
+                            "text": "全部任せよう。",
+                        },
+                        {
+                            "start_seconds": 0.80,
+                            "end_seconds": 1.35,
+                            "text": "……全部？",
+                        },
+                        {
+                            "start_seconds": 1.60,
+                            "end_seconds": 2.90,
+                            "text": "誰が承認した？",
+                        },
+                    ],
+                    duration_seconds=3.0,
+                )
+
+            self.assertEqual([item["input"] for item in payloads], [
+                "全部任せよう。",
+                "……全部？",
+                "誰が承認した？",
+            ])
+            self.assertIn("quietly with tired", payloads[0]["instructions"])
+            self.assertIn("stunned disbelief", payloads[1]["instructions"])
+            self.assertIn("almost feral aggression", payloads[2]["instructions"])
+            self.assertIn("full chest-driven shout", payloads[2]["instructions"])
+            rage_timing = result["effective_narration_timeline"][2]
+            self.assertAlmostEqual(rage_timing["start_seconds"], 1.20)
+            self.assertAlmostEqual(rage_timing["end_seconds"], 2.85)
+            self.assertEqual(rage_timing["gain_db"], 3.0)
+            self.assertEqual(result["soundtrack_duck_intervals"], [{
+                "start_seconds": 1.10,
+                "end_seconds": 3.0,
+                "gain_db": -6.0,
+            }])
+            self.assertEqual(
+                result["narration_performance_recovery"],
+                "full-auto-v13-shot7-rage-v1",
+            )
+
     def test_openai_narrator_rejects_unknown_performance_recovery(self) -> None:
         with self.assertRaises(ValidationError):
             OpenAITTSNarrator(
@@ -238,6 +305,11 @@ class ProductionMediaTests(unittest.TestCase):
                 duration_seconds=3.0,
                 gain_db=-20.0,
                 expected_hash=soundtrack_hash,
+                duck_intervals=[{
+                    "start_seconds": 0.8,
+                    "end_seconds": 1.8,
+                    "gain_db": -6.0,
+                }],
             )
 
             validation = AssetValidator().validate(
@@ -251,6 +323,11 @@ class ProductionMediaTests(unittest.TestCase):
             self.assertTrue(validation["audio_non_silent"])
             self.assertEqual(result["soundtrack_hash"], soundtrack_hash)
             self.assertEqual(result["soundtrack_duration_seconds"], 3.0)
+            self.assertEqual(result["soundtrack_duck_intervals"], [{
+                "start_seconds": 0.8,
+                "end_seconds": 1.8,
+                "gain_db": -6.0,
+            }])
 
     def test_youtube_mastering_and_delivery_gate(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
