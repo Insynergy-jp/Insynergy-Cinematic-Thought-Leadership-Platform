@@ -12,7 +12,10 @@ from insynergy_cinematic.config import load_config
 from insynergy_cinematic.errors import ValidationError
 from insynergy_cinematic.rendering import RenderCache, RenderingPlatform
 from insynergy_cinematic.storage import ContentAddressableStore
-from tools.recover_audio_only_cache import recover_audio_only_cache
+from tools.recover_audio_only_cache import (
+    FULL_AUTO_V13_JA_RAGE,
+    recover_audio_only_cache,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -55,17 +58,22 @@ def frame(shot_id: str, sound: str) -> dict:
 
 
 class AudioOnlyRecoveryTests(unittest.TestCase):
-    def _prepare(self, root: Path, *, visual_change: bool = False) -> tuple[Path, Path]:
+    def _prepare(
+        self,
+        root: Path,
+        *,
+        visual_change: bool = False,
+        v13_rage: bool = False,
+    ) -> tuple[Path, Path]:
         source = root / "source"
         target = root / "target"
         source_artifacts = source / ".insynergy" / "builds" / BUILD_ID / "artifacts"
         target_artifacts = target / ".insynergy" / "builds" / BUILD_ID / "artifacts"
         source_artifacts.mkdir(parents=True)
         target_artifacts.mkdir(parents=True)
+        config_name = "production-config-v13.json" if v13_rage else "production-config.json"
         config_value = json.loads(
-            (ROOT / "creative" / "full-auto-30s" / "production-config.json").read_text(
-                encoding="utf-8"
-            )
+            (ROOT / "creative" / "full-auto-30s" / config_name).read_text(encoding="utf-8")
         )
         config_value["soundtrack"]["path"] = ""
         (source / "config.json").write_text(json.dumps(config_value), encoding="utf-8")
@@ -84,17 +92,28 @@ class AudioOnlyRecoveryTests(unittest.TestCase):
         (target_artifacts / "storyboard.json").write_text(
             json.dumps(envelope({"frames": target_frames})), encoding="utf-8"
         )
-        (source_artifacts / "narration_script.json").write_text(
-            json.dumps(envelope({"language": "ja", "segments": [
+        if v13_rage:
+            narration = {"language": "ja", "segments": [
+                {"scene_id": "scene-001", "text": "全部任せよう。"},
+                {"scene_id": "scene-005", "text": "……全部？"},
+                {"scene_id": "scene-007", "text": "誰が承認した？"},
+            ]}
+            source_narration = narration
+            target_narration = deepcopy(narration)
+        else:
+            source_narration = {"language": "ja", "segments": [
                 {"scene_id": "scene-001", "text": "朝には終わってるだろ。"},
                 {"scene_id": "scene-007", "text": "なんて俺はクソなんだ！"},
-            ]})), encoding="utf-8"
-        )
-        (target_artifacts / "narration_script.json").write_text(
-            json.dumps(envelope({"language": "en", "segments": [
+            ]}
+            target_narration = {"language": "en", "segments": [
                 {"scene_id": "scene-001", "text": "It'll be done by morning."},
                 {"scene_id": "scene-007", "text": "I'm such a fucking idiot!"},
-            ]})), encoding="utf-8"
+            ]}
+        (source_artifacts / "narration_script.json").write_text(
+            json.dumps(envelope(source_narration)), encoding="utf-8"
+        )
+        (target_artifacts / "narration_script.json").write_text(
+            json.dumps(envelope(target_narration)), encoding="utf-8"
         )
 
         config = load_config(
@@ -174,6 +193,26 @@ class AudioOnlyRecoveryTests(unittest.TestCase):
                     provider="runway",
                     runway_scope="hybrid",
                 )
+
+    def test_recovers_v13_picture_for_japanese_rage_performance_only(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            source, target = self._prepare(Path(temporary), v13_rage=True)
+            result = recover_audio_only_cache(
+                source_root=source,
+                target_root=target,
+                build_id=BUILD_ID,
+                config_path=target / "config.json",
+                profile="final",
+                provider="runway",
+                runway_scope="hybrid",
+                revision=FULL_AUTO_V13_JA_RAGE,
+            )
+            self.assertTrue(result["passed"])
+            self.assertEqual(result["revision"], FULL_AUTO_V13_JA_RAGE)
+            self.assertEqual(result["source_language"], "ja")
+            self.assertEqual(result["target_language"], "ja")
+            self.assertEqual(result["recovered_shot_count"], 8)
+            self.assertFalse(result["provider_submission_required"])
 
 
 if __name__ == "__main__":
