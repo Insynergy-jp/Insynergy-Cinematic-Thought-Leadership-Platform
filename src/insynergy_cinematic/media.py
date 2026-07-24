@@ -547,6 +547,25 @@ class OpenAITTSNarrator(_NarrationMixer):
     """Create production narration with the OpenAI Speech API without retrying billable calls."""
 
     API_URL = "https://api.openai.com/v1/audio/speech"
+    FULL_AUTO_SHOUT_RECOVERY = "full-auto-shot7-shout-v1"
+    FULL_AUTO_MORNING_LINE = "It'll be done by morning."
+    FULL_AUTO_SHOUT_LINE = "I'm such a fucking idiot!"
+    FULL_AUTO_MORNING_INSTRUCTIONS = (
+        "Perform only the supplied line in natural American English as the same "
+        "middle-aged male developer. Speak quietly with ordinary confidence and slight "
+        "satisfaction, as an offhand remark before leaving the room. Do not shout, add "
+        "words, narration, laughter, vocal effects, or trailing speech."
+    )
+    FULL_AUTO_SHOUT_INSTRUCTIONS = (
+        "Perform only the supplied line as a raw, explosive, self-directed yell in "
+        "natural American English by the same middle-aged male developer. Start at full "
+        "shouting intensity: anger, shock, and immediate regret collide at once. Drive "
+        "the line from the chest with hard breath pressure and let the voice strain or "
+        "crack slightly without becoming theatrical. Make 'fucking idiot' land louder "
+        "and sharper than 'I'm such a'. This is not narration, a calm read, sarcasm, or "
+        "a whisper. Do not add words, a separate scream, growls, laughter, effects, or "
+        "trailing speech. End abruptly into dead air."
+    )
 
     def __init__(
         self,
@@ -555,6 +574,7 @@ class OpenAITTSNarrator(_NarrationMixer):
         model: str = "gpt-4o-mini-tts",
         voice: str = "marin",
         instructions: str,
+        performance_recovery: str | None = None,
         ffmpeg_binary: str = "ffmpeg",
         timeout_seconds: int = 120,
     ) -> None:
@@ -563,19 +583,34 @@ class OpenAITTSNarrator(_NarrationMixer):
             raise ValidationError("OPENAI_TTS_API_KEY is required for OpenAI narration")
         if model != "gpt-4o-mini-tts":
             raise ValidationError("OpenAI narration model is not allow-listed")
+        if performance_recovery not in {None, self.FULL_AUTO_SHOUT_RECOVERY}:
+            raise ValidationError("OpenAI narration performance recovery is not allow-listed")
         self.api_key = api_key
         self.model = model
         self.voice = voice
         self.instructions = instructions
+        self.performance_recovery = performance_recovery
         self.timeout_seconds = timeout_seconds
 
-    def _synthesize(self, text: str, destination: Path) -> None:
+    def _instructions_for(self, text: str) -> str:
+        if self.performance_recovery != self.FULL_AUTO_SHOUT_RECOVERY:
+            return self.instructions
+        if text == self.FULL_AUTO_MORNING_LINE:
+            return self.FULL_AUTO_MORNING_INSTRUCTIONS
+        if text == self.FULL_AUTO_SHOUT_LINE:
+            return self.FULL_AUTO_SHOUT_INSTRUCTIONS
+        raise ValidationError(
+            "Full Auto narration performance recovery received unexpected dialogue",
+            details={"dialogue": text},
+        )
+
+    def _synthesize(self, text: str, destination: Path, *, instructions: str) -> None:
         payload = json.dumps(
             {
                 "model": self.model,
                 "voice": self.voice,
                 "input": text,
-                "instructions": self.instructions,
+                "instructions": instructions,
                 "response_format": "wav",
             }
         ).encode("utf-8")
@@ -622,7 +657,12 @@ class OpenAITTSNarrator(_NarrationMixer):
             wav_paths: list[Path] = []
             for index, segment in enumerate(timeline, start=1):
                 wav_path = root / f"segment-{index:02d}.wav"
-                self._synthesize(str(segment["text"]), wav_path)
+                text = str(segment["text"])
+                self._synthesize(
+                    text,
+                    wav_path,
+                    instructions=self._instructions_for(text),
+                )
                 wav_paths.append(wav_path)
             self._mix_wavs(
                 master,
@@ -641,6 +681,7 @@ class OpenAITTSNarrator(_NarrationMixer):
             "narration_segment_count": len(timeline),
             "narration_billing": "metered",
             "ai_generated_voice": True,
+            "narration_performance_recovery": self.performance_recovery,
         }
 
 

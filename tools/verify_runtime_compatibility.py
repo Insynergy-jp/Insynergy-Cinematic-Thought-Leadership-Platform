@@ -19,6 +19,7 @@ ALLOWED_RUNTIME_CHANGES = frozenset(
         ".github/workflows/plan.yml",
         "src/insynergy_cinematic/prompt.py",
         "src/insynergy_cinematic/media.py",
+        "src/insynergy_cinematic/orchestrator.py",
         "src/insynergy_cinematic/providers/runway.py",
         "src/insynergy_cinematic/rendering.py",
         "tests/test_prompt_transport.py",
