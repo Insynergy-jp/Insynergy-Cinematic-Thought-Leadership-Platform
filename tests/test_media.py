@@ -147,6 +147,67 @@ class ProductionMediaTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             OpenAITTSNarrator(api_key="", instructions="Calm narration.")
 
+    def test_openai_narrator_applies_full_auto_shout_recovery_per_line(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            master = Path(temporary) / "master.mp4"
+            self._source(master)
+            payloads = []
+
+            def fake_urlopen(request, timeout):
+                del timeout
+                payloads.append(json.loads(request.data))
+                return _FakeResponse(_wav_bytes())
+
+            narrator = OpenAITTSNarrator(
+                api_key="tts-secret-not-for-artifacts",
+                model="gpt-4o-mini-tts",
+                voice="cedar",
+                instructions="Approved general narration direction.",
+                performance_recovery="full-auto-shot7-shout-v1",
+            )
+            with patch(
+                "insynergy_cinematic.media.urllib.request.urlopen",
+                side_effect=fake_urlopen,
+            ):
+                result = narrator.mix(
+                    master,
+                    [
+                        {
+                            "start_seconds": 0.2,
+                            "end_seconds": 1.25,
+                            "text": "It'll be done by morning.",
+                        },
+                        {
+                            "start_seconds": 1.5,
+                            "end_seconds": 2.8,
+                            "text": "I'm such a fucking idiot!",
+                        },
+                    ],
+                    duration_seconds=3.0,
+                )
+
+            self.assertEqual(len(payloads), 2)
+            self.assertEqual(payloads[0]["input"], "It'll be done by morning.")
+            self.assertIn("Speak quietly", payloads[0]["instructions"])
+            self.assertNotIn("full shouting intensity", payloads[0]["instructions"])
+            self.assertEqual(payloads[1]["input"], "I'm such a fucking idiot!")
+            self.assertIn("raw, explosive", payloads[1]["instructions"])
+            self.assertIn("full shouting intensity", payloads[1]["instructions"])
+            self.assertIn("anger, shock, and immediate regret", payloads[1]["instructions"])
+            self.assertIn("'fucking idiot' land louder", payloads[1]["instructions"])
+            self.assertEqual(
+                result["narration_performance_recovery"],
+                "full-auto-shot7-shout-v1",
+            )
+
+    def test_openai_narrator_rejects_unknown_performance_recovery(self) -> None:
+        with self.assertRaises(ValidationError):
+            OpenAITTSNarrator(
+                api_key="tts-secret-not-for-artifacts",
+                instructions="Calm narration.",
+                performance_recovery="unknown",
+            )
+
     def test_soundtrack_mix_is_hash_bound_and_trimmed_to_master(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

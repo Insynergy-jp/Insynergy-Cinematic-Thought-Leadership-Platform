@@ -26,6 +26,11 @@ on:
         required: true
         default: false
         type: boolean
+      full_auto_shout_recovery:
+        description: Regenerate only the approved English dialogue with an explosive Shot 07 vocal performance
+        required: true
+        default: false
+        type: boolean
       config_path:
         description: Optional repository-relative production configuration used during planning
         required: false
@@ -112,6 +117,7 @@ jobs:
           RUNWAY_SCOPE: ${{ inputs.runway_scope }}
           RUNWAY_FIDELITY_RECOVERY: ${{ inputs.runway_fidelity_recovery }}
           AUDIO_ONLY_RECOVERY: ${{ inputs.audio_only_recovery }}
+          FULL_AUTO_SHOUT_RECOVERY: ${{ inputs.full_auto_shout_recovery }}
           PLANNING_RUN_ID: ${{ inputs.planning_run_id }}
         run: |
           set -euo pipefail
@@ -143,6 +149,13 @@ jobs:
           elif [ "$AUDIO_ONLY_RECOVERY" = "true" ]; then
             echo "audio_only_recovery requires runway_fidelity_recovery" >&2
             exit 2
+          fi
+          if [ "$FULL_AUTO_SHOUT_RECOVERY" = "true" ]; then
+            test "$AUDIO_ONLY_RECOVERY" = "true" || { echo "full_auto_shout_recovery requires audio_only_recovery" >&2; exit 2; }
+            test "$PLANNING_RUN_ID" = "29982665848" || { echo "full_auto_shout_recovery is bound to the approved English Full Auto planning run" >&2; exit 2; }
+            test "$RUNWAY_RECOVERY_RUN_ID" = "29981824842" || { echo "full_auto_shout_recovery is bound to the validated Full Auto picture" >&2; exit 2; }
+            test "$CONFIG_PATH" = "creative/full-auto-30s/production-config.json" || { echo "full_auto_shout_recovery is bound to the Full Auto production config" >&2; exit 2; }
+            test "$BUILD_ID" = "20260723-001" || { echo "full_auto_shout_recovery is bound to the approved Full Auto build" >&2; exit 2; }
           fi
       - name: Verify planning and execution runtime compatibility
         env:
@@ -314,6 +327,7 @@ jobs:
           INSYNERGY_RUNWAY_RECOVERY_SHOTS: ${{ inputs.runway_fidelity_recovery && 'scene-001-shot-01,scene-002-shot-01,scene-004-shot-01,scene-005-shot-01,scene-007-shot-01' || '' }}
           INSYNERGY_RUNWAY_RECOVERY_REASON: ${{ inputs.runway_fidelity_recovery && 'User-authorized Full Auto fidelity recovery - replace placeholder live-action shots, bind the approved v11 identity references, and preserve deterministic UI post-production.' || '' }}
           INSYNERGY_RUNWAY_STORYBOARD_REFERENCES: ${{ inputs.runway_fidelity_recovery && 'full-auto-v11' || '' }}
+          INSYNERGY_TTS_PERFORMANCE_RECOVERY: ${{ inputs.full_auto_shout_recovery && 'full-auto-shot7-shout-v1' || '' }}
         run: |
           set -euo pipefail
           CONFIG_ARGUMENTS=()

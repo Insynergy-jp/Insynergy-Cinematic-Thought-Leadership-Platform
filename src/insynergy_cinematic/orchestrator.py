@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import tempfile
 from pathlib import Path
 from time import perf_counter
@@ -2957,6 +2958,9 @@ class BuildOrchestrator:
                     model=self.config.narration_openai_model,
                     voice=self.config.narration_openai_voice,
                     instructions=self.config.narration_openai_instructions,
+                    performance_recovery=(
+                        os.environ.get("INSYNERGY_TTS_PERFORMANCE_RECOVERY") or None
+                    ),
                 )
                 narration_mix = narrator.mix(
                     output,
