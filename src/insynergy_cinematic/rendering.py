@@ -59,6 +59,14 @@ FULL_AUTO_V12_REFERENCES = {
     "scene-006-shot-01": "creative/full-auto-30s/storyboard-shot-06-desktop-v11.png",
     "scene-007-shot-01": "creative/full-auto-30s/storyboard-shot-07-identity-v11.png",
 }
+FULL_AUTO_V13_REFERENCES = {
+    "scene-001-shot-01": "creative/full-auto-30s/v13/storyboard-shot-01.png",
+    "scene-002-shot-01": "creative/full-auto-30s/v13/storyboard-shot-02.png",
+    "scene-004-shot-01": "creative/full-auto-30s/v13/storyboard-shot-04.png",
+    "scene-005-shot-01": "creative/full-auto-30s/v13/storyboard-shot-05.png",
+    "scene-006-shot-01": "creative/full-auto-30s/v13/storyboard-shot-06.png",
+    "scene-007-shot-01": "creative/full-auto-30s/v13/storyboard-shot-07.png",
+}
 
 
 def runway_reference_set(config: PlatformConfig) -> str:
@@ -731,6 +739,8 @@ class RenderingPlatform:
             references = FULL_AUTO_V11_REFERENCES
         elif reference_set == "full-auto-v12":
             references = FULL_AUTO_V12_REFERENCES
+        elif reference_set == "full-auto-v13":
+            references = FULL_AUTO_V13_REFERENCES
         else:
             raise ValidationError("Unsupported Runway storyboard reference set")
         shot_id = str(frame["shot_id"])
@@ -1070,6 +1080,24 @@ class RenderingPlatform:
             if missing_reference_shots or non_runway_reference_shots:
                 raise ValidationError(
                     "Full Auto v12 references must bind all approved live-action shots",
+                    details={
+                        "missing_shots": missing_reference_shots,
+                        "non_runway_shots": non_runway_reference_shots,
+                    },
+                )
+        if reference_set == "full-auto-v13":
+            missing_reference_shots = sorted(
+                frozenset(FULL_AUTO_V13_REFERENCES).difference(frame_by_id)
+            )
+            non_runway_reference_shots = sorted(
+                shot_id
+                for shot_id in FULL_AUTO_V13_REFERENCES
+                if shot_id in frame_by_id
+                and not uses_runway(self.config, frame_by_id[shot_id])
+            )
+            if missing_reference_shots or non_runway_reference_shots:
+                raise ValidationError(
+                    "Full Auto v13 references must bind all approved live-action shots",
                     details={
                         "missing_shots": missing_reference_shots,
                         "non_runway_shots": non_runway_reference_shots,

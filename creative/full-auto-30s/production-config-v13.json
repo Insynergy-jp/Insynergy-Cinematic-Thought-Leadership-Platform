@@ -1,0 +1,101 @@
+{
+  "schema_version": "2.0",
+  "platform_version": "3.4.0",
+  "profile": "final",
+  "deterministic": true,
+  "render": {
+    "provider": "runway",
+    "runway_scope": "hybrid",
+    "runway_reference_set": "full-auto-v13",
+    "max_runway_credits": 300,
+    "max_parallel_shots": 2,
+    "max_attempts": 3,
+    "quality_threshold": 0.9,
+    "budget_usd": 5.0,
+    "estimate_before_submission": true,
+    "preview": {
+      "width": 720,
+      "height": 1280,
+      "frame_rate": 24,
+      "max_duration_seconds": 5
+    },
+    "final": {
+      "width": 1080,
+      "height": 1920,
+      "frame_rate": 24,
+      "max_duration_seconds": 10
+    }
+  },
+  "story": {
+    "concept_ratio_max": 0.2,
+    "supporting_role_max": 3,
+    "canonical_duration_seconds": 30,
+    "draft_duration_seconds": 12,
+    "genre": "cinematic_thought_leadership",
+    "audience": "executive",
+    "author_style": [
+      "human decision first",
+      "institutional accuracy",
+      "restrained executive tone"
+    ],
+    "persona_mode": "council",
+    "thresholds": {
+      "dramatic_score": 0.85,
+      "conflict_score": 0.8,
+      "stakes_score": 0.85,
+      "emotional_progression": 0.85
+    }
+  },
+  "narration": {
+    "provider": "openai",
+    "openai_model": "gpt-4o-mini-tts",
+    "openai_voice": "cedar",
+    "openai_instructions": "Speak only the authored Japanese dialogue. Use a restrained middle-aged executive voice. Keep the first two lines quiet and tired; deliver the final question low, forceful, and tightly controlled. Do not add narration, breaths, shouts, or extra words."
+  },
+  "pre_render_preview": {
+    "mode": "off",
+    "model": "gpt-5.6-sol",
+    "reasoning_effort": "medium",
+    "image_size": "1024x1536",
+    "image_quality": "medium",
+    "image_output_format": "png",
+    "timeout_seconds": 300,
+    "max_output_tokens": 24000,
+    "max_images": 12,
+    "preflight_estimated_cost_usd": 5.0,
+    "max_cost_usd": 10.0,
+    "prompt_version": "storyboard-preview-v1",
+    "allowed_models": [
+      "gpt-5.6-sol"
+    ]
+  },
+  "soundtrack": {
+    "path": "creative/full-auto-30s/audio/full-auto-bgm-lyria-v3.mp3",
+    "gain_db": -20.0,
+    "instrumental_only": true
+  },
+  "youtube": {
+    "video_bitrate": "8M",
+    "audio_bitrate": "384k",
+    "audio_sample_rate": 48000,
+    "integrated_loudness_lufs": -14.0,
+    "true_peak_db": -1.0
+  },
+  "persona_council": {
+    "mode": "council",
+    "model": "gpt-5.6-sol",
+    "reasoning_effort": "medium",
+    "trace_mode": "disabled",
+    "timeout_seconds": 300,
+    "max_input_bytes": 524288,
+    "max_output_tokens": 20000,
+    "preflight_estimated_cost_usd": 1.0,
+    "max_cost_usd": 5.0,
+    "manager_agent_version": "persona-manager-v2",
+    "prompt_version": "persona-council-v3",
+    "policy_version": "persona-policy/1",
+    "allowed_models": [
+      "gpt-5.6-sol"
+    ]
+  }
+}

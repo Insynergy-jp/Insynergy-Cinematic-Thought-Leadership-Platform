@@ -342,7 +342,11 @@ def load_config(
         raise ValidationError(f"Unsupported Runway scope: {selected_runway_scope}")
     if selected_runway_scope == "all_shots" and selected_provider != "runway":
         raise ValidationError("all_shots Runway scope requires provider=runway")
-    if selected_runway_reference_set not in {None, "full-auto-v12"}:
+    if selected_runway_reference_set not in {
+        None,
+        "full-auto-v12",
+        "full-auto-v13",
+    }:
         raise ValidationError("render.runway_reference_set is not allow-listed")
     if selected_runway_reference_set is not None and selected_provider != "runway":
         raise ValidationError("Runway reference sets require provider=runway")

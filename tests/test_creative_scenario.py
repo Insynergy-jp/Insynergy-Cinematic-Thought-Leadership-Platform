@@ -15,6 +15,8 @@ from insynergy_cinematic.story import StoryEngine
 ROOT = Path(__file__).resolve().parents[1]
 BRIEF = ROOT / "creative" / "full-auto-30s" / "creative-brief.md"
 ARTICLE = ROOT / "creative" / "full-auto-30s" / "source-article.md"
+BRIEF_V13 = ROOT / "creative" / "full-auto-30s" / "creative-brief-v13.md"
+CONFIG_V13 = ROOT / "creative" / "full-auto-30s" / "production-config-v13.json"
 
 
 def raw_scenario() -> tuple[dict, str]:
@@ -27,6 +29,47 @@ def raw_scenario() -> tuple[dict, str]:
 
 
 class CreativeScenarioTests(unittest.TestCase):
+    def test_v13_seals_approved_feral_expression_and_vertical_timing(self) -> None:
+        brief = load_creative_brief(BRIEF_V13)
+        scenario = brief.scenario
+
+        self.assertIsNotNone(scenario)
+        assert scenario is not None
+        self.assertEqual(scenario["language"], "ja")
+        self.assertEqual(scenario["spoken_line_limit"], 3)
+        self.assertEqual(
+            [scene["duration_seconds"] for scene in scenario["scenes"]],
+            [4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 3.0, 3.0],
+        )
+        self.assertEqual(
+            [
+                scene["dialogue"]["text"]
+                for scene in scenario["scenes"]
+                if not scene["dialogue"]["silence"]
+            ],
+            ["全部任せよう。", "……全部？", "誰が承認した？"],
+        )
+        shot_07 = scenario["scenes"][6]
+        self.assertIn("electric-blue veins", shot_07["action"])
+        self.assertIn("predatory glare", shot_07["action"])
+        self.assertIn("violent, feral nature", shot_07["action"])
+        self.assertIn("twisted lips", shot_07["shot"]["performance_note"])
+        self.assertIn("little clenched tooth", shot_07["shot"]["performance_note"])
+        self.assertIn("monster", shot_07["shot"]["forbidden_style"])
+
+        config = load_config(
+            workspace=ROOT,
+            config_path=CONFIG_V13,
+            environ={},
+        )
+        self.assertEqual(config.runway_reference_set, "full-auto-v13")
+        self.assertEqual(config.max_runway_credits, 300)
+        self.assertEqual(config.narration_provider, "openai")
+        self.assertEqual(
+            (config.final.width, config.final.height, config.final.frame_rate),
+            (1080, 1920, 24),
+        )
+
     def test_full_auto_brief_seals_shorts_timing_and_zero_spoken_lines(self) -> None:
         brief = load_creative_brief(BRIEF)
         scenario = brief.scenario
