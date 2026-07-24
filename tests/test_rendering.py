@@ -393,6 +393,48 @@ class RenderingTests(unittest.TestCase):
                     )
 
     @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg required")
+    def test_v13_marketing_montage_uses_approved_copy(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            asset = Path(temporary) / "v13-marketing.mp4"
+            overlays = [
+                "Launching Agent #12",
+                "Launching Agent #28",
+                "Generating Creative",
+                "Purchasing Assets",
+                "Increasing Budget",
+                "Optimizing Reach",
+                "Marketing Budget",
+                "$120,000",
+                "$260,000",
+                "$410,000",
+            ]
+            result = StoryboardPostProcessor().apply(
+                asset,
+                {"shot_id": "scene-003-shot-01", "ui_overlays": overlays},
+                width=360,
+                height=640,
+                frame_rate=24,
+                duration_seconds=4.0,
+            )
+            self.assertEqual(result["mode"], "full_auto_v13_marketing_montage")
+            self.assertEqual(result["exact_strings"], overlays)
+            self.assertTrue(result["native_portrait"])
+            self.assertTrue(result["text_within_shorts_safe_zone"])
+            self.assertGreaterEqual(
+                result["minimum_text_size_px"],
+                result["minimum_required_text_size_px"],
+            )
+            self.assertTrue(
+                AssetValidator().validate(
+                    asset,
+                    width=360,
+                    height=640,
+                    frame_rate=24,
+                    duration_seconds=4.0,
+                )["passed"]
+            )
+
+    @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg required")
     def test_portrait_title_card_records_shorts_layout_contract(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             asset = Path(temporary) / "portrait-title-card.mp4"
