@@ -273,6 +273,10 @@ class GitHubActionsArchitectureTests(unittest.TestCase):
         self.assertIn("needs: preflight", preview)
         self.assertIn("preview-preflight", preview)
         self.assertIn("provider_run_id", preview)
+        self.assertIn("config_path:", preview)
+        self.assertEqual(
+            preview.count('CONFIG_ARGUMENTS=(--config "$CONFIG_PATH")'), 4
+        )
         self.assertIn("Validate failed-run recovery binding", preview)
         self.assertIn("github_preview_recovery.py", preview)
         self.assertIn("recomposition_verification", preview)

@@ -11,6 +11,11 @@ on:
         description: Build ID shown by the planning workflow
         required: true
         type: string
+      config_path:
+        description: Must match the repository-relative config used by planning; empty uses the default config
+        required: false
+        default: ""
+        type: string
       provider_run_id:
         description: Optional failed Storyboard Preview run to recover without OpenAI calls
         required: false
@@ -69,10 +74,13 @@ jobs:
         env:
           SOURCE_RUN_ID: ${{ inputs.planning_run_id }}
           BUILD_ID: ${{ inputs.build_id }}
+          CONFIG_PATH: ${{ inputs.config_path }}
         run: |
           set -euo pipefail
           case "$SOURCE_RUN_ID" in *[!0-9]*|'') echo "planning_run_id must be numeric" >&2; exit 2 ;; esac
           case "$BUILD_ID" in [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9]) ;; *) echo "invalid build_id" >&2; exit 2 ;; esac
+          case "$CONFIG_PATH" in /*|*..*) echo "config_path must be repository-relative and contain no .." >&2; exit 2 ;; esac
+          test -z "$CONFIG_PATH" || test -f "$CONFIG_PATH" || { echo "config_path does not exist" >&2; exit 2; }
       - name: Download sealed planning bundle
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
@@ -105,9 +113,12 @@ jobs:
           RUNWAY_SCOPE: ${{ inputs.runway_scope }}
           NARRATION_PROVIDER: ${{ inputs.narration_provider }}
           AGENT_REVIEW_MODE: ${{ inputs.agent_review_mode }}
+          CONFIG_PATH: ${{ inputs.config_path }}
         run: |
           set -euo pipefail
-          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --pre-render-preview-mode storyboard_animatic preview-preflight "$BUILD_ID" > preview-preflight-result.json
+          CONFIG_ARGUMENTS=()
+          test -z "$CONFIG_PATH" || CONFIG_ARGUMENTS=(--config "$CONFIG_PATH")
+          PYTHONPATH=src python3 -m insynergy_cinematic "${CONFIG_ARGUMENTS[@]}" --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --pre-render-preview-mode storyboard_animatic preview-preflight "$BUILD_ID" > preview-preflight-result.json
           python3 -c 'import json; value=json.load(open("preview-preflight-result.json")); assert value["passed"] is True; assert value["openai_provider_initialized"] is False; assert value["runway_api_calls"] == 0'
       - name: Upload provider-free preflight evidence
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
@@ -132,10 +143,13 @@ jobs:
         env:
           SOURCE_RUN_ID: ${{ inputs.planning_run_id }}
           BUILD_ID: ${{ inputs.build_id }}
+          CONFIG_PATH: ${{ inputs.config_path }}
         run: |
           set -euo pipefail
           case "$SOURCE_RUN_ID" in *[!0-9]*|'') echo "planning_run_id must be numeric" >&2; exit 2 ;; esac
           case "$BUILD_ID" in [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9]) ;; *) echo "invalid build_id" >&2; exit 2 ;; esac
+          case "$CONFIG_PATH" in /*|*..*) echo "config_path must be repository-relative and contain no .." >&2; exit 2 ;; esac
+          test -z "$CONFIG_PATH" || test -f "$CONFIG_PATH" || { echo "config_path does not exist" >&2; exit 2; }
       - name: Download sealed planning bundle
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
@@ -185,13 +199,16 @@ jobs:
           RUNWAY_SCOPE: ${{ inputs.runway_scope }}
           NARRATION_PROVIDER: ${{ inputs.narration_provider }}
           AGENT_REVIEW_MODE: ${{ inputs.agent_review_mode }}
+          CONFIG_PATH: ${{ inputs.config_path }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL_PREVIEW: ${{ vars.OPENAI_MODEL_PREVIEW }}
           OPENAI_PREVIEW_REASONING_EFFORT: ${{ vars.OPENAI_PREVIEW_REASONING_EFFORT }}
         run: |
           set -euo pipefail
           test -n "$OPENAI_API_KEY" || { echo "OPENAI_API_KEY is required" >&2; exit 3; }
-          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --pre-render-preview-mode storyboard_animatic previsualize "$BUILD_ID" > preview-result.json
+          CONFIG_ARGUMENTS=()
+          test -z "$CONFIG_PATH" || CONFIG_ARGUMENTS=(--config "$CONFIG_PATH")
+          PYTHONPATH=src python3 -m insynergy_cinematic "${CONFIG_ARGUMENTS[@]}" --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --pre-render-preview-mode storyboard_animatic previsualize "$BUILD_ID" > preview-result.json
           python3 -c 'import json; value=json.load(open("preview-result.json")); assert value["state"] == "AWAITING_STORYBOARD_PREVIEW_APPROVAL"; assert value["previsualization"]["runway_api_calls"] == 0'
       - name: Write safe preview summary
         run: |
@@ -251,11 +268,14 @@ jobs:
           PROVIDER_RUN_ID: ${{ inputs.provider_run_id }}
           BUILD_ID: ${{ inputs.build_id }}
           CURRENT_RUN_ID: ${{ github.run_id }}
+          CONFIG_PATH: ${{ inputs.config_path }}
         run: |
           set -euo pipefail
           case "$PLANNING_RUN_ID" in *[!0-9]*|'') echo "planning_run_id must be numeric" >&2; exit 2 ;; esac
           case "$PROVIDER_RUN_ID" in *[!0-9]*) echo "provider_run_id must be numeric" >&2; exit 2 ;; esac
           case "$BUILD_ID" in [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9]) ;; *) echo "invalid build_id" >&2; exit 2 ;; esac
+          case "$CONFIG_PATH" in /*|*..*) echo "config_path must be repository-relative and contain no .." >&2; exit 2 ;; esac
+          test -z "$CONFIG_PATH" || test -f "$CONFIG_PATH" || { echo "config_path does not exist" >&2; exit 2; }
           if test -n "$PROVIDER_RUN_ID"; then
             test "$PROVIDER_RUN_ID" != "$CURRENT_RUN_ID" || { echo "provider_run_id cannot be the recovery run" >&2; exit 2; }
           fi
@@ -291,9 +311,12 @@ jobs:
           RUNWAY_SCOPE: ${{ inputs.runway_scope }}
           NARRATION_PROVIDER: ${{ inputs.narration_provider }}
           AGENT_REVIEW_MODE: ${{ inputs.agent_review_mode }}
+          CONFIG_PATH: ${{ inputs.config_path }}
         run: |
           set -euo pipefail
-          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --pre-render-preview-mode storyboard_animatic recompose-preview "$BUILD_ID" > preview-composition-result.json || {
+          CONFIG_ARGUMENTS=()
+          test -z "$CONFIG_PATH" || CONFIG_ARGUMENTS=(--config "$CONFIG_PATH")
+          PYTHONPATH=src python3 -m insynergy_cinematic "${CONFIG_ARGUMENTS[@]}" --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --pre-render-preview-mode storyboard_animatic recompose-preview "$BUILD_ID" > preview-composition-result.json || {
             result_code=$?
             if test -s preview-composition-result.json; then
               python3 -m json.tool preview-composition-result.json >&2 || true
@@ -361,6 +384,7 @@ jobs:
           RUNWAY_SCOPE: ${{ inputs.runway_scope }}
           NARRATION_PROVIDER: ${{ inputs.narration_provider }}
           AGENT_REVIEW_MODE: ${{ inputs.agent_review_mode }}
+          CONFIG_PATH: ${{ inputs.config_path }}
           WORKFLOW_INITIATOR: ${{ github.actor }}
           ENVIRONMENT_REVIEWER: ${{ steps.preview_review.outputs.environment_reviewer }}
           ENVIRONMENT_REVIEWER_ID: ${{ steps.preview_review.outputs.environment_reviewer_id }}
@@ -369,13 +393,15 @@ jobs:
           PREVENT_SELF_REVIEW: ${{ steps.preview_review.outputs.prevent_self_review }}
         run: |
           set -euo pipefail
+          CONFIG_ARGUMENTS=()
+          test -z "$CONFIG_PATH" || CONFIG_ARGUMENTS=(--config "$CONFIG_PATH")
           SELF_REVIEW_ARGUMENTS=()
           case "$PREVENT_SELF_REVIEW" in
             true) SELF_REVIEW_ARGUMENTS=(--prevent-self-review) ;;
             false) ;;
             *) echo "invalid prevent_self_review policy" >&2; exit 7 ;;
           esac
-          PYTHONPATH=src python3 -m insynergy_cinematic --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --pre-render-preview-mode storyboard_animatic approve "$BUILD_ID" --gate storyboard-preview --actor "$ENVIRONMENT_REVIEWER" --workflow-initiator "$WORKFLOW_INITIATOR" --environment-reviewer "$ENVIRONMENT_REVIEWER" --environment-reviewer-id "$ENVIRONMENT_REVIEWER_ID" "${SELF_REVIEW_ARGUMENTS[@]}" --environment-review-hash "$ENVIRONMENT_REVIEW_HASH" --environment-policy-hash "$ENVIRONMENT_POLICY_HASH" --comment "GitHub Environment storyboard-preview-approval" > preview-approval-result.json
+          PYTHONPATH=src python3 -m insynergy_cinematic "${CONFIG_ARGUMENTS[@]}" --profile "$BUILD_PROFILE" --provider "$RENDER_PROVIDER" --runway-scope "$RUNWAY_SCOPE" --narration-provider "$NARRATION_PROVIDER" --agent-review-mode "$AGENT_REVIEW_MODE" --pre-render-preview-mode storyboard_animatic approve "$BUILD_ID" --gate storyboard-preview --actor "$ENVIRONMENT_REVIEWER" --workflow-initiator "$WORKFLOW_INITIATOR" --environment-reviewer "$ENVIRONMENT_REVIEWER" --environment-reviewer-id "$ENVIRONMENT_REVIEWER_ID" "${SELF_REVIEW_ARGUMENTS[@]}" --environment-review-hash "$ENVIRONMENT_REVIEW_HASH" --environment-policy-hash "$ENVIRONMENT_POLICY_HASH" --comment "GitHub Environment storyboard-preview-approval" > preview-approval-result.json
           python3 -c 'import json; value=json.load(open("preview-approval-result.json")); assert value["state"] == "AWAITING_EXECUTION_APPROVAL"; assert "storyboard_preview_approval_binding" in value["artifacts"]'
       - name: Seal approved preview as planning handoff
         uses: ./.github/actions/workflow-evidence
