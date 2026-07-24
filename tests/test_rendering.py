@@ -32,6 +32,81 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class RenderingTests(unittest.TestCase):
+    def test_v13_runway_reference_is_direct_and_hash_bound(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            reference = (
+                workspace
+                / "creative"
+                / "full-auto-30s"
+                / "v13"
+                / "storyboard-shot-07.png"
+            )
+            reference.parent.mkdir(parents=True)
+            shutil.copyfile(
+                ROOT
+                / "creative"
+                / "full-auto-30s"
+                / "v13"
+                / "storyboard-shot-07.png",
+                reference,
+            )
+            config_value = deepcopy(DEFAULT_CONFIG)
+            config_value["render"]["runway_reference_set"] = "full-auto-v13"
+            config_path = workspace / "config.json"
+            config_path.write_text(json.dumps(config_value), encoding="utf-8")
+            config = BuildOrchestrator(
+                workspace,
+                config_path=config_path,
+                profile="preview",
+                provider="runway",
+                runway_scope="hybrid",
+                environ={
+                    "RUNWAY_BASE_URL": "https://provider.invalid",
+                    "RUNWAY_API_KEY": "secret",
+                    "RUNWAY_MODEL_GEN45": "gen4.5",
+                },
+            ).config
+            platform = RenderingPlatform(
+                config=config,
+                build_root=workspace / ".insynergy" / "builds" / "20260724-001",
+                provider_registry={"runway": object(), "local": object()},
+                cache=RenderCache(
+                    workspace / ".insynergy" / "render-cache",
+                    ContentAddressableStore(workspace / ".insynergy" / "cas"),
+                ),
+            )
+            request = platform._request(
+                {
+                    "frame_id": "frame-007",
+                    "shot_id": "scene-007-shot-01",
+                    "duration_seconds": 3.0,
+                    "composition": "native portrait angry executive close-up",
+                    "visible_action": "Blue veins rise as a concealed feral anger surfaces.",
+                    "camera": {
+                        "framing": "CLOSE_UP",
+                        "lens": "100mm",
+                        "movement": "slow_push",
+                        "angle": "eye_level",
+                    },
+                    "character_continuity": {"protagonist": "full-auto-v13"},
+                    "location": "top-floor executive office",
+                    "lighting": "cool monitor blue",
+                    "emotion": "controlled feral anger",
+                    "style": ["photorealistic executive close-up"],
+                    "forbidden_style": ["monster", "open-mouth scream"],
+                    "render_strategy": {
+                        "asset_class": "runway_video",
+                        "execution_capability": "generative_natural_motion",
+                    },
+                    "ui_overlays": ["Approval", "Decision Boundary"],
+                }
+            )
+            self.assertTrue(
+                request.conditioning_image_ref.startswith("data:image/png;base64,")
+            )
+            self.assertEqual(request.duration_seconds, 3.0)
+
     @unittest.skipUnless(shutil.which("ffmpeg"), "FFmpeg required")
     def test_v12_runway_reference_is_derived_from_approved_portrait_preview(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
