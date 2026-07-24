@@ -229,6 +229,18 @@ class StoryboardPostProcessor:
     ) -> dict[str, Any]:
         overlays = [str(item) for item in frame.get("ui_overlays", [])]
         shot_id = str(frame["shot_id"])
+        full_auto_v13 = bool(
+            {
+                "Approval Workflow",
+                "Campaign Analysis...",
+                "Marketing Budget",
+                "Corporate Card",
+                "148 Campaigns",
+                "Emergency Stop",
+                "Revenue Maximization",
+                "No one designed when approval should begin.",
+            }.intersection(overlays)
+        )
         if not overlays and shot_id not in {"scene-003-shot-01", "scene-008-shot-01"}:
             return {"applied": False, "mode": "none", "exact_strings": []}
         if not shutil.which(self.ffmpeg_binary):
@@ -324,7 +336,217 @@ class StoryboardPostProcessor:
 
         mode = "ui_overlay"
         if portrait:
-            if shot_id == "scene-001-shot-01":
+            if full_auto_v13:
+                mode = "full_auto_v13_ui"
+                if shot_id == "scene-001-shot-01":
+                    box(54, 710, 918, 730, "0x07111d@0.92")
+                    box(54, 710, 918, 5, "0x58b7ff@0.90")
+                    label("MARKETING OPERATIONS", 90, 755, 44, color="0xaedcff")
+                    label("Execution Mode", 90, 835, 44)
+                    for index, value in enumerate(
+                        (
+                            "Full Auto",
+                            "Parallel Agents",
+                            "Auto Procurement",
+                            "Campaign Optimization",
+                        )
+                    ):
+                        y = 925 + index * 82
+                        label(
+                            "☑",
+                            95,
+                            y,
+                            44,
+                            color="0x8fd6ff",
+                            font=symbol_font_file,
+                        )
+                        label(value, 170, y, 44, color="0xeaf5ff")
+                    box(90, 1265, 840, 2, "0x7ebde8@0.55")
+                    label("Approval Workflow", 90, 1300, 44, color="0xcfe4f2")
+                    label("OFF", 805, 1288, 64, color="0xff7d7d")
+                elif shot_id == "scene-002-shot-01":
+                    box(54, 805, 918, 585, "0x06111d@0.88")
+                    box(54, 805, 918, 5, "0x57b8ff@0.90")
+                    label("AI AGENT CONSOLE", 90, 850, 44, color="0xaedcff")
+                    for index, value in enumerate(
+                        (
+                            "Campaign Analysis...",
+                            "Finding Better ROI...",
+                            "Negotiating Vendor...",
+                        )
+                    ):
+                        y = 950 + index * 145
+                        label(value, 90, y, 52, color="0xeaf6ff")
+                        box(90, y + 78, 800, 6, "0x58b9ff@0.76")
+                elif shot_id == "scene-003-shot-01":
+                    mode = "full_auto_v13_marketing_montage"
+                    filters.clear()
+                    box(0, 0, 1080, 1920, "0x02060b@1.0")
+                    label("AI AGENT CONSOLE", 70, 205, 44, color="0xaedcff")
+                    for index, value in enumerate(
+                        (
+                            "Launching Agent #12",
+                            "Launching Agent #28",
+                            "Generating Creative",
+                            "Purchasing Assets",
+                            "Increasing Budget",
+                            "Optimizing Reach",
+                        )
+                    ):
+                        y = 285 + index * 94
+                        box(60, y - 15, 900, 78, "0x0a1724@0.96")
+                        box(60, y - 15, 900, 78, "0x59baff@0.58", thickness="2")
+                        label(value, 100, y, 44, color="0xe8f5ff")
+                    box(54, 900, 918, 520, "0x07111d@0.96")
+                    box(54, 900, 918, 5, "0x58b7ff@0.90")
+                    label("Marketing Budget", 90, 945, 44, color="0xcfe9fa")
+                    for value, start, end in (
+                        ("$120,000", 0.00, 1.30),
+                        ("$260,000", 1.30, 2.60),
+                        ("$410,000", 2.60, 4.00),
+                    ):
+                        label(
+                            value,
+                            "(w-text_w)/2",
+                            1090,
+                            84,
+                            enable=f"between(t,{start:.2f},{end:.2f})",
+                        )
+                    label(
+                        "↑",
+                        "(w-text_w)/2",
+                        1240,
+                        64,
+                        color="0x58b9ff",
+                        font=symbol_font_file,
+                    )
+                elif shot_id == "scene-004-shot-01":
+                    box(54, 875, 918, 230, "0x07111d@0.92")
+                    box(54, 875, 7, 230, "0xd9545d@0.92")
+                    label("Corporate Card", 95, 915, 44, color="0xd7e7f5")
+                    label("$486,220", 95, 985, 72)
+                    label("Approved", 725, 1005, 44, color="0x8fd6ff")
+                    box(54, 1140, 918, 230, "0x07111d@0.92")
+                    box(54, 1140, 7, 230, "0x58b7ff@0.92")
+                    label("Enterprise Marketing Suite", 95, 1180, 44)
+                    label("Purchased", 95, 1285, 52, color="0x8fd6ff")
+                elif shot_id == "scene-005-shot-01":
+                    box(54, 710, 918, 730, "0x06101a@0.88")
+                    box(54, 710, 918, 5, "0x63bfff@0.78")
+                    label("Campaign Status", 90, 750, 44, color="0xcfe9fa")
+                    label("148 Campaigns", 90, 825, 76)
+                    label("Running", 690, 845, 44, color="0x62c5ff")
+                    box(90, 945, 840, 2, "0x7ebde8@0.46")
+                    label("Purchased", 90, 985, 44, color="0xcfe9fa")
+                    label("Enterprise Ads", 90, 1060, 44)
+                    label("Premium Data", 90, 1140, 44)
+                    label("Global Distribution", 90, 1220, 44)
+                    label("Auto Translation", 500, 1060, 44)
+                    label("Video Generation", 500, 1140, 44)
+                elif shot_id == "scene-006-shot-01":
+                    box(54, 192, 918, 1248, "0x06101a@0.88")
+                    box(54, 192, 918, 5, "0x63bfff@0.78")
+                    box(120, 265, 840, 130, "0xa92531@0.96")
+                    label("Emergency Stop", 220, 290, 72)
+                    label("Stopping...", 90, 470, 60, enable="between(t,0.45,1.20)")
+                    label(
+                        "Waiting for active\nworkflows...",
+                        90,
+                        550,
+                        44,
+                        enable="gte(t,1.20)",
+                    )
+                    label("Active Agents", 90, 720, 44, color="0xcfe9fa")
+                    for index in range(12):
+                        box(
+                            100 + (index % 6) * 130,
+                            795 + (index // 6) * 85,
+                            44,
+                            44,
+                            "0x58b9ff@0.92",
+                            enable=f"gte(t,{1.25 + (index % 3) * 0.06:.2f})",
+                        )
+                    label("Marketing Budget", 90, 970, 44, color="0xcfe9fa")
+                    for value, start, end in (
+                        ("$492,000", 0.00, 1.45),
+                        ("$495,000", 1.45, 2.80),
+                        ("$498,000", 2.80, 4.00),
+                    ):
+                        label(
+                            value,
+                            90,
+                            1050,
+                            72,
+                            color="0xff8990",
+                            enable=f"between(t,{start:.2f},{end:.2f})",
+                        )
+                elif shot_id == "scene-007-shot-01":
+                    box(54, 810, 918, 630, "0x05101a@0.78")
+                    label("Objective Achieved", 90, 845, 44, color="0xb8cedd")
+                    label("Revenue Maximization", 90, 915, 64)
+                    box(90, 995, 840, 3, "0x5dbbff@0.85")
+                    label("DECISION STRUCTURE", 90, 1015, 44, color="0x66c5ff")
+                    for index, value in enumerate(
+                        (
+                            "Approval",
+                            "Budget Limit",
+                            "Spending Authority",
+                            "Decision Boundary",
+                        )
+                    ):
+                        y = 1080 + index * 85
+                        label(value, 90, y, 44)
+                        box(
+                            620,
+                            y - 5,
+                            300,
+                            58,
+                            "0xff7d7d@0.92" if index == 0 else "0x58b9ff@0.72",
+                            thickness="2",
+                        )
+                        if index > 0:
+                            box(670, y + 24, 200, 3, "0x58b9ff@0.68")
+                elif shot_id == "scene-008-shot-01":
+                    mode = "full_auto_v13_title_card"
+                    filters.clear()
+                    box(0, 0, 1080, 1920, "black@1.0")
+                    label(
+                        "THE AI DID EXACTLY\nWHAT IT WAS TOLD.",
+                        "(w-text_w)/2",
+                        600,
+                        52,
+                        enable="between(t,0.00,1.00)",
+                        align="center",
+                    )
+                    label(
+                        "NO ONE DESIGNED\nWHEN APPROVAL SHOULD BEGIN.",
+                        "(w-text_w)/2",
+                        600,
+                        52,
+                        enable="between(t,1.00,2.00)",
+                        align="center",
+                    )
+                    label(
+                        "DECISION DESIGN",
+                        "(w-text_w)/2",
+                        560,
+                        84,
+                        enable="gte(t,2.00)",
+                    )
+                    box(250, 690, 580, 5, "0x58b9ff@0.90", enable="gte(t,2.00)")
+                    label(
+                        "DESIGN JUDGMENT\nBEFORE AUTOMATION.",
+                        "(w-text_w)/2",
+                        755,
+                        44,
+                        color="0xc9d8e3",
+                        enable="gte(t,2.00)",
+                        align="center",
+                    )
+                else:
+                    for index, value in enumerate(overlays):
+                        label(value, 80, 220 + index * 76, 44)
+            elif shot_id == "scene-001-shot-01":
                 box(54, 192, 918, 1248, "0x07111d@0.90")
                 box(54, 192, 918, 5, "0x58b7ff@0.90")
                 label("SPENDING LIMIT", 94, 235, 64)
